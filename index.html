@@ -5,11 +5,14 @@
     <title>My first three.js app</title>
     <link rel = "stylesheet" href = "./src/css/style.css">
     <style>
-      body {margin: 0; overflow: hidden;}
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
     </style>
+    <script src = "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js" ></script>
   </head>
   <body>
-
     <!-- 按鈕 -->
     <a href="#" class="cta" id="add-object-btn">
       <span>新增物件</span>
@@ -17,8 +20,7 @@
         <path d="M1,5 L11,5"></path>
         <polyline points="8 1 12 5 8 9"></polyline>
       </svg>
-    </a>
-    
+    </a> 
     <!--  javascript -->
     <script type="module" src="./src/js/scripts.js"></script>
   </body>
