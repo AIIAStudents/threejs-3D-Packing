@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { add } from 'three/tsl';
 
 
 // initialize scene, camera, and renderer
@@ -30,33 +31,68 @@ const light = new THREE.HemisphereLight( skycolor, groundcolor, 1 );
 scene.add(light);
 
 
+// ball-> objects
+const  gui = new dat.GUI();
+let objectCount = 0;
+
+const objects = []
+
+function createIcosahedron(radius, detail) {
+    const geometry = new THREE.IcosahedronGeometry(radius, detail);
+    const material = new THREE.MeshStandardMaterial({
+        color: 0xfff5e7,
+        flatShading: true,
+    });
+    return new THREE.Mesh(geometry, material);
+}
+
+function updateGeometry(mesh, radius, detail) {
+    const newGeometry = new THREE.IcosahedronGeometry(radius, detail);
+    mesh.geometry.dispose(); 
+    mesh.geometry = newGeometry; 
+}
+
+function addObject(){
+    const default_parameters_settings = {
+        radius: 10,  // 1-20
+        detail: 0,  // 0-5
+    }
+    const mesh = createIcosahedron(default_parameters_settings.radius, default_parameters_settings.detail);
+    mesh.position.x = (objectCount % 5) * 25 - 50;
+    mesh.position.y = -Math.floor(objectCount / 5) * 25;
+    objectCount++;
+    scene.add(mesh);
+    objects.push(mesh);
+
+    //createIcosahedron(radius, detail)
+    const folder = gui.addFolder(`Object ${objectCount}`);
+    folder.add(default_parameters_settings, 'radius', 1, 20)
+        .step(0.228)
+        .onChange((value) => {
+            updateGeometry(mesh, value, default_parameters_settings.detail);
+        });
+    folder.add(default_parameters_settings, 'detail', 0, 5)
+        .step(1)
+        .onChange((value) => {
+            updateGeometry(mesh, default_parameters_settings.radius, value);
+        });
+    folder.open();
+}
+
 const btn = document.getElementById("add-object-btn");
 btn.addEventListener("click", (e) => {
     e.preventDefault();  // 避免 <a href="#"> 預設跳轉
     addObject();
 });
 
-const balls = [];
-
-function addObject(){
-    const geometry = new THREE.IcosahedronGeometry( 10.5, 5);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xfff5e7,
-        flatShading: true,
-    });
-    const Ball = new THREE.Mesh( geometry, material );
-    scene.add(Ball);
-    balls.push(Ball);        
-}
-
-
 function animate() {
     requestAnimationFrame( animate );
 
-    balls.forEach((ball) => {
-        ball.rotation.x += 0.00001;
-        ball.rotation.y += 0.00001;
+    objects.forEach((object) => {
+        object.rotation.x += 0.00001;
+        object.rotation.y += 0.00001;
     });
-
     renderer.render( scene, camera );
 }
+
+animate();
