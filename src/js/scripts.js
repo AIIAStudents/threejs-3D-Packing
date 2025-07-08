@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { add } from 'three/tsl';
+import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
 
 
 // initialize scene, camera, and renderer
@@ -30,61 +30,43 @@ const groundcolor = new THREE.Color( 0x000000);
 const light = new THREE.HemisphereLight( skycolor, groundcolor, 1 );
 scene.add(light);
 
+// object settings
 
-// ball-> objects
-const  gui = new dat.GUI();
 let objectCount = 0;
+const objects = [];
+const  gui = new dat.GUI();
+gui.domElement.style.position = 'absolute';
+gui.domElement.style.top = '80px';  // 高於 toolbar 底部
+gui.domElement.style.right = '20px';
 
-const objects = []
 
-function createIcosahedron(radius, detail) {
-    const geometry = new THREE.IcosahedronGeometry(radius, detail);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xfff5e7,
-        flatShading: true,
-    });
-    return new THREE.Mesh(geometry, material);
-}
+dat.GUI.prototype.removeFolder = function(nameOrFolder) {
+  const folder = typeof nameOrFolder === 'string'
+    ? this.__folders[nameOrFolder]
+    : nameOrFolder;
 
-function updateGeometry(mesh, radius, detail) {
-    const newGeometry = new THREE.IcosahedronGeometry(radius, detail);
-    mesh.geometry.dispose(); 
-    mesh.geometry = newGeometry; 
-}
+  if (!folder) return;
 
-function addObject(){
-    const default_parameters_settings = {
-        radius: 10,  // 1-20
-        detail: 0,  // 0-5
+  folder.close();
+  this.__ul.removeChild(folder.domElement.parentNode);
+  delete this.__folders[folder.name];
+  this.onResize();
+};
+
+
+// show icon toolbar interface
+iconToolbar = document.addEventListener('click', (e) => {
+    const target = e.target.closest('.icon-wrapper');    
+    if(!target) return;
+
+    const type = target.dataset.type;
+
+    switch(type) {
+        case 'icosahedron': 
+            objectCount = addObject_createIcosahedron(objectCount, scene, objects, gui);
+            break;
     }
-    const mesh = createIcosahedron(default_parameters_settings.radius, default_parameters_settings.detail);
-    mesh.position.x = (objectCount % 5) * 25 - 50;
-    mesh.position.y = -Math.floor(objectCount / 5) * 25;
-    objectCount++;
-    scene.add(mesh);
-    objects.push(mesh);
-
-    //createIcosahedron(radius, detail)
-    const folder = gui.addFolder(`Object ${objectCount}`);
-    folder.add(default_parameters_settings, 'radius', 1, 20)
-        .step(0.228)
-        .onChange((value) => {
-            updateGeometry(mesh, value, default_parameters_settings.detail);
-        });
-    folder.add(default_parameters_settings, 'detail', 0, 5)
-        .step(1)
-        .onChange((value) => {
-            updateGeometry(mesh, default_parameters_settings.radius, value);
-        });
-    folder.open();
-}
-
-const btn = document.getElementById("add-object-btn");
-btn.addEventListener("click", (e) => {
-    e.preventDefault();  // 避免 <a href="#"> 預設跳轉
-    addObject();
 });
-
 function animate() {
     requestAnimationFrame( animate );
 
