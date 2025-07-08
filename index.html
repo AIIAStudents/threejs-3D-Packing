@@ -10,17 +10,25 @@
         overflow: hidden;
       }
     </style>
+    <link 
+      rel="stylesheet" 
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" 
+      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" 
+      crossorigin="anonymous" 
+      referrerpolicy="no-referrer" />
+
     <script src = "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js" ></script>
   </head>
   <body>
-    <!-- 按鈕 -->
-    <a href="#" class="cta" id="add-object-btn">
-      <span>新增物件</span>
-      <svg width="13px" height="10px" viewBox="0 0 13 10">
-        <path d="M1,5 L11,5"></path>
-        <polyline points="8 1 12 5 8 9"></polyline>
-      </svg>
-    </a> 
+    <!-- 這是 icon 選單區 -->
+    <div id="icon-toolbar" class="hidden">
+      <div class="icon-wrapper" id="createIsocahedron" data-type="icosahedron">
+       <svg class="circle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+          <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512z" />
+       </svg>
+       <span class="tooltip">createIcosahedron</span>
+     </div>
+    </div>
     <!--  javascript -->
     <script type="module" src="./src/js/scripts.js"></script>
   </body>

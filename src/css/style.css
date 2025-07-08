@@ -20,62 +20,6 @@ a {
   color: inherit;
 }
 
-.cta {
-  position: relative;
-  margin: auto;
-  padding: 19px 22px;
-  transition: all .2s ease;
-}
-
-.cta::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: block;
-  border-radius: 28px;
-  background: rgba(255, 171, 157, 0.5); /* rgba(--primary, 0.5) 不合法，只能寫死 */
-  width: 56px;
-  height: 56px;
-  transition: all .3s ease;
-}
-
-.cta span {
-  position: relative;
-  font-size: 16px;
-  line-height: 18px;
-  font-weight: 900;
-  letter-spacing: .25em;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
-
-.cta svg {
-  position: relative;
-  top: 0;
-  margin-left: 10px;
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke: var(--color);
-  stroke-width: 2;
-  transform: translateX(-5px);
-  transition: all .3s ease;
-}
-
-.cta:hover::before {
-  width: 100%;
-  background: rgba(255, 171, 157, 1);
-}
-
-.cta:hover svg {
-  transform: translateX(0);
-}
-
-.cta:active {
-  transform: scale(.96);
-}
-
 /* ----------------------這是分隔線------------------- */
 
 #canvas {
@@ -85,4 +29,85 @@ a {
   width: 100vw;
   height: 100vh;
   background-color: #111;
+}
+
+/* ----------------------這是分隔線------------------- */
+/* 工具列位置與背景 */
+#icon-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0;
+  z-index: 9999;
+}
+
+/* 隱藏 class 控制 */
+.hidden {
+  display: none;
+}
+
+/* 包裹 SVG 的容器 */
+.icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#icon-toolbar {
+  backdrop-filter: blur(6px);
+  background-color: rgba(17, 17, 17, 0.6);
+  pointer-events: none;
+}
+/* SVG 圓形樣式（空心圓） */
+.circle-icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: #aaa;
+  stroke-width: 32;
+  transition: stroke 0.3s ease;
+}
+
+/* Tooltip 提示字 */
+.tooltip {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #eee;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+/* 滑鼠滑過效果 */
+.icon-wrapper:hover {
+  background-color: #333;
+}
+
+.icon-wrapper:hover .circle-icon {
+  stroke: #fff;
+}
+
+.icon-wrapper:hover .tooltip {
+  opacity: 1;
 }
