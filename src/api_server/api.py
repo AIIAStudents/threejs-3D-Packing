@@ -13,6 +13,9 @@ from rl_ppo_model.env.custom_env import CustomEnv
 from rl_ppo_model.core.scene_manager import SceneManager
 from rl_ppo_model.ppo_agent.train_agent import run_training_step
 
+# 導入3D Bin packing功能
+from .bin_packing_api import create_bin_packing_routes, BLF_SA_Algorithm
+
 # 初始化 Flask 應用與 CORS
 app = Flask(__name__)
 CORS(app)
@@ -21,6 +24,9 @@ CORS(app)
 init_env = EnvClass()
 scene_mgr = SceneManager.get_instance()
 scene_mgr.attach_env(init_env)
+
+# 添加3D Bin packing路由
+create_bin_packing_routes(app)
 
 @app.route('/')
 def home():

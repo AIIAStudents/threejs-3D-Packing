@@ -1,203 +1,445 @@
+/* 全局變數 */
 :root {
-  --color: #574e4e;
-  --primary: #FFAB9D;
-  --background: hsl(0, 2%, 28%);
+  --sidebar-bg: #2D3134;
+  --button-bg: #48555E;
+  --button-hover: #517289;
+  --text-color: #ffffff;
+  --border-color: #3a3a3a;
+  --panel-bg: rgba(45, 49, 52, 0.95);
+  --input-bg: #3a3a3a;
+  --input-border: #555;
+  --success-color: #4CAF50;
+  --warning-color: #FF9800;
+  --error-color: #f44336;
+}
+
+/* 基礎樣式 */
+* {
+  box-sizing: border-box;
 }
 
 html, body {
   height: 100%;
-}
-
-body {
-  display: grid;
-  font-family: Avenir, sans-serif;
-  color: var(--color);
   margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
+#app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
 }
 
-/* ----------------------這是分隔線------------------- */
+/* 左側工具列 */
+#left-sidebar {
+  width: 300px;
+  background-color: var(--sidebar-bg);
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+}
 
-/* 中間：Canvas + Toolbar */
-#canvas-container {
+.sidebar-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* 功能按鈕區域 */
+.action-buttons {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-btn {
+  background-color: var(--button-bg);
+  color: var(--text-color);
+  border: none;
+  padding: 12px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.action-btn:hover {
+  background-color: var(--button-hover);
+}
+
+.action-btn i {
+  font-size: 12px;
+}
+
+/* 物件列表區域 */
+.objects-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border-color);
+}
+
+.section-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.section-header span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.objects-list {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.object-item {
+  background-color: var(--button-bg);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.object-item:hover {
+  background-color: var(--button-hover);
+}
+
+.object-info {
+  flex: 1;
+}
+
+.object-name {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.object-details {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.object-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-btn {
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.menu-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 右側3D場景 */
+#right-canvas {
   flex: 1;
   position: relative;
+  background-color: #ffffff;
+  min-height: 100vh;
   overflow: hidden;
 }
 
 #canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-  background-color: var(--background);
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  background-color: #ffffff;
 }
 
-/* ----------------------這是分隔線(for toolbar icon)------------------- */
-/* 工具列位置與背景 */
-#icon-toolbar {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 400px;              /* ✅ 固定寬度 */
-  height: 56px;              /* ✅ 固定高度（可依需要調整） */
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  padding: 8px 12px;         /* ✅ 控制內邊距，讓內容不要太擠 */
-  z-index: 9999;
-  backdrop-filter: blur(6px);
-  background-color: rgba(17, 17, 17, 0.6);
-  pointer-events: none;
-  border-radius: 10px;       /* Optional: 邊角圓滑 */
-}
-
-/* 控制是否顯示 */
-.hidden {
-  display: none;
-}
-
-/* 每個 icon 外框 */
-.icon-wrapper {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  background-color: #e6e5e5;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-/* 圖示圖片 */
-.toolbar-icon {
-  width: 24px;
-  height: 24px;
-  opacity: 0.6;
-  filter: brightness(90%);
-  transition: opacity 0.3s ease, filter 0.3s ease;
-  pointer-events: none;
-}
-
-/* Hover 效果 */
-.icon-wrapper:hover {
-  background-color: #333;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
-}
-
-.icon-wrapper:hover .toolbar-icon {
-  opacity: 1;
-  filter: brightness(120%);
-}
-
-.icon-wrapper:hover .tooltip {
-  opacity: 1;
-}
-
-/* tooltip 顯示 */
-.tooltip {
-  position: absolute;
-  bottom: -28px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #333;
-  color: #eee;
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 10;
-}
-/* ----------------------這是分隔線(for toolbar GUI interface)------------------- */
-#editor-ui {
-  display: flex;
-  width: 100vw;
-  height: 100vh;
-  background-color: var(--background);
-  overflow: hidden;
-}
-
-/* 左邊：物件清單 */
-#sidebar-left {
-  width: 150px;
-  background: #1e1e1e;
-  color: #eee;
-  padding: 10px;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-
-/* 右邊：dat.GUI */
-#sidebar-right {
-  width: 300px;
-  background: #1e1e1e;
-  color: white;
-  padding: 10px;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-
-
-#object-list {
-  list-style: none;
-  padding-left: 0;
-  margin-top: 10px;
-}
-
-#object-list li {
-  padding: 6px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-#object-list li:hover {
-  background: #444;
-}
-
-#dat-gui-container {
-  margin-top: 10px;
-}
-
-/* ----------------------這是分隔線(for agent-panel)------------------- */
-
-#agent-panel {
+/* 浮動面板 */
+.floating-panel {
   position: absolute;
   top: 20px;
-  left: 20px;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 99;
+  right: 20px;
+  width: 320px;
+  background-color: var(--panel-bg);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  color: var(--text-color);
+  z-index: 1000;
 }
 
-#agent-panel button {
-  display: block;
-  width: 100%;
-  margin-bottom: 8px;
-  font-size: 14px;
-  background-color: #eeeeee;
-  border: none;
-  padding: 6px;
-  border-radius: 4px;
-  cursor: pointer;
+/* 工具列面板 */
+.toolbar-panel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 350px;
+  max-height: 80vh;
+  background-color: var(--panel-bg);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  color: var(--text-color);
+  z-index: 1000;
+  overflow-y: auto;
 }
 
-#agent-panel button:hover {
-  background-color: #ddd;
+.toolbar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  background-color: var(--panel-bg);
+  z-index: 1;
 }
 
-#agent-panel p {
+.toolbar-header h3 {
   margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.toolbar-content {
+  padding: 20px;
+}
+
+.toolbar-section {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toolbar-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.toolbar-section h4 {
+  margin: 0 0 12px 0;
   font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+  opacity: 0.9;
+}
+
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.panel-content {
+  padding: 20px;
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 10px 12px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--button-hover);
+}
+
+.create-btn {
+  width: 100%;
+  background-color: var(--success-color);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.create-btn:hover {
+  background-color: #45a049;
+}
+
+.cancel-btn {
+  width: 100%;
+  background-color: var(--error-color);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #da190b;
+}
+
+/* 進度條樣式 */
+.progress-container {
+  margin-bottom: 20px;
+}
+
+.progress-status {
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+/* 狀態樣式 */
+.status-pending {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+.status-processing {
+  background-color: #2196F3;
+  color: white;
+}
+
+.status-completed {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.status-failed {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: var(--input-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--success-color);
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+#packing-results {
+  margin-bottom: 16px;
+}
+
+#packing-results p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+#utilization-text, #execution-time-text {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  #left-sidebar {
+    width: 250px;
+  }
+  
+  .floating-panel {
+    width: 280px;
+    right: 10px;
+  }
+}
+
+/* 滾動條樣式 */
+.objects-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.objects-list::-webkit-scrollbar-track {
+  background: var(--input-bg);
+}
+
+.objects-list::-webkit-scrollbar-thumb {
+  background: var(--button-bg);
+  border-radius: 3px;
+}
+
+.objects-list::-webkit-scrollbar-thumb:hover {
+  background: var(--button-hover);
 }

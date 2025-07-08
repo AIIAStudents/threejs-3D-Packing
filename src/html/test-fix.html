@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Bin Packing - 修復測試</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #f39c12;
+        }
+        
+        .test-button {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-button.success {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+        }
+        
+        .result-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-success { background-color: #27ae60; }
+        .status-error { background-color: #e74c3c; }
+        .status-warning { background-color: #f39c12; }
+        .status-info { background-color: #3498db; }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 3D Bin Packing 修復測試</h1>
+        
+        <div class="test-section">
+            <h3>🔍 全局變量檢查</h3>
+            <p>檢查修復後的全局變量是否正確設置</p>
+            <button class="test-button" onclick="checkGlobalVariables()">檢查全局變量</button>
+            <div id="global-vars-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎨 場景渲染測試</h3>
+            <p>測試3D場景渲染功能是否正常</p>
+            <button class="test-button" onclick="testSceneRendering()">測試場景渲染</button>
+            <div id="rendering-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📦 打包功能測試</h3>
+            <p>測試打包功能是否能正確更新物件位置</p>
+            <button class="test-button" onclick="testPackingFunction()">測試打包功能</button>
+            <div id="packing-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <a href="../index.html" class="back-link">← 返回主頁</a>
+    </div>
+
+    <script>
+        // 檢查全局變量
+        function checkGlobalVariables() {
+            const resultDiv = document.getElementById('global-vars-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔍 檢查全局變量...';
+            
+            const globalVars = {
+                scene: typeof window.scene !== 'undefined',
+                camera: typeof window.camera !== 'undefined',
+                renderer: typeof window.renderer !== 'undefined',
+                objectManager: typeof window.objectManager !== 'undefined'
+            };
+            
+            let result = '📋 全局變量檢查結果:\n\n';
+            let allAvailable = true;
+            
+            Object.entries(globalVars).forEach(([key, exists]) => {
+                const status = exists ? '✅ 可用' : '❌ 不可用';
+                const icon = exists ? '🟢' : '🔴';
+                result += `${icon} ${key}: ${status}\n`;
+                if (!exists) allAvailable = false;
+            });
+            
+            if (allAvailable) {
+                result += '\n🎉 所有必要的全局變量都可用！';
+                resultDiv.innerHTML = `<span class="status-indicator status-success"></span>${result}`;
+            } else {
+                result += '\n⚠️ 部分全局變量不可用，可能影響功能';
+                resultDiv.innerHTML = `<span class="status-indicator status-warning"></span>${result}`;
+            }
+        }
+        
+        // 測試場景渲染
+        function testSceneRendering() {
+            const resultDiv = document.getElementById('rendering-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🎨 測試場景渲染...';
+            
+            try {
+                if (window.scene && window.renderer && window.camera) {
+                    // 嘗試渲染場景
+                    window.renderer.render(window.scene, window.camera);
+                    
+                    resultDiv.innerHTML = `<span class="status-indicator status-success"></span>✅ 場景渲染測試成功!\n\n` +
+                        `場景物件數量: ${window.scene.children.length}\n` +
+                        `相機位置: (${window.camera.position.x.toFixed(2)}, ${window.camera.position.y.toFixed(2)}, ${window.camera.position.z.toFixed(2)})\n` +
+                        `渲染器尺寸: ${window.renderer.domElement.width} x ${window.renderer.domElement.height}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 場景渲染測試失敗\n\n缺少必要的全局變量`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 場景渲染測試異常\n\n錯誤: ${error.message}`;
+            }
+        }
+        
+        // 測試打包功能
+        function testPackingFunction() {
+            const resultDiv = document.getElementById('rendering-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '📦 測試打包功能...';
+            
+            try {
+                if (window.objectManager) {
+                    const objects = window.objectManager.getObjects();
+                    resultDiv.innerHTML = `<span class="status-indicator status-success"></span>✅ 打包功能測試成功!\n\n` +
+                        `物件管理器可用\n` +
+                        `當前物件數量: ${objects.length}\n` +
+                        `物件類型: ${objects.map(obj => obj.type).join(', ')}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 打包功能測試失敗\n\n物件管理器不可用`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 打包功能測試異常\n\n錯誤: ${error.message}`;
+            }
+        }
+        
+        // 頁面加載完成後自動檢查
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                checkGlobalVariables();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

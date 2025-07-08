@@ -1,0 +1,23 @@
+# 3D Bin Packing 系統依賴
+
+# Web框架
+Flask==2.3.3
+Flask-CORS==4.0.0
+
+# 科學計算
+numpy==1.24.3
+scipy==1.11.1
+
+# 強化學習相關
+gymnasium==0.29.1
+torch==2.0.1
+
+# HTTP客戶端
+requests==2.31.0
+
+# 數據處理
+pandas==2.0.3
+
+# 可選：用於更好的性能
+# numba==0.57.1
+# cython==3.0.4

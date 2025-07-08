@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Bin Packing - 打包測試</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        
+        .test-button {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-success { background-color: #4CAF50; }
+        .status-error { background-color: #f44336; }
+        .status-warning { background-color: #ff9800; }
+        .status-info { background-color: #2196F3; }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 3D Bin Packing 打包測試</h1>
+        
+        <div class="test-section">
+            <h3>📡 後端服務器測試</h3>
+            <p>測試後端API服務器是否正常運行</p>
+            <button class="test-button" onclick="testBackend()">測試後端連接</button>
+            <div id="backend-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎭 模擬打包測試</h3>
+            <p>測試前端模擬打包功能</p>
+            <button class="test-button" onclick="testSimulation()">測試模擬打包</button>
+            <div id="simulation-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔧 功能診斷</h3>
+            <p>檢查打包功能的各個組件</p>
+            <button class="test-button" onclick="runDiagnostics()">運行診斷</button>
+            <div id="diagnostics-result" class="result-display" style="display: none;"></div>
+        </div>
+        
+        <a href="../index.html" class="back-link">← 返回主頁</a>
+    </div>
+
+    <script>
+        // 測試後端連接
+        async function testBackend() {
+            const resultDiv = document.getElementById('backend-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔄 測試中...';
+            
+            try {
+                const response = await fetch('http://localhost:8889/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<span class="status-indicator status-success"></span>✅ 後端服務器正常運行\n\n響應數據:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 後端服務器響應錯誤: ${response.status}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="status-indicator status-error"></span>❌ 無法連接到後端服務器\n\n錯誤信息: ${error.message}\n\n建議:\n1. 檢查後端服務器是否啟動\n2. 確認端口8889是否正確\n3. 檢查防火牆設置`;
+            }
+        }
+        
+        // 測試模擬打包
+        function testSimulation() {
+            const resultDiv = document.getElementById('simulation-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔄 測試模擬打包...';
+            
+            // 模擬打包過程
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                resultDiv.innerHTML = `🔄 模擬打包進度: ${progress}%`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    
+                    // 模擬結果
+                    const mockResult = {
+                        packed_objects: [
+                            { uuid: 'test-1', position: { x: 0, y: 0, z: 0 }, dimensions: { x: 10, y: 10, z: 10 } },
+                            { uuid: 'test-2', position: { x: 15, y: 0, z: 0 }, dimensions: { x: 8, y: 8, z: 8 } }
+                        ],
+                        volume_utilization: 12.5,
+                        execution_time: 2.5
+                    };
+                    
+                    resultDiv.innerHTML = `<span class="status-indicator status-success"></span>✅ 模擬打包完成!\n\n打包結果:\n${JSON.stringify(mockResult, null, 2)}\n\n體積利用率: ${mockResult.volume_utilization}%\n執行時間: ${mockResult.execution_time}秒`;
+                }
+            }, 200);
+        }
+        
+        // 運行診斷
+        function runDiagnostics() {
+            const resultDiv = document.getElementById('diagnostics-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '🔍 運行診斷中...';
+            
+            const diagnostics = [];
+            
+            // 檢查瀏覽器功能
+            if (typeof fetch !== 'undefined') {
+                diagnostics.push('✅ Fetch API 可用');
+            } else {
+                diagnostics.push('❌ Fetch API 不可用');
+            }
+            
+            if (typeof Promise !== 'undefined') {
+                diagnostics.push('✅ Promise 支持');
+            } else {
+                diagnostics.push('❌ Promise 不支持');
+            }
+            
+            // 檢查網絡連接
+            if (navigator.onLine) {
+                diagnostics.push('✅ 網絡連接正常');
+            } else {
+                diagnostics.push('❌ 網絡連接離線');
+            }
+            
+            // 檢查本地存儲
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                diagnostics.push('✅ 本地存儲可用');
+            } catch (e) {
+                diagnostics.push('❌ 本地存儲不可用');
+            }
+            
+            // 檢查控制台
+            if (console && console.log) {
+                diagnostics.push('✅ 控制台功能正常');
+            } else {
+                diagnostics.push('❌ 控制台功能異常');
+            }
+            
+            resultDiv.innerHTML = `<span class="status-indicator status-info"></span>🔍 診斷完成\n\n${diagnostics.join('\n')}\n\n建議:\n1. 確保使用現代瀏覽器\n2. 檢查瀏覽器控制台是否有錯誤\n3. 確認JavaScript已啟用`;
+        }
+    </script>
+</body>
+</html>

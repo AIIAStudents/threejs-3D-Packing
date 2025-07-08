@@ -3,317 +3,273 @@ import * as CANNON from 'cannon-es';
 // mouse controls
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 // scene configuration
-import { initPhysics, updatePhysics, createSphereBody, world } from './utils/physics.js';
-import { physicsObjects } from './utils/physics.js'; 
-// api stuff
-import { getLiveSceneSnapshot, getSceneConfig, validateSceneConfig } from './utils/sceneDataService.js';
-import { applyActionToScene } from './scene_api/applyActionToScene.js';
-import { sendSceneConfig, requestAgentAction } from './utils/agentAPI.js';
-import { submitScene } from './scene_api/submit_scene.js';
-// gltf, glb
-//import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-// three.js shape files
-import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
-import { addObject_createSphere } from './3js_shape_file/sphere';
-import { addObject_createcube } from './3js_shape_file/cube';
-import { addObject_createIrregular } from './3js_shape_file/Irregular';
-import { addObject_createCylinder } from './3js_shape_file/cylinder';
+import { initPhysics, updatePhysics, addPhysicsObject, removePhysicsObject, world } from './utils/physics.js';
 
-// initialize scene, camera, and renderer
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera( 
-    75,
-    window.innerWidth / window.innerHeight, 
-    0.1,
-    1000
-);
-camera.position.z = 50;
-scene.background = null; // no background color
+// 模組
+import { ObjectManager } from './modules/objectManager.js';
+import { MouseControls } from './modules/mouseControls.js';
+import { PackingManager } from './modules/packingManager.js';
+import { ObjectCreator } from './modules/objectCreator.js';
 
-// initialize physics engine
-initPhysics();
+// 3D Bin Packing API
+import {
+  requestBinPacking,
+  getJobStatus,
+  cancelJob,
+  pollJobUntilComplete,
+  createPackRequest,
+  convertObjectsToPackFormat,
+  applyPackingResult,
+  updateProgressDisplay
+} from './utils/binPackingAPI.js';
 
-// create renderer
-const canvas = document.getElementById('canvas');
-const renderer = new THREE.WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: true 
-});
-renderer.setPixelRatio(window.devicePixelRatio);
+// 全局變數
+let scene, camera, renderer, controls;
+let objectManager, mouseControls, packingManager, objectCreator;
+const containers = [];
+let currentContainer = null;
 
-function onWindowResize() {
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  camera.aspect = width / height;
-  camera.updateProjectionMatrix();
-  renderer.setSize(width, height, false);
+// 容器尺寸與邊界
+const boundarySize = 120;
+
+// 邊界可視化（Three.js）
+function createDefaultBoundary() {
+  const geometry = new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.3,
+    depthWrite: false,           // 不寫入深度，避免遮擋
+    side: THREE.BackSide         // 渲染內壁
+  });
+  const boundary = new THREE.Mesh(geometry, material);
+  boundary.position.set(0, 60, 0);
+  boundary.renderOrder = 0;
+  scene.add(boundary);
+
+  const edges = new THREE.EdgesGeometry(geometry);
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0x000000,
+    depthTest: false             // 永遠顯示在線上層
+  });
+  const line = new THREE.LineSegments(edges, lineMaterial);
+  line.position.copy(boundary.position);
+  line.renderOrder = 2;
+  scene.add(line);
+
+  return boundary;
 }
-window.addEventListener('resize', onWindowResize);
-onWindowResize();
 
-//environmental background
-const skycolor = new THREE.Color( 0xffffff );
-const groundcolor = new THREE.Color( 0x000000);
-const light = new THREE.HemisphereLight( skycolor, groundcolor, 1 );
-scene.add(light);
-
-// controller
-const controls = new TrackballControls(camera, renderer.domElement, scene);
-controls.noPan = false;      // 平移
-controls.noZoom = false;     // 縮放
-controls.noRotate = false;   // 旋轉
-controls.enabled = false;       // 初始禁用控制
-controls.rotateSpeed = 5.0;
-controls.zoomSpeed = 1.2;
-controls.panSpeed = 0.8;
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Shift') {
-    controls.enabled = true;
-  }
-});
-
-window.addEventListener('keyup', (e) =>  {
-  if (e.key === 'Shift') {
-    controls.enabled = false;
-  }
-});
-
-const boundarySize = 150;
+// 邊界碰撞體（Cannon）
 function createBoundaryWalls(world, size) {
   const half = size / 2;
   const thickness = 1;
   const material = new CANNON.Material();
 
-  const createWall = (position, rotation, size) => {
-    const shape = new CANNON.Box(new CANNON.Vec3(...size));
+  const createWall = (position, rotation, halfExtents) => {
+    const shape = new CANNON.Box(new CANNON.Vec3(...halfExtents));
     const body = new CANNON.Body({ mass: 0, shape, material });
     body.position.set(...position);
     if (rotation) body.quaternion.setFromEuler(...rotation);
     world.addBody(body);
   };
 
-  createWall([0, -half - thickness, 0], null, [half, thickness, half]);
-  createWall([0, half + thickness, 0], null, [half, thickness, half]);
-  createWall([-half - thickness, 0, 0], null, [thickness, half, half]);
-  createWall([half + thickness, 0, 0], null, [thickness, half, half]);
-  createWall([0, 0, -half - thickness], null, [half, half, thickness]);
-  createWall([0, 0, half + thickness], null, [half, half, thickness]);
+  // 下、上、左、右、前、後（以 y=60 為中心）
+  createWall([0, 60 - half - thickness, 0], null, [half, thickness, half]);
+  createWall([0, 60 + half + thickness, 0], null, [half, thickness, half]);
+  createWall([-half - thickness, 60, 0], null, [thickness, half, half]);
+  createWall([half + thickness, 60, 0], null, [thickness, half, half]);
+  createWall([0, 60, -half - thickness], null, [half, half, thickness]);
+  createWall([0, 60, half + thickness], null, [half, half, thickness]);
 }
-createBoundaryWalls(world, boundarySize);
 
-// BoxHelper 顯示虛擬邊框
-const boxHelper = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize)), 0x00ffff);
-scene.add(boxHelper);
+// 初始化 Three.js 與場景
+function initThreeJS() {
+  console.log('Initializing Three.js...');
 
-// object settings
-let objectCount = 0;
-const objects = [];
-const gui = new dat.GUI({ autoPlace: false });
-document.getElementById("dat-gui-container").appendChild(gui.domElement);
-gui.domElement.style.position = 'absolute';
-gui.domElement.style.top = '80px';  // 高於 toolbar 底部
-gui.domElement.style.right = '20px';
+  // 1) 物理引擎先初始化，讓 world 可用
+  initPhysics();
 
-const guiFolders = new Map(); // 儲存物件與對應 folder
+  // 2) 場景、相機、渲染器
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(
+    75,
+    (window.innerWidth - 300) / window.innerHeight,
+    0.01,
+    2000
+  );
+  camera.position.set(120, 120, 240);
+  camera.lookAt(60, 60, 120);
+  camera.updateProjectionMatrix();
 
-dat.GUI.prototype.removeFolder = function(nameOrFolder) {
-  const folder = typeof nameOrFolder === 'string'
-    ? this.__folders[nameOrFolder]
-    : nameOrFolder;
+  console.log('Camera position set to:', camera.position);
+  console.log('Camera target:', new THREE.Vector3(0, 0, 0));
+  console.log('Camera aspect ratio:', camera.aspect);
 
-  if (!folder) return;
+  scene.background = new THREE.Color(0xffffff);
 
-  folder.close();
-  this.__ul.removeChild(folder.domElement.parentNode);
-  delete this.__folders[folder.name];
-  this.onResize();
-};
+  const canvas = document.getElementById('canvas');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-function addObjectToList(name, object) {
-  const li = document.createElement('li');
-  li.textContent = name;
-  li.addEventListener('click', () => {
-    guiFolders.forEach(folder => folder.domElement.style.display = 'none');
-    const folder = guiFolders.get(object);
-    if (folder) folder.domElement.style.display = '';
-    selectedObject = object; // 點選後可以直接拖曳
+  const width = window.innerWidth - 300;
+  const height = window.innerHeight;
+  renderer.setSize(width, height, false);
+
+  // 燈光
+  const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+  scene.add(ambientLight);
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  directionalLight.position.set(50, 50, 50);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.mapSize.width = 2048;
+  directionalLight.shadow.mapSize.height = 2048;
+  scene.add(directionalLight);
+
+  // 地板
+  const floorGeometry = new THREE.PlaneGeometry(200, 200);
+  const floorMaterial = new THREE.MeshLambertMaterial({
+    color: 0xf8f8ff,
+    transparent: true,
+    opacity: 0.8,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1
   });
-  document.getElementById('object-list').appendChild(li);
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = 0;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // 地面網格
+  const gridHelper = new THREE.GridHelper(200, 40, 0xf8f8ff, 0xf8f8ff);
+  gridHelper.position.y = 0.1;
+  scene.add(gridHelper);
+
+  // 控制器
+  controls = new TrackballControls(camera, renderer.domElement);
+  controls.enabled = false;
+  controls.rotateSpeed = 2.0;
+  controls.zoomSpeed = 1.2;
+  controls.panSpeed = 0.8;
+
+  // 3) 先有 scene/world，再建立邊界
+  const defaultBoundary = createDefaultBoundary();
+  createBoundaryWalls(world, boundarySize);
+
+  // 4) 初始化模組（需要 scene、camera、renderer 等）
+  objectManager = new ObjectManager();
+  objectCreator = new ObjectCreator(scene, objectManager);
+  packingManager = new PackingManager(objectManager);
+  mouseControls = new MouseControls(camera, renderer, objectManager, controls);
+
+  // 5) 對外掛載參考（可用於除錯）
+  window.scene = scene;
+  window.camera = camera;
+  window.renderer = renderer;
+  window.addPhysicsObject = addPhysicsObject;
+  window.removePhysicsObject = removePhysicsObject;
+  window.requestBinPacking = requestBinPacking;
+  window.pollJobUntilComplete = pollJobUntilComplete;
+  window.objectManager = objectManager;
+
+  // 6) 啟動渲染循環與事件
+  animate();
+  window.addEventListener('resize', onWindowResize);
+
+  // 7) 設置 UI 事件
+  setupEventListeners();
 }
 
+// 視窗調整
+function onWindowResize() {
+  const width = window.innerWidth - 300;
+  const height = window.innerHeight;
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.setSize(width, height, false);
+}
 
-// show icon toolbar interface
-document.addEventListener('click', (e) => {
-  const target = e.target.closest('.icon-wrapper');
-  if (!target) return;
-  const type = target.dataset.type;
+// UI 事件
+function setupEventListeners() {
+  // 添加物件按鈕
+  document.getElementById('add-item-btn').addEventListener('click', () => {
+    document.getElementById('item-toolbar').style.display = 'block';
+    document.getElementById('create-item-btn').textContent = '創建物件';
+    document.getElementById('create-item-btn').onclick = () => objectCreator.createNewItem();
+    objectCreator.showObjectTypeParams('cube');
+  });
 
-  switch (type) {
-    case 'icosahedron':
-      objectCount = addObject_createIcosahedron(objectCount, scene, objects, gui, addObjectToList, guiFolders);
-      break;
-    case 'sphere':
-      objectCount = addObject_createSphere(objectCount, scene, objects, gui, addObjectToList, guiFolders);
-      break;
-    case 'cube':
-      objectCount = addObject_createcube(objectCount, scene, objects, gui, addObjectToList, guiFolders);
-      break;
-    case 'mysterybox':
-      objectCount = addObject_createIrregular(objectCount, scene, objects, gui, addObjectToList, guiFolders);
-      break;
-    case 'cylinder':
-      objectCount = addObject_createCylinder(objectCount, scene, objects, gui, addObjectToList, guiFolders);
-      break;
-  }
-});
+  // 執行打包
+  document.getElementById('execute-packing-btn').addEventListener('click', () => {
+    packingManager.executePacking();
+  });
 
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-let selectedObject = null;
-let offset = new THREE.Vector3();
-let plane = new THREE.Plane();
-let isDragging = false;
+  // 關閉側欄
+  document.getElementById('close-item-toolbar').addEventListener('click', () => {
+    document.getElementById('item-toolbar').style.display = 'none';
+  });
 
-canvas.addEventListener('pointerdown', (event) => {
-  if (controls.enabled) return;
+  document.getElementById('close-packing-panel').addEventListener('click', () => {
+    document.getElementById('packing-panel').style.display = 'none';
+  });
 
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  // 取消打包
+  document.getElementById('cancel-packing-btn').addEventListener('click', () => {
+    packingManager.cancelPacking();
+  });
 
-  raycaster.setFromCamera(pointer, camera);
-  const intersects = raycaster.intersectObjects(objects, true);
+  // 透明度滑塊
+  document.getElementById('item-opacity').addEventListener('input', (e) => {
+    document.getElementById('opacity-value').textContent = e.target.value;
+  });
 
-  if (intersects.length > 0) {
-    selectedObject = intersects[0].object;
-    isDragging = true;
+  // 物件類型切換
+  document.getElementById('item-type').addEventListener('change', (e) => {
+    const type = e.target.value;
+    objectCreator.showObjectTypeParams(type);
+  });
+}
 
-    plane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(plane.normal), selectedObject.position);
-    const intersection = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane, intersection);
-    offset.copy(intersection).sub(selectedObject.position);
-  }
-}, { passive: true });
-
-canvas.addEventListener('pointermove', (event) => {
-  if (controls.enabled || !isDragging || !selectedObject) return;;
-
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointer, camera);
-  const intersection = new THREE.Vector3();
-
-  if (raycaster.ray.intersectPlane(plane, intersection)) {
-    const newPos = intersection.sub(offset);
-    const half = boundarySize / 2;
-
-    newPos.x = THREE.MathUtils.clamp(newPos.x, -half, half);
-    newPos.y = THREE.MathUtils.clamp(newPos.y, -half, half);
-    newPos.z = THREE.MathUtils.clamp(newPos.z, -half, half);
-
-    selectedObject.position.copy(newPos);
-
-    // 同步剛體位置
-    const obj = physicsObjects.find(o => o.mesh === selectedObject);
-    if (obj) {
-      obj.body.position.copy(newPos);
-      obj.body.velocity.set(0, 0, 0);
+// 動畫循環
+function animate() {
+  requestAnimationFrame(animate);
+  
+  // 檢查場景是否需要更新（用於打包後的物件位置更新）
+  if (scene.userData && scene.userData.needsUpdate) {
+    const now = Date.now();
+    const timeSinceUpdate = now - (scene.userData.lastUpdateTime || 0);
+    
+    // 如果距離上次更新超過10秒，停止強制更新
+    if (timeSinceUpdate > 10000) {
+      scene.userData.needsUpdate = false;
+      console.log('🔄 停止強制場景更新');
+    } else {
+      // 強制更新所有物件的矩陣
+      if (objectManager) {
+        const objects = objectManager.getObjects();
+        objects.forEach(obj => {
+          if (obj.mesh) {
+            obj.mesh.matrixWorldNeedsUpdate = true;
+          }
+        });
+      }
+      
+      // 強制渲染場景
+      renderer.render(scene, camera);
     }
   }
-}, { passive: true });
-
-
-canvas.addEventListener('pointerup', () => {
-  selectedObject = null;
-  isDragging = false;
-}, { passive: true });
-
-
-//降低每秒渲染次數
-let lastFrameTime = 0;
-const fps = 60;
-const frameInterval = 1000 / fps;
-
-function animate(now = 0) {
-  requestAnimationFrame(animate);
-
+  
   updatePhysics();
-
-  const delta = now - lastFrameTime;
-  if (delta < frameInterval) return;
-
-  lastFrameTime = now;
   controls.update();
-
-  // 動畫 + 渲染邏輯
   renderer.render(scene, camera);
 }
-animate();
 
-/*
-
-RL - PPO 模型 (有點失敗)
-這邊是定義"送出場景"、"請求動作"的按鈕事件處理邏輯
-*/
-
-// 📤 場景提交按鈕
-document.getElementById('send-scene-btn').addEventListener('click', async () => {
-  try {
-    // 1. 組裝場景資料
-    const config = getSceneConfig(objects, boundarySize);
-
-    // 2. 送出前印出 JSON 結構，方便除錯
-    console.log("🚀 送出的 JSON 資料：", JSON.stringify(config, null, 2));
-
-    // 3. 基本驗證：objects 必須存在且為陣列
-    if (!validateSceneConfig(config)) {
-      console.error("❌ 場景資料格式錯誤，缺少 objects 陣列或欄位不完整");
-      return;
-    }
-    // 4. 呼叫 API
-    const response = await sendSceneConfig(config);
-    console.log("✅ 後端收到場景:", response);
-
-  } catch (error) {
-    console.error("❌ 場景提交失敗:", error.message);
-  }
-});
-
-
-// 行動請求按鈕：取得場景 → 發送 → 應用動作
-document.getElementById('request-action-btn').addEventListener('click', async () => {
-  try {
-
-    const state = getLiveSceneSnapshot(scene, boundarySize);  // ✅ 正確傳入 scene 而不是 objects
-    console.log("📦 送出前的 state:", JSON.stringify(state, null, 2)); // 看看 state 結構
-    const response = await requestAgentAction(state);  // 呼叫 Flask 後端
-    const { action, reward } = response;
-
-    // 二層保險：後端資料-action資料檢查
-    if (!action || !action.uuid) {
-      alert("⚠️ 後端沒有回傳有效的動作！");
-      console.warn("⚠️ action 無效！response:", response);
-      return; // 不執行後面的套用
-    }
-
-    applyActionToScene(action, objects, physicsObjects);  // ✅ 套用動作到場景物件
-    console.log("🎯 Reward:", reward);
-    console.log("✅ Done:", response.done);
-    console.log("📦 Info:", response.info);
-
-    if (reward > 0) {
-      alert("👍 成功放置物件！");
-    }
-    if (response.done) {
-      alert("🎉 任務完成！");
-    }
-    document.getElementById('reward-text').textContent = reward;
-    console.log("🚀 動作:", action, "| 🏆 Reward:", reward);
-  } catch (error) {
-    console.error("❌ 動作請求失敗:", error);
-  }
+// 等待 DOM 後啟動（單一入口）
+document.addEventListener('DOMContentLoaded', () => {
+  initThreeJS();
 });

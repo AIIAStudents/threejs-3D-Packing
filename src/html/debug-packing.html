@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Bin Packing - 調試頁面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .debug-panel {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+        }
+        
+        .debug-panel h3 {
+            color: #4CAF50;
+            margin-top: 0;
+        }
+        
+        .log-output {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 12px;
+        }
+        
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .test-button:hover {
+            background: #45a049;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-success { background-color: #4CAF50; }
+        .status-error { background-color: #f44336; }
+        .status-warning { background-color: #ff9800; }
+        
+        .info-box {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 3D Bin Packing 調試頁面</h1>
+        
+        <div class="debug-panel">
+            <h3>📊 調試控制</h3>
+            <button class="test-button" onclick="testObjectCreation()">測試物件創建</button>
+            <button class="test-button" onclick="testPackingSimulation()">測試模擬打包</button>
+            <button class="test-button" onclick="testSceneUpdate()">測試場景更新</button>
+            <button class="test-button" onclick="clearLog()">清除日誌</button>
+        </div>
+        
+        <div class="debug-panel">
+            <h3>📋 調試信息</h3>
+            <div class="info-box">
+                <strong>當前狀態:</strong> <span id="current-status">準備中</span><br>
+                <strong>物件數量:</strong> <span id="object-count">0</span><br>
+                <strong>場景狀態:</strong> <span id="scene-status">未初始化</span>
+            </div>
+        </div>
+        
+        <div class="debug-panel">
+            <h3>📝 調試日誌</h3>
+            <div id="log-output" class="log-output"></div>
+        </div>
+    </div>
+
+    <script>
+        // 調試日誌系統
+        const debugLog = {
+            output: document.getElementById('log-output'),
+            
+            log: function(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const prefix = type === 'error' ? '❌' : type === 'warning' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+                const color = type === 'error' ? '#ff4444' : type === 'warning' ? '#ffaa00' : type === 'success' ? '#44ff44' : '#ffffff';
+                
+                const logEntry = `[${timestamp}] ${prefix} ${message}`;
+                this.output.innerHTML += logEntry + '\n';
+                this.output.scrollTop = this.output.scrollHeight;
+                
+                // 同時輸出到控制台
+                console.log(`%c${logEntry}`, `color: ${color}`);
+            },
+            
+            clear: function() {
+                this.output.innerHTML = '';
+            }
+        };
+        
+        // 測試物件創建
+        function testObjectCreation() {
+            debugLog.log('開始測試物件創建...', 'info');
+            
+            try {
+                // 模擬創建測試物件
+                const testObjects = [
+                    { uuid: 'test-cube-1', type: 'cube', dimensions: { x: 10, y: 10, z: 10 } },
+                    { uuid: 'test-sphere-1', type: 'sphere', dimensions: { x: 8, y: 8, z: 8 } },
+                    { uuid: 'test-cylinder-1', type: 'cylinder', dimensions: { x: 6, y: 12, z: 6 } }
+                ];
+                
+                debugLog.log(`創建了 ${testObjects.length} 個測試物件`, 'success');
+                testObjects.forEach(obj => {
+                    debugLog.log(`物件: ${obj.uuid} (${obj.type}) - 尺寸: ${obj.dimensions.x}x${obj.dimensions.y}x${obj.dimensions.z}`, 'info');
+                });
+                
+                // 更新狀態顯示
+                document.getElementById('object-count').textContent = testObjects.length;
+                document.getElementById('current-status').textContent = '物件創建完成';
+                
+            } catch (error) {
+                debugLog.log(`物件創建失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試模擬打包
+        function testPackingSimulation() {
+            debugLog.log('開始測試模擬打包...', 'info');
+            
+            try {
+                // 模擬打包過程
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 20;
+                    debugLog.log(`打包進度: ${progress}%`, 'info');
+                    
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        
+                        // 模擬打包結果
+                        const mockResult = {
+                            packed_objects: [
+                                { uuid: 'test-cube-1', position: { x: 0, y: 0, z: 0 }, dimensions: { x: 10, y: 10, z: 10 } },
+                                { uuid: 'test-sphere-1', position: { x: 15, y: 0, z: 0 }, dimensions: { x: 8, y: 8, z: 8 } },
+                                { uuid: 'test-cylinder-1', position: { x: 0, y: 0, z: 15 }, dimensions: { x: 6, y: 12, z: 6 } }
+                            ],
+                            volume_utilization: 15.8,
+                            execution_time: 2.3
+                        };
+                        
+                        debugLog.log('模擬打包完成!', 'success');
+                        debugLog.log(`體積利用率: ${mockResult.volume_utilization}%`, 'info');
+                        debugLog.log(`執行時間: ${mockResult.execution_time}秒`, 'info');
+                        debugLog.log(`打包物件數量: ${mockResult.packed_objects.length}`, 'info');
+                        
+                        // 更新狀態
+                        document.getElementById('current-status').textContent = '模擬打包完成';
+                        
+                        // 測試結果應用
+                        testResultApplication(mockResult);
+                    }
+                }, 300);
+                
+            } catch (error) {
+                debugLog.log(`模擬打包失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試結果應用
+        function testResultApplication(result) {
+            debugLog.log('開始測試結果應用...', 'info');
+            
+            try {
+                const packedObjects = result.packed_objects;
+                
+                packedObjects.forEach((packedObj, index) => {
+                    debugLog.log(`處理物件 ${index + 1}: ${packedObj.uuid}`, 'info');
+                    debugLog.log(`  原始位置: (${packedObj.position.x}, ${packedObj.position.y}, ${packedObj.position.z})`, 'info');
+                    debugLog.log(`  尺寸: ${packedObj.dimensions.x}x${packedObj.dimensions.y}x${packedObj.dimensions.z}`, 'info');
+                    
+                    // 模擬位置計算
+                    const halfOffset = { x: 60, y: 60, z: 60 };
+                    const halfSize = { 
+                        x: packedObj.dimensions.x / 2, 
+                        y: packedObj.dimensions.y / 2, 
+                        z: packedObj.dimensions.z / 2 
+                    };
+                    const containerYOffset = 3;
+                    
+                    const targetX = packedObj.position.x + halfSize.x - halfOffset.x;
+                    const targetY = packedObj.position.y + halfSize.y - halfOffset.y + containerYOffset;
+                    const targetZ = packedObj.position.z + halfSize.z - halfOffset.z;
+                    
+                    debugLog.log(`  計算後位置: (${targetX.toFixed(2)}, ${targetY.toFixed(2)}, ${targetZ.toFixed(2)})`, 'success');
+                });
+                
+                debugLog.log('結果應用測試完成!', 'success');
+                
+            } catch (error) {
+                debugLog.log(`結果應用測試失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試場景更新
+        function testSceneUpdate() {
+            debugLog.log('開始測試場景更新...', 'info');
+            
+            try {
+                // 檢查全局變量
+                const globalVars = {
+                    scene: typeof window.scene !== 'undefined',
+                    renderer: typeof window.renderer !== 'undefined',
+                    camera: typeof window.camera !== 'undefined'
+                };
+                
+                debugLog.log('全局變量檢查:', 'info');
+                Object.entries(globalVars).forEach(([key, exists]) => {
+                    const status = exists ? '✅ 可用' : '❌ 不可用';
+                    debugLog.log(`  ${key}: ${status}`, exists ? 'success' : 'error');
+                });
+                
+                if (globalVars.scene && globalVars.renderer && globalVars.camera) {
+                    debugLog.log('所有必要的全局變量都可用', 'success');
+                    document.getElementById('scene-status').textContent = '已初始化';
+                } else {
+                    debugLog.log('部分全局變量不可用', 'warning');
+                    document.getElementById('scene-status').textContent = '部分初始化';
+                }
+                
+            } catch (error) {
+                debugLog.log(`場景更新測試失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 清除日誌
+        function clearLog() {
+            debugLog.clear();
+            debugLog.log('日誌已清除', 'info');
+        }
+        
+        // 頁面加載完成後的初始化
+        window.addEventListener('load', function() {
+            debugLog.log('調試頁面加載完成', 'success');
+            debugLog.log('準備開始調試測試...', 'info');
+            
+            // 自動運行基本檢查
+            setTimeout(() => {
+                testSceneUpdate();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
