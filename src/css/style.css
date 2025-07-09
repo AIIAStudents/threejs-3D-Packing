@@ -1,7 +1,7 @@
 :root {
   --color: #574e4e;
   --primary: #FFAB9D;
-  --background: hsl(0, 3%, 47%);
+  --background: hsl(0, 2%, 28%);
 }
 
 html, body {
@@ -22,12 +22,17 @@ a {
 
 /* ----------------------這是分隔線------------------- */
 
+/* 中間：Canvas + Toolbar */
+#canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
 #canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  display: block;
   background-color: var(--background);
 }
 
@@ -35,18 +40,21 @@ a {
 /* 工具列位置與背景 */
 #icon-toolbar {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;              /* ✅ 固定寬度 */
+  height: 56px;              /* ✅ 固定高度（可依需要調整） */
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 20px;
-  padding: 10px 0;
+  padding: 8px 12px;         /* ✅ 控制內邊距，讓內容不要太擠 */
   z-index: 9999;
   backdrop-filter: blur(6px);
   background-color: rgba(17, 17, 17, 0.6);
   pointer-events: none;
+  border-radius: 10px;       /* Optional: 邊角圓滑 */
 }
 
 /* 控制是否顯示 */
@@ -110,4 +118,52 @@ a {
   pointer-events: none;
   transition: opacity 0.3s ease;
   z-index: 10;
+}
+/* ----------------------這是分隔線(for toolbar GUI interface)------------------- */
+#editor-ui {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--background);
+  overflow: hidden;
+}
+
+/* 左邊：物件清單 */
+#sidebar-left {
+  width: 150px;
+  background: #1e1e1e;
+  color: #eee;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* 右邊：dat.GUI */
+#sidebar-right {
+  width: 300px;
+  background: #1e1e1e;
+  color: white;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+
+#object-list {
+  list-style: none;
+  padding-left: 0;
+  margin-top: 10px;
+}
+
+#object-list li {
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#object-list li:hover {
+  background: #444;
+}
+
+#dat-gui-container {
+  margin-top: 10px;
 }
