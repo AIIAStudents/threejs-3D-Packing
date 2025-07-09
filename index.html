@@ -20,17 +20,28 @@
     <script src = "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js" ></script>
   </head>
   <body>
+    <canvas id="canvas"></canvas>
     <!-- 這是 icon 選單區 -->
     <div id="icon-toolbar" class="hidden">
-      <div class="icon-wrapper" id="createIsocahedron" data-type="icosahedron">
-       <svg class="circle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-          <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512z" />
-       </svg>
-       <span class="tooltip">createIcosahedron</span>
-     </div>
+      <!-- icosahedron -->
+      <div class="icon-wrapper" data-type="icosahedron">
+        <img src="./src/assets/icons/icosahedron.png" alt="Icosahedron Icon" class="toolbar-icon" />
+        <span class="tooltip">createIcosahedron</span>
+      </div>
+      <!-- sphere -->
+      <div class="icon-wrapper" data-type="sphere">
+        <img src="./src/assets/icons/sphere.png" alt="Sphere Icon" class="toolbar-icon" />
+        <span class="tooltip">createSphere</span>
+      </div>
+      <!-- cube -->
+      <div class="icon-wrapper" data-type="cube">
+        <img src="./src/assets/icons/cube.png" alt="Cube Icon" class="toolbar-icon" />
+        <span class="tooltip">createCube</span>
+      </div>
     </div>
     <!--  javascript -->
     <script type="module" src="./src/js/scripts.js"></script>
   </body>
 </html>
+
 

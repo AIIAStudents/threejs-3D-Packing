@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
-
+import { addObject_createSphere } from './3js_shape_file/sphere';
+import { addObject_createcube } from './3js_shape_file/cube';
 
 // initialize scene, camera, and renderer
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x111111);
 const camera = new THREE.PerspectiveCamera( 
     75,
     window.innerWidth / window.innerHeight, 
@@ -13,15 +13,22 @@ const camera = new THREE.PerspectiveCamera(
     1000
 );
 camera.position.z = 50;
+scene.background = null; // no background color
 
-const renderer = new THREE.WebGLRenderer();
+
+const canvas = document.getElementById('canvas');
+console.log('Canvas Element:', canvas);
+
+const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true
+});
 renderer.setSize( window.innerWidth, window.innerHeight );
-renderer.setAnimationLoop( animate );
-document.body.appendChild( renderer.domElement );
+
 
 // controls (mouse movement)
-const orbit = new OrbitControls( camera, renderer.domElement );
-orbit.update();
+// const orbit = new OrbitControls( camera, renderer.domElement );
+// orbit.update();
 
 
 //environmental background
@@ -53,9 +60,10 @@ dat.GUI.prototype.removeFolder = function(nameOrFolder) {
   this.onResize();
 };
 
+const iconToolbar = document.getElementById('icon-toolbar');
 
 // show icon toolbar interface
-iconToolbar = document.addEventListener('click', (e) => {
+document.addEventListener('click', (e) => {
     const target = e.target.closest('.icon-wrapper');    
     if(!target) return;
 
@@ -65,8 +73,14 @@ iconToolbar = document.addEventListener('click', (e) => {
         case 'icosahedron': 
             objectCount = addObject_createIcosahedron(objectCount, scene, objects, gui);
             break;
+        case 'sphere':
+            objectCount = addObject_createSphere(objectCount, scene, objects, gui);
+            break;
+        case 'cube':
+            objectCount = addObject_createcube(objectCount, scene, objects, gui);
     }
 });
+
 function animate() {
     requestAnimationFrame( animate );
 
@@ -78,3 +92,5 @@ function animate() {
 }
 
 animate();
+
+renderer.setAnimationLoop( animate );
