@@ -1,14 +1,6 @@
 import * as THREE from 'three';
 
-/*
- * @param {THREE.Scene} scene
- * @param {dat.GUI} gui
- * @param {Array} objects
- * @param {number} objectCount
- * @returns {number} updated object count
-*/
-
-export function addObject_createSphere(objectCount, scene, objects, gui){
+export function addObject_createSphere(objectCount, scene, objects, gui, addToList, guiFoldersMap){
     const default_parameters_settings = {
         radius: 15,  
         widthSegments: 32,
@@ -27,13 +19,22 @@ export function addObject_createSphere(objectCount, scene, objects, gui){
                                     default_parameters_settings.thetaStart,
                                     default_parameters_settings.thetaLength
                                 );
-    mesh.position.x = (objectCount % 5) * 25 - 50;
-    mesh.position.y = -Math.floor(objectCount / 5) * 25;
+    const currentIndex = objectCount;                          
+    mesh.position.x = (currentIndex % 5) * 25 - 50;
+    mesh.position.y = -Math.floor(currentIndex / 5) * 25;
+    
     scene.add(mesh);
     objects.push(mesh);
 
+    if(typeof addToList === 'function'){
+        addToList(`Object ${objectCount + 1}`, mesh);
+    }
     //THREE.SphereGeometry(radius, widthSegments, heightSegments, phiStart, phiLength, thetaStart, thetaLength);
     const folder = gui.addFolder(`Object ${objectCount + 1}`);
+    folder.domElement.style.display = 'none'; // 初始隱藏
+    if (guiFoldersMap) {
+        guiFoldersMap.set(mesh, folder); // ⬅ 儲存 folder 給該物件
+    }
     folder.add(default_parameters_settings, 'radius', 1, 30)
         .step(0.348)
         .onChange((value) => {
@@ -126,6 +127,11 @@ export function addObject_createSphere(objectCount, scene, objects, gui){
                             value
                           );
         });
+
+    folder.add(mesh.position, 'x', -200, 200).step(1).name('Position X');
+    folder.add(mesh.position, 'y', -200, 200).step(1).name('Position Y');
+    folder.add(mesh.position, 'z', -200, 200).step(1).name('Position Z');
+    
     folder.add({delete:() => {
         const delete_messenge = window.confirm("Are you sure you want to delete this object?");
         if(delete_messenge){
@@ -136,10 +142,11 @@ export function addObject_createSphere(objectCount, scene, objects, gui){
             }
             gui.removeFolder(folder);
             mesh.geometry.dispose(); 
-            mesh.material.dispose(); 
+            mesh.material.dispose();
         }
     }}, 'delete').name('Delete Object');
-    
+
+    guiFoldersMap.set(mesh, folder);    
     folder.open();
 
     return objectCount + 1; 
