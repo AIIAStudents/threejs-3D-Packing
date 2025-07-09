@@ -20,26 +20,36 @@
     <script src = "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js" ></script>
   </head>
   <body>
-    <canvas id="canvas"></canvas>
-    <!-- 這是 icon 選單區 -->
-    <div id="icon-toolbar" class="hidden">
-      <!-- icosahedron -->
-      <div class="icon-wrapper" data-type="icosahedron">
-        <img src="./src/assets/icons/icosahedron.png" alt="Icosahedron Icon" class="toolbar-icon" />
-        <span class="tooltip">createIcosahedron</span>
-      </div>
-      <!-- sphere -->
-      <div class="icon-wrapper" data-type="sphere">
-        <img src="./src/assets/icons/sphere.png" alt="Sphere Icon" class="toolbar-icon" />
-        <span class="tooltip">createSphere</span>
-      </div>
-      <!-- cube -->
-      <div class="icon-wrapper" data-type="cube">
-        <img src="./src/assets/icons/cube.png" alt="Cube Icon" class="toolbar-icon" />
-        <span class="tooltip">createCube</span>
-      </div>
+    <!-- 左邊UI -->
+    <div id="editor-ui">
+      <aside id="sidebar-left">
+        <h3>Objects</h3>
+        <ul id="object-list"></ul>
+      </aside>
+      <!-- 中間畫布 -->
+      <main id="canvas-container">
+        <canvas id="canvas"></canvas>
+          <div id="icon-toolbar">
+            <div class="icon-wrapper" data-type="icosahedron">
+              <img src="./src/assets/icons/icosahedron.png" class="toolbar-icon" />
+              <span class="tooltip">createIcosahedron</span>
+            </div>
+            <div class="icon-wrapper" data-type="sphere">
+              <img src="./src/assets/icons/sphere.png" class="toolbar-icon" />
+              <span class="tooltip">createSphere</span>
+            </div>
+            <div class="icon-wrapper" data-type="cube">
+              <img src="./src/assets/icons/cube.png" class="toolbar-icon" />
+              <span class="tooltip">createCube</span>
+            </div>
+          </div>
+      </main>
+      <!-- 右邊UI -->
+      <aside id="sidebar-right">
+        <h3>Properties</h3>
+        <div id="dat-gui-container"></div>
+      </aside>
     </div>
-    <!--  javascript -->
     <script type="module" src="./src/js/scripts.js"></script>
   </body>
 </html>
