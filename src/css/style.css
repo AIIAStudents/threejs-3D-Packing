@@ -1,7 +1,7 @@
-/* ----------------------------------------- */
 :root {
-  --color: #111;
+  --color: #574e4e;
   --primary: #FFAB9D;
+  --background: hsl(0, 3%, 47%);
 }
 
 html, body {
@@ -28,60 +28,73 @@ a {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #111;
+  background-color: var(--background);
 }
 
-/* ----------------------這是分隔線------------------- */
+/* ----------------------這是分隔線(for toolbar icon)------------------- */
 /* 工具列位置與背景 */
 #icon-toolbar {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  background-color: #111;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 20px;
   padding: 10px 0;
   z-index: 9999;
+  backdrop-filter: blur(6px);
+  background-color: rgba(17, 17, 17, 0.6);
+  pointer-events: none;
 }
 
-/* 隱藏 class 控制 */
+/* 控制是否顯示 */
 .hidden {
   display: none;
 }
 
-/* 包裹 SVG 的容器 */
+/* 每個 icon 外框 */
 .icon-wrapper {
   position: relative;
   width: 48px;
   height: 48px;
   border-radius: 8px;
-  background-color: #111;
+  background-color: #e6e5e5;
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
   pointer-events: auto;
 }
-#icon-toolbar {
-  backdrop-filter: blur(6px);
-  background-color: rgba(17, 17, 17, 0.6);
-  pointer-events: none;
-}
-/* SVG 圓形樣式（空心圓） */
-.circle-icon {
+
+/* 圖示圖片 */
+.toolbar-icon {
   width: 24px;
   height: 24px;
-  fill: none;
-  stroke: #aaa;
-  stroke-width: 32;
-  transition: stroke 0.3s ease;
+  opacity: 0.6;
+  filter: brightness(90%);
+  transition: opacity 0.3s ease, filter 0.3s ease;
+  pointer-events: none;
 }
 
-/* Tooltip 提示字 */
+/* Hover 效果 */
+.icon-wrapper:hover {
+  background-color: #333;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+}
+
+.icon-wrapper:hover .toolbar-icon {
+  opacity: 1;
+  filter: brightness(120%);
+}
+
+.icon-wrapper:hover .tooltip {
+  opacity: 1;
+}
+
+/* tooltip 顯示 */
 .tooltip {
   position: absolute;
   bottom: -28px;
@@ -97,17 +110,4 @@ a {
   pointer-events: none;
   transition: opacity 0.3s ease;
   z-index: 10;
-}
-
-/* 滑鼠滑過效果 */
-.icon-wrapper:hover {
-  background-color: #333;
-}
-
-.icon-wrapper:hover .circle-icon {
-  stroke: #fff;
-}
-
-.icon-wrapper:hover .tooltip {
-  opacity: 1;
 }
