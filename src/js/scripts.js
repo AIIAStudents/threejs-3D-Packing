@@ -64,36 +64,37 @@ window.addEventListener('keyup', (e) =>  {
 
 
 // create a boundary box
-const boundarySize = 100;
-const boundaryBox = new THREE.Mesh(
-  new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize),
-  new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.2
-  })
-);
-scene.add(boundaryBox);
+// const boundarySize = 100;
+// const boundaryBox = new THREE.Mesh(
+//   new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize),
+//   new THREE.MeshBasicMaterial({
+//     color: 0xffffff,
+//     wireframe: true,
+//     transparent: true,
+//     opacity: 0.2
+//   })
+// );
+// scene.add(boundaryBox);
 
-// // GLTFLoader
-// const loader = new GLTFLoader().setPath('src/assets/background/shipping_container/');
-// loader.load('scene.gltf', (gltf) => {
-//   const container = gltf.scene;
-//   container.scale.set(boundarySize, boundarySize, boundarySize);
-//   container.position.set(0, 0, 0);
-//   scene.add(container);
+// GLTFLoader
+const boundarySize = 150;
+const loader = new GLTFLoader();
+loader.load('src/assets/background/shipping_container/shipping_container.glb', (glb) => {
+  const container = glb.scene;
+  container.scale.set(boundarySize, boundarySize, boundarySize);
+  container.position.set(0, 0, 0);
+  scene.add(container);
 
-//   // ✅ 防止 container 擋住滑鼠事件
-//   container.traverse((child) => {
-//     if (child.isMesh) {
-//       child.material.depthWrite = false;
-//       child.material.transparent = true;
-//       child.material.opacity = 1; // 保持可見
-//       child.renderOrder = -1;     // 放在最底層
-//     }
-//   });
-// });
+  // ✅ 防止 container 擋住滑鼠事件
+  container.traverse((child) => {
+    if (child.isMesh) {
+      child.material.depthWrite = false;
+      child.material.transparent = true;
+      child.material.opacity = 1; // 保持可見
+      child.renderOrder = -1;     // 放在最底層
+    }
+  });
+});
 
 // object settings
 let objectCount = 0;
@@ -196,19 +197,20 @@ canvas.addEventListener('pointermove', (event) => {
     const newPos = intersection.sub(offset);
 
     const half = boundarySize / 2;
-    const center = boundaryBox.position;
+    const center = new THREE.Vector3(0, 0, 0);
 
     newPos.x = THREE.MathUtils.clamp(newPos.x, center.x - half, center.x + half);
     newPos.y = THREE.MathUtils.clamp(newPos.y, center.y - half, center.y + half);
     newPos.z = THREE.MathUtils.clamp(newPos.z, center.z - half, center.z + half);
 
   selectedObject.position.copy(newPos);
-}
-canvas.addEventListener('pointerup', () => {
+  }
+});
+
+  canvas.addEventListener('pointerup', () => {
   if (controls.enabled) return;
   selectedObject = null;
   isDragging = false;
-});
 });
 
 canvas.addEventListener('pointerup', () => {
