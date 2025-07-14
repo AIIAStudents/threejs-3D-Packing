@@ -26,7 +26,7 @@
 - 預設關閉 `TrackballControls`：
 `controls.enabled = false;`
 
-- 按住 `Tab` 啟用視角控制，放開則恢復拖曳模式。
+- 按住 `Shift` 啟用視角控制，放開則恢復拖曳模式。
 
 - 拖曳與視角互斥，不會互相干擾。
 

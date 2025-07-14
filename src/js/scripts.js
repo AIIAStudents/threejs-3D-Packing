@@ -51,30 +51,16 @@ controls.zoomSpeed = 1.2;
 controls.panSpeed = 0.8;
 
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
+  if (e.key === 'Shift') {
     controls.enabled = true;
   }
 });
 
 window.addEventListener('keyup', (e) =>  {
-  if (e.key === 'Tab') {
+  if (e.key === 'Shift') {
     controls.enabled = false;
   }
 });
-
-
-// create a boundary box
-// const boundarySize = 100;
-// const boundaryBox = new THREE.Mesh(
-//   new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize),
-//   new THREE.MeshBasicMaterial({
-//     color: 0xffffff,
-//     wireframe: true,
-//     transparent: true,
-//     opacity: 0.2
-//   })
-// );
-// scene.add(boundaryBox);
 
 // GLTFLoader
 const boundarySize = 150;
@@ -85,7 +71,7 @@ loader.load('src/assets/background/shipping_container/shipping_container.glb', (
   container.position.set(0, 0, 0);
   scene.add(container);
 
-  // ✅ 防止 container 擋住滑鼠事件
+  // 防止 container 擋住滑鼠事件
   container.traverse((child) => {
     if (child.isMesh) {
       child.material.depthWrite = false;
