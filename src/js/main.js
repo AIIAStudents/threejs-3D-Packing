@@ -1,9 +1,14 @@
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+import { initPhysics, updatePhysics, createSphereBody, world } from './physics.js';
+import { physicsObjects } from './physics.js'; 
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
 import { addObject_createSphere } from './3js_shape_file/sphere';
 import { addObject_createcube } from './3js_shape_file/cube';
+import { addObject_createIrregular } from './3js_shape_file/Irregular';
+import { addObject_createCylinder } from './3js_shape_file/cylinder';
 
 // initialize scene, camera, and renderer
 const scene = new THREE.Scene();
@@ -16,6 +21,10 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.z = 50;
 scene.background = null; // no background color
 
+// initialize physics engine
+initPhysics();
+
+// create renderer
 const canvas = document.getElementById('canvas');
 const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -40,7 +49,7 @@ const groundcolor = new THREE.Color( 0x000000);
 const light = new THREE.HemisphereLight( skycolor, groundcolor, 1 );
 scene.add(light);
 
-
+// controller
 const controls = new TrackballControls(camera, renderer.domElement, scene);
 controls.noPan = false;      // 平移
 controls.noZoom = false;     // 縮放
@@ -62,25 +71,32 @@ window.addEventListener('keyup', (e) =>  {
   }
 });
 
-// GLTFLoader
 const boundarySize = 150;
-const loader = new GLTFLoader();
-loader.load('src/assets/background/shipping_container/shipping_container.glb', (glb) => {
-  const container = glb.scene;
-  container.scale.set(boundarySize, boundarySize, boundarySize);
-  container.position.set(0, 0, 0);
-  scene.add(container);
+function createBoundaryWalls(world, size) {
+  const half = size / 2;
+  const thickness = 1;
+  const material = new CANNON.Material();
 
-  // 防止 container 擋住滑鼠事件
-  container.traverse((child) => {
-    if (child.isMesh) {
-      child.material.depthWrite = false;
-      child.material.transparent = true;
-      child.material.opacity = 1; // 保持可見
-      child.renderOrder = -1;     // 放在最底層
-    }
-  });
-});
+  const createWall = (position, rotation, size) => {
+    const shape = new CANNON.Box(new CANNON.Vec3(...size));
+    const body = new CANNON.Body({ mass: 0, shape, material });
+    body.position.set(...position);
+    if (rotation) body.quaternion.setFromEuler(...rotation);
+    world.addBody(body);
+  };
+
+  createWall([0, -half - thickness, 0], null, [half, thickness, half]);
+  createWall([0, half + thickness, 0], null, [half, thickness, half]);
+  createWall([-half - thickness, 0, 0], null, [thickness, half, half]);
+  createWall([half + thickness, 0, 0], null, [thickness, half, half]);
+  createWall([0, 0, -half - thickness], null, [half, half, thickness]);
+  createWall([0, 0, half + thickness], null, [half, half, thickness]);
+}
+createBoundaryWalls(world, boundarySize);
+
+// BoxHelper 顯示虛擬邊框
+const boxHelper = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(boundarySize, boundarySize, boundarySize)), 0x00ffff);
+scene.add(boxHelper);
 
 // object settings
 let objectCount = 0;
@@ -118,6 +134,7 @@ function addObjectToList(name, object) {
   document.getElementById('object-list').appendChild(li);
 }
 
+
 // show icon toolbar interface
 document.addEventListener('click', (e) => {
   const target = e.target.closest('.icon-wrapper');
@@ -133,6 +150,12 @@ document.addEventListener('click', (e) => {
       break;
     case 'cube':
       objectCount = addObject_createcube(objectCount, scene, objects, gui, addObjectToList, guiFolders);
+      break;
+    case 'mysterybox':
+      objectCount = addObject_createIrregular(objectCount, scene, objects, gui, addObjectToList, guiFolders);
+      break;
+    case 'cylinder':
+      objectCount = addObject_createCylinder(objectCount, scene, objects, gui, addObjectToList, guiFolders);
       break;
   }
 });
@@ -158,11 +181,7 @@ canvas.addEventListener('pointerdown', (event) => {
     selectedObject = intersects[0].object;
     isDragging = true;
 
-    plane.setFromNormalAndCoplanarPoint(
-      camera.getWorldDirection(plane.normal),
-      selectedObject.position
-    );
-
+    plane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(plane.normal), selectedObject.position);
     const intersection = new THREE.Vector3();
     raycaster.ray.intersectPlane(plane, intersection);
     offset.copy(intersection).sub(selectedObject.position);
@@ -181,22 +200,21 @@ canvas.addEventListener('pointermove', (event) => {
 
   if (raycaster.ray.intersectPlane(plane, intersection)) {
     const newPos = intersection.sub(offset);
-
     const half = boundarySize / 2;
-    const center = new THREE.Vector3(0, 0, 0);
 
-    newPos.x = THREE.MathUtils.clamp(newPos.x, center.x - half, center.x + half);
-    newPos.y = THREE.MathUtils.clamp(newPos.y, center.y - half, center.y + half);
-    newPos.z = THREE.MathUtils.clamp(newPos.z, center.z - half, center.z + half);
+    newPos.x = THREE.MathUtils.clamp(newPos.x, -half, half);
+    newPos.y = THREE.MathUtils.clamp(newPos.y, -half, half);
+    newPos.z = THREE.MathUtils.clamp(newPos.z, -half, half);
 
-  selectedObject.position.copy(newPos);
+    selectedObject.position.copy(newPos);
+
+    // 同步剛體位置
+    const obj = physicsObjects.find(o => o.mesh === selectedObject);
+    if (obj) {
+      obj.body.position.copy(newPos);
+      obj.body.velocity.set(0, 0, 0);
+    }
   }
-});
-
-  canvas.addEventListener('pointerup', () => {
-  if (controls.enabled) return;
-  selectedObject = null;
-  isDragging = false;
 });
 
 canvas.addEventListener('pointerup', () => {
@@ -211,6 +229,9 @@ const frameInterval = 1000 / fps;
 
 function animate(now = 0) {
   requestAnimationFrame(animate);
+
+  updatePhysics();
+
   const delta = now - lastFrameTime;
   if (delta < frameInterval) return;
 
