@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
-import { initPhysics, updatePhysics, createSphereBody, world } from './physics.js';
-import { physicsObjects } from './physics.js'; 
+import { initPhysics, updatePhysics, createSphereBody, world } from './utils/physics.js';
+import { physicsObjects } from './utils/physics.js'; 
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
 import { addObject_createSphere } from './3js_shape_file/sphere';
