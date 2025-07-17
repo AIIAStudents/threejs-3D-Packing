@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { getStackedPosition } from '../utils/placement.js';
 import { ConvexGeometry } from 'three/examples/jsm/geometries/ConvexGeometry.js';
-import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../physics.js';
+import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../utils/physics.js';
 
 export function addObject_createIrregular(objectCount, scene, objects, gui, addToList, guiFoldersMap) {
   const default_parameters_settings = {
@@ -13,7 +13,7 @@ export function addObject_createIrregular(objectCount, scene, objects, gui, addT
 
   const pos = getStackedPosition(objectCount);
   mesh.position.set(pos.x, pos.y, pos.z);
-  
+
   scene.add(mesh);
   objects.push(mesh);
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { getStackedPosition } from '../utils/placement.js';
-import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../physics.js';
+import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../utils/physics.js';
 
 export function addObject_createIcosahedron(objectCount, scene, objects, gui, addToList, guiFoldersMap) {
   const default_parameters_settings = {
@@ -32,7 +32,7 @@ export function addObject_createIcosahedron(objectCount, scene, objects, gui, ad
     guiFoldersMap.set(mesh, folder);
   }
 
-  // ✅ 統一更新幾何與剛體
+  // 統一更新幾何與剛體
   function updateAll() {
     const { radius, detail } = default_parameters_settings;
     updateGeometry(mesh, radius, detail);

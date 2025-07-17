@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { getStackedPosition } from '../utils/placement.js';
-import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../physics.js';
+import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../utils/physics.js';
 
 export function addObject_createcube(objectCount, scene, objects, gui, addToList, guiFoldersMap) {
   const default_parameters_settings = {

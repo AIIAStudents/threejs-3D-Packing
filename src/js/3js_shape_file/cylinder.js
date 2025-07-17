@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { getStackedPosition } from '../utils/placement.js';
-import { physicsObjects, world } from '../physics.js';
+import { physicsObjects, world } from '../utils/physics.js';
 import { CSG } from 'three-csg-ts';
 
 export function addObject_createCylinder(objectCount, scene, objects, gui, addToList, guiFoldersMap) {

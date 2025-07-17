@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../physics.js';
+import { addPhysicsObject, updatePhysicsShape, removePhysicsObject } from '../utils/physics.js';
 
 export function addObject_createSphere(objectCount, scene, objects, gui, addToList, guiFoldersMap) {
   const default_parameters_settings = {
