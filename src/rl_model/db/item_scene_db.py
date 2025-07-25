@@ -1,5 +1,9 @@
 import sqlite3
 import json
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from env.utils import geometry_to_box  # ⬅ 確保已建立此函式並可引用
 
 def load_scene_and_items(db_path="item_scene_data.sqlite"):
     conn = sqlite3.connect(db_path)
@@ -10,16 +14,48 @@ def load_scene_and_items(db_path="item_scene_data.sqlite"):
     row = cursor.fetchone()
     scene = {"width": row[0], "height": row[1], "depth": row[2]}
 
-    # 載入物品
-    cursor.execute("SELECT name, properties FROM items")
+    # 載入物品與其屬性
+    cursor.execute("SELECT id, name FROM items")
     items = []
-    for name, props_json in cursor.fetchall():
-        properties = json.loads(props_json)
+    for item_id, name in cursor.fetchall():
+        cursor.execute("""
+            SELECT property_key, property_val
+            FROM item_properties
+            WHERE item_id = ?
+        """, (item_id,))
+        
+        # 建立 properties dict，防止解析錯誤
+        properties = {}
+        for key, val in cursor.fetchall():
+            try:
+                parsed = json.loads(val) if isinstance(val, str) else val
+            except Exception:
+                parsed = None
+            properties[key] = parsed
+
+        # 推測 geometry type（可用 name 或加欄位）
+        item_type = properties.get("geometryType") or infer_geometry_type(name)
+        size = geometry_to_box(item_type, properties)
+        properties["size"] = size  # 確保加入尺寸屬性
+
         items.append({"name": name, "properties": properties})
 
     conn.close()
     return scene, items
-  
+
+# 如果資料庫沒有 geometryType，可以用名稱推測（例如 "Sphere" → "SphereGeometry"）
+def infer_geometry_type(name):
+    name = name.lower()
+    if "sphere" in name:
+        return "SphereGeometry"
+    elif "cylinder" in name:
+        return "CylinderGeometry"
+    elif "cube" in name or "box" in name:
+        return "BoxGeometry"
+    elif "icosahedron" in name:
+        return "IcosahedronGeometry"
+    else:
+        return "Unknown"
 # 絕對路徑（根據實際位置調整）
 db_path = r"C:\Users\GIGABYTE\3js\three.js\src\rl_model\db\item_scene_data.sqlite"
 

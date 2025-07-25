@@ -1,4 +1,3 @@
--- 建立場景表
 CREATE TABLE IF NOT EXISTS scenes (
     id INTEGER PRIMARY KEY,
     width INTEGER,
