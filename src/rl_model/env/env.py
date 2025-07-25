@@ -1,84 +1,144 @@
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
 from gym import spaces
-from rl_model.db.item_scene_db import load_scene_and_items
-from rl_model.env.utils import get_item_size, check_overlap
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import os
+import sys
+
+# 模組匯入
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from db.item_scene_db import load_scene_and_items
+from env.utils import get_color
+from env.env_reward_utils import calculate_longterm_reward  # ✅ 新版獎懲
 
 class BackpackEnv(gym.Env):
-  def __init__(self):
-      super().__init__()
-      # 從資料庫載入場景與物品
-      self.scene, self.items = load_scene_and_items()
-      self.scene_width = self.scene["width"]
-      self.scene_height = self.scene["height"]
-      self.scene_depth = self.scene["depth"]
+    def __init__(self, db_path="item_scene_data.sqlite", enable_logs=True):
+        super(BackpackEnv, self).__init__()
+        self.enable_logs = enable_logs
+        self.log_messages = []
 
-      self.remaining_items = self.items.copy()
-      self.placed_items = []
+        # 載入場景與物品
+        scene, raw_items = load_scene_and_items(db_path)
+        self.scene_width = scene["width"]
+        self.scene_height = scene["height"]
+        self.scene_depth = scene["depth"]
+        self.scene_dims = (self.scene_width, self.scene_height, self.scene_depth)
 
-      obs_dim = 50 * 6
-      self.observation_space = spaces.Box(
-          low=0,
-          high=max(self.scene_width, self.scene_height, self.scene_depth),
-          shape=(obs_dim,),
-          dtype=np.float32
-      )
+        self.raw_items = raw_items
+        self.items = []
+        for item in raw_items:
+            size = item["properties"].get("size")
+            if isinstance(size, list) and len(size) == 3:
+                self.items.append(tuple(size))
+            elif self.enable_logs:
+                self.log_messages.append(f"❗ 無效尺寸，跳過: {item['name']} - {size}")
 
-      self.action_space = spaces.Box(
-          low=np.array([0, 0, 0, 0]),
-          high=np.array([len(self.items) - 1, self.scene_width, self.scene_height, self.scene_depth]),
-          dtype=np.float32
-      )
+        self.action_space = spaces.Box(
+            low=0,
+            high=max(self.scene_width, self.scene_height, self.scene_depth),
+            shape=(3,),
+            dtype=np.float32
+        )
 
-  def reset(self):
-      self.remaining_items = self.items.copy()
-      self.placed_items = []
-      return self._get_observation()
+        self.observation_space = spaces.Box(
+            low=0,
+            high=max(self.scene_width, self.scene_height, self.scene_depth),
+            shape=(len(self.items) * 6 + 4,),
+            dtype=np.float32
+        )
 
-  def step(self, action):
-      item_idx = int(action[0])
-      x, y, z = action[1:]
+        self.reset()
 
-      reward = 0
-      done = False
-      info = {}
+    def reset(self):
+        self.placed_items = []
+        self.current_index = 0
+        self.log_messages.clear()
+        return self._get_observation()
 
-      if item_idx < 0 or item_idx >= len(self.remaining_items):
-          return self._get_observation(), -2.0, done, info
+    def step(self, action):
+        if self.current_index >= len(self.items):
+            if self.enable_logs:
+                self._flush_logs()
+            return self._get_observation(), 0.0, True, {}
 
-      item = self.remaining_items[item_idx]
-      size = get_item_size(item["properties"])
-      pos = np.array([x, y, z])
+        name = self.raw_items[self.current_index]["name"]
+        size = self.items[self.current_index]
+        pos = np.clip(action, 0, [self.scene_width, self.scene_height, self.scene_depth])
+        item = {"name": name, "pos": np.array(pos), "size": np.array(size)}
 
-      if np.any(pos < 0) or np.any(pos + size > [self.scene_width, self.scene_height, self.scene_depth]):
-          reward = -2.0
-      elif check_overlap(pos, size, self.placed_items):
-          reward = -2.0
-      else:
-          self.placed_items.append({
-              "name": item["name"],
-              "pos": pos,
-              "size": size
-          })
-          self.remaining_items.pop(item_idx)
-          reward = 1.0
+        done = (self.current_index + 1) >= len(self.items)
+        reward, status = calculate_longterm_reward(item, self.placed_items, self.scene_dims, done)
 
-      if not self.remaining_items:
-          reward += 10.0
-          done = True
+        if status == "success":
+            self.placed_items.append(item)
 
-      return self._get_observation(), reward, done, info
+        if self.enable_logs:
+            self.log_messages.append(f"{status} ➤ {name} at {pos}, reward={reward:.2f}")
 
-  def _get_observation(self):
-      obs = []
-      for item in self.placed_items:
-          obs.extend(item["pos"].tolist())
-          obs.extend(item["size"].tolist())
-      while len(obs) < self.observation_space.shape[0]:
-          obs.append(0.0)
-      return np.array(obs, dtype=np.float32)
+        self.current_index += 1
 
-  def render(self, mode="human"):
-      print("目前擺放狀態：")
-      for item in self.placed_items:
-          print(f"- {item['name']} @ {item['pos']}")
+        if done and self.enable_logs:
+            self._flush_logs()
+
+        return self._get_observation(), reward, done, {}
+
+    def _get_observation(self):
+        obs = []
+        for item in self.placed_items:
+            obs.extend(item["pos"].tolist())
+            obs.extend(item["size"].tolist())
+
+        while len(obs) < len(self.items) * 6:
+            obs.append(0.0)
+
+        remaining_volume = self.scene_width * self.scene_height * self.scene_depth
+        used_volume = sum(np.prod(item["size"]) for item in self.placed_items)
+        obs.append(remaining_volume - used_volume)
+
+        if self.current_index < len(self.items):
+            obs.extend(self.items[self.current_index])
+        else:
+            obs.extend([0.0, 0.0, 0.0])
+
+        return np.array(obs, dtype=np.float32)
+
+    def _flush_logs(self):
+        print("\n🧾 放置紀錄")
+        for msg in self.log_messages:
+            print(f"  {msg}")
+
+    def render(self, mode="plot"):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_xlim([0, self.scene_width])
+        ax.set_ylim([0, self.scene_height])
+        ax.set_zlim([0, self.scene_depth])
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        plt.title("Backpack Packing")
+
+        for item in self.placed_items:
+            color = get_color(item["name"])
+            self._draw_box(ax, item["pos"], item["size"], color)
+
+        plt.tight_layout()
+        plt.show()
+
+    def _draw_box(self, ax, pos, size, color="skyblue"):
+        x, y, z = pos
+        dx, dy, dz = size
+        vertices = [
+            [x, y, z], [x + dx, y, z], [x + dx, y + dy, z], [x, y + dy, z],
+            [x, y, z + dz], [x + dx, y, z + dz], [x + dx, y + dy, z + dz], [x, y + dy, z + dz]
+        ]
+        faces = [
+            [vertices[i] for i in [0, 1, 2, 3]],
+            [vertices[i] for i in [4, 5, 6, 7]],
+            [vertices[i] for i in [0, 1, 5, 4]],
+            [vertices[i] for i in [2, 3, 7, 6]],
+            [vertices[i] for i in [1, 2, 6, 5]],
+            [vertices[i] for i in [0, 3, 7, 4]]
+        ]
+        ax.add_collection3d(Poly3DCollection(faces, facecolors=color, linewidths=0.3, edgecolors='k', alpha=0.7))
