@@ -23,3 +23,8 @@ Thumbs.db
 
 # parcel / vite / webpack cache
 .cache/
+
+
+# unnecessary files
+test_fole/
+rl_model/
