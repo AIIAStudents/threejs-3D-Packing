@@ -1,9 +1,18 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+// mouse controls
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+// scene configuration
 import { initPhysics, updatePhysics, createSphereBody, world } from './utils/physics.js';
 import { physicsObjects } from './utils/physics.js'; 
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// api stuff
+import { getSceneConfig } from './utils/sceneDataService.js';
+import { applyActionToScene } from './scene_api/applyActionToScene.js';
+import { sendSceneConfig, requestAgentAction } from './utils/agentAPI.js';
+import { submitScene } from './scene_api/submit_scene.js';
+// gltf, glb
+//import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// three.js shape files
 import { addObject_createIcosahedron } from './3js_shape_file/Icosahedron';
 import { addObject_createSphere } from './3js_shape_file/sphere';
 import { addObject_createcube } from './3js_shape_file/cube';
@@ -242,3 +251,21 @@ function animate(now = 0) {
   renderer.render(scene, camera);
 }
 animate();
+
+// 📤 按鈕事件綁定
+document.getElementById('send-scene-btn').addEventListener('click', () => {
+  const config = getSceneConfig(objects, boundarySize); // ⬅️ 這邊改回正確的收集函式
+  sendSceneConfig(config).then(data => {
+    console.log("後端收到場景:", data);
+  });
+});
+
+document.getElementById('request-action-btn').addEventListener('click', () => {
+  const state = getSceneConfig(objects, boundarySize); // 同上
+  requestAgentAction(state).then(data => {
+    const { action, reward } = data;
+    applyActionToScene(action, objects, physicsObjects);;
+    document.getElementById('reward-text').textContent = reward;
+    console.log("動作:", action, "Reward:", reward);
+  });
+});
