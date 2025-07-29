@@ -1,0 +1,11 @@
+{
+  "name": "default_playground",
+  "description": "Basic test scene with 5 starter shapes and physics interaction",
+  "components": {
+    "meta": "environment_meta.json",
+    "creation": "object_creation.json",
+    "objects": "object_config.json"
+  },
+  "version": "1.0",
+  "recommendedFor": ["debugging", "reward shaping", "GUI testing"]
+}

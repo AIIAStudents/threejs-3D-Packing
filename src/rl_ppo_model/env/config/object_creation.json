@@ -1,0 +1,12 @@
+{
+  "objectCreation": {
+    "methods": [
+      "icosahedron",
+      "sphere",
+      "cube",
+      "mysterybox",
+      "cylinder"
+    ],
+    "trigger": "icon-click"
+  }
+}
