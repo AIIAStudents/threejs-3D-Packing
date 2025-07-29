@@ -26,5 +26,5 @@ Thumbs.db
 
 
 # unnecessary files
-test_fole/
-rl_model/
+src/js/test_file/
+src/js/rl_model/
