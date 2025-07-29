@@ -167,3 +167,37 @@ a {
 #dat-gui-container {
   margin-top: 10px;
 }
+
+/* ----------------------這是分隔線(for agent-panel)------------------- */
+
+#agent-panel {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 99;
+}
+
+#agent-panel button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 14px;
+  background-color: #eeeeee;
+  border: none;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#agent-panel button:hover {
+  background-color: #ddd;
+}
+
+#agent-panel p {
+  margin: 0;
+  font-size: 14px;
+}
