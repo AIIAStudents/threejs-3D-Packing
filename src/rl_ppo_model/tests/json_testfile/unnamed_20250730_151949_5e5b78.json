@@ -1,0 +1,97 @@
+{
+  "environment_meta": {
+    "boundarySize": 150
+  },
+  "objects": [
+    {
+      "uuid": "ec0b9871-cc66-4776-88a1-8c834c119453",
+      "type": "IcosahedronGeometry",
+      "position": {
+        "x": -50,
+        "y": -65.00000246727255,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "material": {
+        "color": 16774631,
+        "metalness": 0,
+        "roughness": 1
+      }
+    },
+    {
+      "uuid": "6f569ba6-be43-4df5-be89-878c94d7cbb3",
+      "type": "SphereGeometry",
+      "position": {
+        "x": -25,
+        "y": -65.00000246727255,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "material": {
+        "color": 16765404,
+        "metalness": 0,
+        "roughness": 1
+      }
+    },
+    {
+      "uuid": "51a94d61-0acc-4a62-adb6-e2550da65931",
+      "type": "BoxGeometry",
+      "position": {
+        "x": 2.3987091387511397,
+        "y": -47.48651504327427,
+        "z": 1.7011926284571188
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "material": {
+        "color": 13430527,
+        "metalness": 0,
+        "roughness": 1
+      }
+    },
+    {
+      "uuid": "231c8475-c025-4d1e-8401-46c960b7e767",
+      "type": "CylinderGeometry",
+      "position": {
+        "x": 2.179941420756508,
+        "y": -64.98764103249475,
+        "z": 3.287587537228514
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "material": {
+        "color": 16764074,
+        "metalness": 0,
+        "roughness": 1
+      }
+    },
+    {
+      "uuid": "768faee1-cd33-413a-a00c-29aba3140ec0",
+      "type": "BufferGeometry",
+      "position": {
+        "x": 50,
+        "y": -59.84223336775533,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1
+      },
+      "material": {
+        "color": 16742144,
+        "metalness": 0,
+        "roughness": 1
+      }
+    }
+  ]
+}
