@@ -195,7 +195,7 @@ canvas.addEventListener('pointerdown', (event) => {
     raycaster.ray.intersectPlane(plane, intersection);
     offset.copy(intersection).sub(selectedObject.position);
   }
-});
+}, { passive: true });
 
 canvas.addEventListener('pointermove', (event) => {
   if (controls.enabled || !isDragging || !selectedObject) return;;
@@ -224,12 +224,14 @@ canvas.addEventListener('pointermove', (event) => {
       obj.body.velocity.set(0, 0, 0);
     }
   }
-});
+}, { passive: true });
+
 
 canvas.addEventListener('pointerup', () => {
   selectedObject = null;
   isDragging = false;
-});
+}, { passive: true });
+
 
 //降低每秒渲染次數
 let lastFrameTime = 0;
@@ -252,20 +254,29 @@ function animate(now = 0) {
 }
 animate();
 
-// 📤 按鈕事件綁定
-document.getElementById('send-scene-btn').addEventListener('click', () => {
-  const config = getSceneConfig(objects, boundarySize); // ⬅️ 這邊改回正確的收集函式
-  sendSceneConfig(config).then(data => {
-    console.log("後端收到場景:", data);
-  });
+// 📤 場景提交按鈕
+document.getElementById('send-scene-btn').addEventListener('click', async () => {
+  try {
+    const config = getSceneConfig(objects, boundarySize);
+    const data = await sendSceneConfig(config);
+    console.log("✅ 後端收到場景:", data);
+  } catch (error) {
+    console.error("❌ 場景提交失敗:", error);
+  }
 });
 
-document.getElementById('request-action-btn').addEventListener('click', () => {
-  const state = getSceneConfig(objects, boundarySize); // 同上
-  requestAgentAction(state).then(data => {
+// 行動請求按鈕
+document.getElementById('request-action-btn').addEventListener('click', async () => {
+  try {
+    const state = getSceneConfig(objects, boundarySize);
+    const data = await requestAgentAction(state);
+
     const { action, reward } = data;
-    applyActionToScene(action, objects, physicsObjects);;
+    applyActionToScene(action, objects, physicsObjects);
     document.getElementById('reward-text').textContent = reward;
-    console.log("動作:", action, "Reward:", reward);
-  });
+    
+    console.log(" 動作:", action, "|  Reward:", reward);
+  } catch (error) {
+    console.error("❌ 動作請求失敗:", error);
+  }
 });
