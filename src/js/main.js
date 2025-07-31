@@ -6,7 +6,7 @@ import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { initPhysics, updatePhysics, createSphereBody, world } from './utils/physics.js';
 import { physicsObjects } from './utils/physics.js'; 
 // api stuff
-import { getSceneConfig } from './utils/sceneDataService.js';
+import { getLiveSceneSnapshot, getSceneConfig } from './utils/sceneDataService.js';
 import { applyActionToScene } from './scene_api/applyActionToScene.js';
 import { sendSceneConfig, requestAgentAction } from './utils/agentAPI.js';
 import { submitScene } from './scene_api/submit_scene.js';
@@ -253,13 +253,12 @@ function animate(now = 0) {
   renderer.render(scene, camera);
 }
 animate();
-
 // 📤 場景提交按鈕
 document.getElementById('send-scene-btn').addEventListener('click', async () => {
   try {
-    const config = getSceneConfig(objects, boundarySize);
-    const data = await sendSceneConfig(config);
-    console.log("✅ 後端收到場景:", data);
+    const config = getSceneConfig(objects, boundarySize);  // ✅ 已包含 geometry 和 physics
+    const response = await sendSceneConfig(config);
+    console.log("✅ 後端收到場景:", response);
   } catch (error) {
     console.error("❌ 場景提交失敗:", error);
   }
@@ -268,14 +267,14 @@ document.getElementById('send-scene-btn').addEventListener('click', async () => 
 // 行動請求按鈕
 document.getElementById('request-action-btn').addEventListener('click', async () => {
   try {
-    const state = getSceneConfig(objects, boundarySize);
-    const data = await requestAgentAction(state);
+    const state = getLiveSceneSnapshot(objects, boundarySize);  // 場景json
+    const response = await requestAgentAction(state);     // 呼叫Flask
 
-    const { action, reward } = data;
-    applyActionToScene(action, objects, physicsObjects);
+    const { action, reward } = response;
+    applyActionToScene(action, objects, physicsObjects);  //  場景動作
     document.getElementById('reward-text').textContent = reward;
-    
-    console.log(" 動作:", action, "|  Reward:", reward);
+
+    console.log("🚀 動作:", action, "| 🏆 Reward:", reward);
   } catch (error) {
     console.error("❌ 動作請求失敗:", error);
   }
