@@ -8,6 +8,7 @@ from flask_cors import CORS
 #  導入強化學習環境與場景管理器
 from rl_ppo_model.env.item_env import EnvClass
 from rl_ppo_model.core.scene_manager import SceneManager
+from rl_ppo_model.ppo_agent.train_agent import run_training_step
 
 #  初始化 Flask 應用與 CORS
 app = Flask(__name__)
@@ -79,14 +80,19 @@ def submit_scene():
 def get_action():
     try:
         state = request.get_json()
-        action, reward = env.step_from_state(state)
+
+        # ✅ 利用 state 初始化環境
+        env.load_from_state(state)
+
+        # ✅ 執行訓練（例如用 train_agent 裡的 PPO 模型）
+        action, reward = run_training_step(env)
+
         return jsonify({
             "action": action,
             "reward": reward
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 400
-
 #  啟動 Flask 伺服器
 if __name__ == "__main__":
     app.run(port=8888)
