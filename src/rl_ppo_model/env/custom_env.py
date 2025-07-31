@@ -1,9 +1,10 @@
-import gym
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 from env.env_reward import calculate_longterm_reward
+import gymnasium as gym
 
 class CustomEnv(gym.Env):
+
     def __init__(self):
         super(CustomEnv, self).__init__()
 
@@ -20,27 +21,32 @@ class CustomEnv(gym.Env):
 
         self.state = self._generate_scene()
 
-    def reset(self):
+    def reset(self, seed: int = None, options: dict = None):
+        super().reset(seed=seed)
         self.placed_items = []
         self.step_count = 0
         self.state = self._generate_scene()
-        return self.state
+
+        info = {}  # 可加上初始 metadata
+        return self.state, info
 
     def step(self, action):
         self.step_count += 1
-        done = self.step_count >= self.max_steps
 
         item = self._action_to_item(action)
-
-        reward, status = calculate_longterm_reward(item, self.placed_items, self.scene_dims, done)
+        reward, status = calculate_longterm_reward(item, self.placed_items, self.scene_dims, False)
 
         if status == "success":
             self.placed_items.append(item)
 
         self.state = self._update_scene(item)
+
+        terminated = False  # 你可根據狀態進行終止判斷
+        truncated = self.step_count >= self.max_steps
+
         info = {"status": status, "placed": len(self.placed_items)}
 
-        return self.state, reward, done, info
+        return self.state, reward, terminated, truncated, info
 
     def render(self, mode='human'):
         # 可整合 Three.js 或建立 matplotlib 可視化
@@ -68,3 +74,17 @@ class CustomEnv(gym.Env):
         # 固定大小 or 可隨機調整
         size = np.array([15, 15, 15])
         return {"pos": np.array([x, y, z]), "size": size}
+        
+    def load_scene(self, data):
+        self.placed_items = []
+        self.step_count = 0
+        self.state = self._generate_scene()
+        self.current_scene_id = data.get("scene_id", "unknown_scene")
+
+        for obj in data.get("objects", []):
+            item = {
+                "pos": np.array(obj["pos"]),
+                "size": np.array(obj["size"])
+            }
+            self.placed_items.append(item)
+            self.state = self._update_scene(item)
