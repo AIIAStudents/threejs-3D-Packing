@@ -28,3 +28,4 @@ Thumbs.db
 # unnecessary files
 src/test_file/
 src/rl_model/
+src/rl_ppo_model/tests/
