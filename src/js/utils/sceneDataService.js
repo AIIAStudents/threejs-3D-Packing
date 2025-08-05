@@ -63,9 +63,12 @@ export function inferShape(geoType) {
   return "mesh";
 }
 
-
 // 獲取當前場景、物品資訊
 export function getLiveSceneSnapshot(scene, boundarySize) {
+  if (!scene || !Array.isArray(scene.children)) {
+    console.warn("⚠️ scene 物件異常：", scene);
+    return getSceneConfig([], boundarySize);
+  }
   const currentObjects = scene.children.filter(obj => obj.isMesh && obj.visible);
   return getSceneConfig(currentObjects, boundarySize);
 }

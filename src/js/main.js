@@ -264,16 +264,25 @@ document.getElementById('send-scene-btn').addEventListener('click', async () => 
   }
 });
 
-// 行動請求按鈕
+// 行動請求按鈕：取得場景 → 發送 → 應用動作
 document.getElementById('request-action-btn').addEventListener('click', async () => {
   try {
-    const state = getLiveSceneSnapshot(objects, boundarySize);  // 場景json
-    const response = await requestAgentAction(state);     // 呼叫Flask
 
+    const state = getLiveSceneSnapshot(scene, boundarySize);  // ✅ 正確傳入 scene 而不是 objects
+    console.log("📦 送出前的 state:", JSON.stringify(state, null, 2)); // 看看 state 結構
+    const response = await requestAgentAction(state);  // 呼叫 Flask 後端
     const { action, reward } = response;
-    applyActionToScene(action, objects, physicsObjects);  //  場景動作
-    document.getElementById('reward-text').textContent = reward;
 
+    // 二層保險：後端資料-action資料檢查
+    if (!action || !action.uuid) {
+      alert("⚠️ 後端沒有回傳有效的動作！");
+      console.warn("⚠️ action 無效！response:", response);
+      return; // 不執行後面的套用
+    }
+
+    applyActionToScene(action, objects, physicsObjects);  // ✅ 套用動作到場景物件
+
+    document.getElementById('reward-text').textContent = reward;
     console.log("🚀 動作:", action, "| 🏆 Reward:", reward);
   } catch (error) {
     console.error("❌ 動作請求失敗:", error);
