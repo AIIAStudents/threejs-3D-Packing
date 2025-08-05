@@ -81,18 +81,36 @@ def get_action():
     try:
         state = request.get_json()
 
+        # 🔍 資料格式檢查
+        if not state or 'objects' not in state or not isinstance(state['objects'], list):
+            return jsonify({
+                "error": "場景資料錯誤：缺少 'objects' 欄位或格式不正確"
+            }), 400
+
+        for i, obj in enumerate(state['objects']):
+            if 'uuid' not in obj or 'position' not in obj:
+                return jsonify({
+                    "error": f"第 {i} 個物件缺少必要欄位：uuid 或 position",
+                    "object": obj
+                }), 400
+
         # ✅ 利用 state 初始化環境
         env.load_from_state(state)
 
-        # ✅ 執行訓練（例如用 train_agent 裡的 PPO 模型）
+        # ✅ 執行訓練
         action, reward = run_training_step(env)
 
+        # 🎯 成功回應
         return jsonify({
             "action": action,
             "reward": reward
         })
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        print("🔥 執行 get_action 發生例外：", str(e))
+        return jsonify({
+            "error": f"執行失敗：{str(e)}"
+        }), 400
 #  啟動 Flask 伺服器
 if __name__ == "__main__":
     app.run(port=8888)
