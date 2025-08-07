@@ -2,56 +2,83 @@ import os
 import json
 import uuid
 import datetime
+import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from gymnasium.utils.env_checker import check_env
 
-#  導入強化學習環境與場景管理器
+# 導入強化學習環境與場景管理器
 from rl_ppo_model.env.item_env import EnvClass
+from rl_ppo_model.env.custom_env import CustomEnv
 from rl_ppo_model.core.scene_manager import SceneManager
 from rl_ppo_model.ppo_agent.train_agent import run_training_step
 
-#  初始化 Flask 應用與 CORS
+# 初始化 Flask 應用與 CORS
 app = Flask(__name__)
-CORS(app)  # 允許跨來源請求
+CORS(app)
 
-#  初始化環境與場景管理器
-env = EnvClass()
+# 初始化環境與場景管理器（只為 submit_scene）
+init_env = EnvClass()
 scene_mgr = SceneManager.get_instance()
-scene_mgr.attach_env(env)
+scene_mgr.attach_env(init_env)
 
-#  預設首頁提示
 @app.route('/')
 def home():
     return "🎉 API 已成功啟動！請使用 /status, /submit_scene 或 /get_action"
 
-#  API 健康檢查
 @app.route('/status')
 def status():
     return {'ok': True}
 
-#  提交場景路由
 @app.route('/submit_scene', methods=['GET', 'POST', 'OPTIONS'])
 def submit_scene():
-    # 禁止使用 GET 方法提交場景
-    if request.method == 'GET':
-        return jsonify({"error": "請使用 POST 方法提交場景資料"}), 405
-
-    # CORS 預檢請求回應
     if request.method == 'OPTIONS':
         return '', 200
+    if request.method != 'POST':
+        return jsonify({
+            "error_code": "METHOD_NOT_ALLOWED",
+            "error": "請使用 POST 方法提交場景資料"
+        }), 405
+
+    data = request.get_json(silent=True)
+    if data is None:
+        print("收到前端場景資料：None")
+        return jsonify({
+            "error_code": "NO_JSON",
+            "error": "未收到任何 JSON 資料"
+        }), 400
+
+    print("收到前端場景資料：", json.dumps(data, indent=2, ensure_ascii=False))
+
+    if not isinstance(data, dict):
+        return jsonify({
+            "error_code": "INVALID_JSON",
+            "error": "JSON 格式不正確"
+        }), 400
+
+    if 'objects' not in data or not isinstance(data['objects'], list):
+        return jsonify({
+            "error_code": "INVALID_OBJECTS",
+            "error": "缺少 objects 欄位或格式錯誤"
+        }), 400
+
+    for idx, obj in enumerate(data['objects']):
+        if not isinstance(obj, dict):
+            return jsonify({
+                "error_code": "INVALID_OBJECT_ITEM",
+                "error": f"第 {idx} 個物件格式錯誤，需為物件"
+            }), 400
+        if 'position' not in obj or 'scale' not in obj:
+            return jsonify({
+                "error_code": "MISSING_FIELDS",
+                "error": f"第 {idx} 個物件缺少 position 或 scale"
+            }), 400
 
     try:
-        # 解析 JSON 資料
-        data = request.get_json()
-        print(f"[method] {request.method}")
-        print(f"[headers] {request.headers}")
-        print(f"[data] {json.dumps(data, indent=2, ensure_ascii=False)}")
+        # 只用 init_env 驗證和載入
+        init_env.load_scene(data)
 
-        #  載入場景進 RL 環境
-        env.load_scene(data)
-        num_objects = len(data.get("objects", []))
-
-        # 🗂 儲存 JSON 檔案
+        # 儲存 JSON 檔案
         scene_id = data.get("scene_id", "unnamed")
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:6]
@@ -64,43 +91,56 @@ def submit_scene():
         with open(save_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        print(f"[ JSON 已儲存] {save_path}")
-
         return jsonify({
             "status": "scene received",
-            "num_objects": num_objects,
+            "num_objects": len(data["objects"]),
             "saved_to": save_path
         })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({
+            "error_code": "SERVER_ERROR",
+            "error": str(e),
+            "trace": traceback.format_exc()
+        }), 500
 
-#  根據場景狀態產出行動與獎勵
 @app.route('/get_action', methods=['POST'])
 def get_action():
     try:
         state = request.get_json()
 
-        # 🔍 資料格式檢查
         if not state or 'objects' not in state or not isinstance(state['objects'], list):
             return jsonify({
                 "error": "場景資料錯誤：缺少 'objects' 欄位或格式不正確"
             }), 400
 
         for i, obj in enumerate(state['objects']):
-            if 'uuid' not in obj or 'position' not in obj:
+            missing_fields = []
+            if 'uuid' not in obj:
+                missing_fields.append('uuid')
+            if 'position' not in obj:
+                missing_fields.append('position')
+            if 'scale' not in obj:
+                missing_fields.append('scale')
+
+            if missing_fields:
                 return jsonify({
-                    "error": f"第 {i} 個物件缺少必要欄位：uuid 或 position",
+                    "error": f"第 {i} 個物件缺少欄位：{', '.join(missing_fields)}",
                     "object": obj
                 }), 400
 
-        # ✅ 利用 state 初始化環境
-        env.load_from_state(state)
+        # 每次請求都 new 一個 CustomEnv（推薦直接將 state 傳給 __init__）
+        train_env = CustomEnv(state)
 
-        # ✅ 執行訓練
-        action, reward = run_training_step(env)
+        try:
+            check_env(train_env)
+        except Exception as e:
+            return jsonify({
+                "error": f"環境格式錯誤：{str(e)}"
+            }), 400
 
-        # 🎯 成功回應
+        action, reward = run_training_step(train_env)
+
         return jsonify({
             "action": action,
             "reward": reward
@@ -111,6 +151,6 @@ def get_action():
         return jsonify({
             "error": f"執行失敗：{str(e)}"
         }), 400
-#  啟動 Flask 伺服器
+
 if __name__ == "__main__":
     app.run(port=8888)
