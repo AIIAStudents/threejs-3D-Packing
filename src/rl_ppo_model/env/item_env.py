@@ -1,130 +1,67 @@
-import gymnasium as gym
-import torch
-import numpy as np
-from gymnasium import spaces
-from .config.utils import load_scene_config
+# rl_ppo_model/env/item_env.py
+import copy
 from rl_ppo_model.utils.scene_preprocess import normalize_object
 
-class EnvClass(gym.Env):
-    metadata = {"render_modes": ["human"], "render_fps": 30}
+class EnvClass:
+    """
+    EnvClass ：
+      1) load_scene: 接收原始場景 dict，做欄位驗證
+      2) 資料標準化：呼叫 normalize_object() 產生統一格式
+      3) 提供 get_objects() 回傳標準化後的物件列表
+    """
 
-    def __init__(self, render_mode=None):
-        super().__init__()
-        self.scene = None
+    def __init__(self):
+        self.scene_data = None
         self.objects = []
-        self.agent = None
-
-        self.max_objects = 20
-        self.obs_dim = 18
-        self.step_limit = 100
-        self.step_count = 0
-        self.render_mode = render_mode
-        self._rng = np.random.default_rng()
-
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(self.max_objects, self.obs_dim),
-            dtype=np.float32
-        )
-
-        self.action_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
-            shape=(3,),
-            dtype=np.float32
-        )
-
-    def load_scene(self, scene_data: dict):
-        self.scene = scene_data
-        raw_objects = scene_data.get("objects", [])
-        self.objects = [normalize_object(obj) for obj in raw_objects]
-
-    def reset(self, *, seed=None, options=None):
-        super().reset(seed=seed)
-        if seed is not None:
-            self._rng = np.random.default_rng(seed)
-            torch.manual_seed(seed)
-
-        if not self.scene:
-            raise RuntimeError("請先呼叫 load_scene(scene_data)")
-        self.step_count = 0
-
-        obs = self._get_obs()
-        info = {}
-        return obs, info
-
-    def step(self, action):
-        if not self.scene:
-            raise RuntimeError("請先呼叫 load_scene(scene_data)")
-        self.step_count += 1
-
-        reward = self._compute_reward(self.scene, action)
-        obs = self._get_obs()
-        terminated = self.step_count >= self.step_limit
-        truncated = False
-        info = {}
-
-        return obs, reward, terminated, truncated, info
-
-    def _get_obs(self):
-        tensor = self.get_state_tensor()
-        pad_size = self.max_objects - tensor.shape[0]
-        if pad_size > 0:
-            pad = torch.zeros((pad_size, self.obs_dim))
-            tensor = torch.cat([tensor, pad], dim=0)
-        return tensor.numpy()
-
-    def _compute_reward(self, state, action):
-        return 1.0  # TODO: 根據任務定義計算 reward
-
-    def get_state_tensor(self):
-        state = []
-        for obj in self.objects:
-            pos = obj["position"]
-            scale = obj["scale"]
-            material = obj["material"]
-            rotation = obj["rotation"]
-            bbox = obj["bbox"]
-            velocity = obj["velocity"]
-
-            feat = [
-                pos["x"], pos["y"], pos["z"],
-                scale["x"], scale["y"], scale["z"],
-                material["metalness"],
-                material["roughness"],
-                material["color"] / 16777215,
-                rotation["x"], rotation["y"], rotation["z"],
-                bbox["width"], bbox["height"], bbox["depth"],
-                velocity["x"], velocity["y"], velocity["z"]
-            ]
-            state.append(feat)
-
-        return torch.tensor(state, dtype=torch.float32)
-
-    def render(self):
-        if self.render_mode == "human":
-            print(f"Rendering scene with {len(self.objects)} objects")
-
-    def close(self):
+    
+    def update_scene(self, items):
+        # 根據需求補充
         pass
     
-if __name__ == "__main__":
-    scene = load_scene_config()
-    print("[初始化容器]", scene["environment_meta"]["container"])
-    print("[物件數量]", len(scene["objects"]))
+    def load_scene(self, scene_data: dict):
+        """
+        載入並驗證場景資料。
+        :param scene_data: 必須包含 'objects'（list），每個 obj 為 dict。
+        """
+        self._validate_scene_data(scene_data)
+        # 深拷貝原始資料，避免外部修改影響
+        self.scene_data = copy.deepcopy(scene_data)
 
-    env = EnvClass()
-    env.load_scene(scene)
+        raw_objects = scene_data.get("objects", [])
+        # 標準化每個物件結構，呼叫 normalize_object 產生完整欄位
+        self.objects = [normalize_object(obj) for obj in raw_objects]
 
-    obs, info = env.reset(seed=42)
-    print("[初始觀察值 Shape]", obs.shape)
+    def _validate_scene_data(self, data: dict):
+        if not isinstance(data, dict):
+            raise ValueError("scene_data 必須為 dict")
 
-    action = env.action_space.sample()
-    print("[隨機動作]", action)
+        if "objects" not in data or not isinstance(data["objects"], list):
+            raise ValueError("場景資料必須包含 'objects' 欄位且為 list")
 
-    next_obs, reward, terminated, truncated, info = env.step(action)
-    print("[Agent 執行後觀察]", next_obs.shape)
-    print("[Reward]", reward)
-    print("[Terminated]", terminated)
-    print("[Truncated]", truncated)
+        for i, obj in enumerate(data["objects"]):
+            if not isinstance(obj, dict):
+                raise ValueError(f"第 {i} 個物件格式錯誤，應為 dict")
+
+            # 檢查最基本必要欄位
+            for field in ("uuid", "position", "scale"):
+                if field not in obj:
+                    raise ValueError(f"第 {i} 個物件缺少 '{field}' 欄位")
+
+    def get_objects(self) -> list:
+        """
+        回傳 normalize_object(obj) 後的列表，
+        每個元素都長得像：
+        {
+          "uuid": str,
+          "position": {...},
+          "scale": {...},
+          "material": {...},
+          "rotation": {...},
+          "bbox": {...},
+          "velocity": {...},
+          ...
+        }
+        """
+        if self.scene_data is None:
+            raise RuntimeError("請先呼叫 load_scene(scene_data)")
+        return self.objects
