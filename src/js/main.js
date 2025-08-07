@@ -6,7 +6,7 @@ import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 import { initPhysics, updatePhysics, createSphereBody, world } from './utils/physics.js';
 import { physicsObjects } from './utils/physics.js'; 
 // api stuff
-import { getLiveSceneSnapshot, getSceneConfig } from './utils/sceneDataService.js';
+import { getLiveSceneSnapshot, getSceneConfig, validateSceneConfig } from './utils/sceneDataService.js';
 import { applyActionToScene } from './scene_api/applyActionToScene.js';
 import { sendSceneConfig, requestAgentAction } from './utils/agentAPI.js';
 import { submitScene } from './scene_api/submit_scene.js';
@@ -256,13 +256,26 @@ animate();
 // 📤 場景提交按鈕
 document.getElementById('send-scene-btn').addEventListener('click', async () => {
   try {
-    const config = getSceneConfig(objects, boundarySize);  // ✅ 已包含 geometry 和 physics
+    // 1. 組裝場景資料
+    const config = getSceneConfig(objects, boundarySize);
+
+    // 2. 送出前印出 JSON 結構，方便除錯
+    console.log("🚀 送出的 JSON 資料：", JSON.stringify(config, null, 2));
+
+    // 3. 基本驗證：objects 必須存在且為陣列
+    if (!validateSceneConfig(config)) {
+      console.error("❌ 場景資料格式錯誤，缺少 objects 陣列或欄位不完整");
+      return;
+    }
+    // 4. 呼叫 API
     const response = await sendSceneConfig(config);
     console.log("✅ 後端收到場景:", response);
+
   } catch (error) {
-    console.error("❌ 場景提交失敗:", error);
+    console.error("❌ 場景提交失敗:", error.message);
   }
 });
+
 
 // 行動請求按鈕：取得場景 → 發送 → 應用動作
 document.getElementById('request-action-btn').addEventListener('click', async () => {

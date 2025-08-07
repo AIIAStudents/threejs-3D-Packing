@@ -15,9 +15,18 @@ export async function sendSceneConfig(sceneConfig) {
       body: JSON.stringify(sceneConfig)
     });
 
+    // 若非 2xx，嘗試讀取錯誤訊息
     if (!response.ok) {
-      console.error("🔴 [submit_scene] 伺服器回傳錯誤狀態碼：", response.status);
-      throw new Error(`伺服器返回錯誤：${response.status}`);
+      let errData = {};
+      try {
+        errData = await response.json();
+      } catch (_) {}
+      console.error(
+        `🔴 [submit_scene] 錯誤狀態碼：${response.status}`,
+        errData.error_code,
+        errData.error
+      );
+      throw new Error(errData.error || `伺服器返回錯誤：${response.status}`);
     }
 
     const data = await response.json();
@@ -26,9 +35,10 @@ export async function sendSceneConfig(sceneConfig) {
 
   } catch (error) {
     console.error("❌ [submit_scene] 提交場景時發生錯誤:", error.message);
-    return { status: "error", num_objects: 0, message: error.message };
+    throw error;
   }
 }
+
 
 /**
  * 傳送當前狀態並請 agent 執行動作（已加雙層安全檢查）

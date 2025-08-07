@@ -72,3 +72,14 @@ export function getLiveSceneSnapshot(scene, boundarySize) {
   const currentObjects = scene.children.filter(obj => obj.isMesh && obj.visible);
   return getSceneConfig(currentObjects, boundarySize);
 }
+
+/**
+ * 簡易驗證場景資料格式
+ */
+export function validateSceneConfig(config) {
+  if (!config.objects || !Array.isArray(config.objects)) return false;
+  for (const obj of config.objects) {
+    if (!obj.position || !obj.scale) return false;
+  }
+  return true;
+}
