@@ -54,10 +54,10 @@ def check_validity(item, placed_items, scene_dims):
 
     return (len(reasons) == 0), reasons
 
-
 def is_out_of_bounds(item, scene_dims):
-    return np.any(item["pos"] < 0) or np.any(item["pos"] + item["size"] > scene_dims)
-
+    half_dims = scene_dims / 2.0
+    return np.any(item["pos"] - item["size"] / 2 < -half_dims) or \
+           np.any(item["pos"] + item["size"] / 2 > half_dims)
 
 def has_overlap(new_item, placed_items):
     for it in placed_items:

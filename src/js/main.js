@@ -253,6 +253,13 @@ function animate(now = 0) {
   renderer.render(scene, camera);
 }
 animate();
+
+/*
+
+RL - PPO 模型 (有點失敗)
+這邊是定義"送出場景"、"請求動作"的按鈕事件處理邏輯
+*/
+
 // 📤 場景提交按鈕
 document.getElementById('send-scene-btn').addEventListener('click', async () => {
   try {
@@ -294,7 +301,16 @@ document.getElementById('request-action-btn').addEventListener('click', async ()
     }
 
     applyActionToScene(action, objects, physicsObjects);  // ✅ 套用動作到場景物件
+    console.log("🎯 Reward:", reward);
+    console.log("✅ Done:", response.done);
+    console.log("📦 Info:", response.info);
 
+    if (reward > 0) {
+      alert("👍 成功放置物件！");
+    }
+    if (response.done) {
+      alert("🎉 任務完成！");
+    }
     document.getElementById('reward-text').textContent = reward;
     console.log("🚀 動作:", action, "| 🏆 Reward:", reward);
   } catch (error) {

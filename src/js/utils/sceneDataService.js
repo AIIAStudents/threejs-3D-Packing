@@ -55,6 +55,7 @@ export function serializeObject(object) {
   };
 }
 
+
 export function inferShape(geoType) {
   if (geoType === "BoxGeometry") return "box";
   if (geoType === "SphereGeometry") return "sphere";

@@ -129,28 +129,28 @@ def get_action():
                     "object": obj
                 }), 400
 
-        # 每次請求都 new 一個 CustomEnv（推薦直接將 state 傳給 __init__）
+        # 初始化環境
         train_env = CustomEnv(state)
 
         try:
+            print("[API] calling check_env...")
             check_env(train_env)
+            print("[API] check_env passed")
         except Exception as e:
             return jsonify({
                 "error": f"環境格式錯誤：{str(e)}"
             }), 400
 
-        action, reward = run_training_step(train_env)
+        # 執行推論，拿到完整結果 dict
+        result = run_training_step(train_env)
 
-        return jsonify({
-            "action": action,
-            "reward": reward
-        })
+        # 直接回傳整包結果
+        return jsonify(result)
 
     except Exception as e:
         print("🔥 執行 get_action 發生例外：", str(e))
         return jsonify({
             "error": f"執行失敗：{str(e)}"
         }), 400
-
 if __name__ == "__main__":
     app.run(port=8888)
