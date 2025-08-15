@@ -26,8 +26,19 @@ html, body {
   overflow: hidden;
 }
 
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
 #app {
   display: flex;
+}
+
+#canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
 }
@@ -442,4 +453,84 @@ html, body {
 
 .objects-list::-webkit-scrollbar-thumb:hover {
   background: var(--button-hover);
+}
+
+/* ----------------------這是分隔線------------------- */
+/* 工具列位置與背景 */
+#icon-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 0;
+  z-index: 9999;
+  backdrop-filter: blur(6px);
+  background-color: rgba(17, 17, 17, 0.6);
+  pointer-events: none;
+}
+
+/* 隱藏 class 控制 */
+.hidden {
+  display: none;
+}
+
+/* 包裹 SVG 的容器 */
+.icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: #111;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* SVG 圓形樣式（空心圓） */
+.circle-icon {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: #aaa;
+  stroke-width: 32;
+  transition: stroke 0.3s ease;
+}
+
+/* Tooltip 提示字 */
+.tooltip {
+  position: absolute;
+  bottom: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #eee;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+/* 滑鼠滑過效果 */
+.icon-wrapper:hover {
+  background-color: #333;
+}
+
+.icon-wrapper:hover .circle-icon {
+  stroke: #fff;
+}
+
+.icon-wrapper:hover .tooltip {
+  opacity: 1;
 }
