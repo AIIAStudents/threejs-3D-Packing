@@ -4,30 +4,21 @@ import * as CANNON from 'cannon-es';
 import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
 // scene configuration
 import { initPhysics, updatePhysics, addPhysicsObject, removePhysicsObject, world } from './utils/physics.js';
-
 // 模組
 import { ObjectManager } from './modules/objectManager.js';
 import { MouseControls } from './modules/mouseControls.js';
 import { PackingManager } from './modules/packingManager.js';
 import { ObjectCreator } from './modules/objectCreator.js';
-
 // 3D Bin Packing API
 import {
   requestBinPacking,
-  getJobStatus,
-  cancelJob,
   pollJobUntilComplete,
-  createPackRequest,
-  convertObjectsToPackFormat,
-  applyPackingResult,
-  updateProgressDisplay
 } from './utils/binPackingAPI.js';
 
 // 全局變數
 let scene, camera, renderer, controls;
 let objectManager, mouseControls, packingManager, objectCreator;
-const containers = [];
-let currentContainer = null;
+
 
 // 容器尺寸與邊界
 const boundarySize = 120;
@@ -101,19 +92,22 @@ function initThreeJS() {
   camera.position.set(120, 120, 240);
   camera.lookAt(60, 60, 120);
   camera.updateProjectionMatrix();
-
+  
+  // 相機位置、觀察目標、寬高比
   console.log('Camera position set to:', camera.position);
   console.log('Camera target:', new THREE.Vector3(0, 0, 0));
   console.log('Camera aspect ratio:', camera.aspect);
-
+  // 背景顏色
   scene.background = new THREE.Color(0xffffff);
 
+  // 渲染器
   const canvas = document.getElementById('canvas');
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
+  
+  // 渲染器大小
   const width = window.innerWidth - 300;
   const height = window.innerHeight;
   renderer.setSize(width, height, false);
@@ -238,36 +232,26 @@ function setupEventListeners() {
 // 動畫循環
 function animate() {
   requestAnimationFrame(animate);
-  
-  // 檢查場景是否需要更新（用於打包後的物件位置更新）
-  if (scene.userData && scene.userData.needsUpdate) {
-    const now = Date.now();
-    const timeSinceUpdate = now - (scene.userData.lastUpdateTime || 0);
-    
-    // 如果距離上次更新超過10秒，停止強制更新
-    if (timeSinceUpdate > 10000) {
-      scene.userData.needsUpdate = false;
-      console.log('🔄 停止強制場景更新');
-    } else {
-      // 強制更新所有物件的矩陣
-      if (objectManager) {
-        const objects = objectManager.getObjects();
-        objects.forEach(obj => {
-          if (obj.mesh) {
-            obj.mesh.matrixWorldNeedsUpdate = true;
-          }
-        });
-      }
-      
-      // 強制渲染場景
-      renderer.render(scene, camera);
-    }
+
+  if (!packingManager || packingManager.physicsEnabled) {
+    updatePhysics();
   }
-  
-  updatePhysics();
+
   controls.update();
+
+  // 強制更新所有物件矩陣
+  if (objectManager) {
+    objectManager.getObjects().forEach(obj => {
+      if (obj.mesh) {
+        obj.mesh.updateMatrix();
+        obj.mesh.updateMatrixWorld(true);
+      }
+    });
+  }
+
   renderer.render(scene, camera);
 }
+
 
 // 等待 DOM 後啟動（單一入口）
 document.addEventListener('DOMContentLoaded', () => {

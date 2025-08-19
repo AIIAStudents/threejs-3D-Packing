@@ -1,5 +1,3 @@
-import os
-import json
 import uuid
 import time
 import threading
@@ -122,32 +120,35 @@ class BLF_SA_Algorithm:
         )
     
     def find_best_position_blf(self, obj: Dict, packed_objects: List[Dict]) -> Optional[Dict]:
-        """使用BLF算法找到最佳位置"""
+        """
+        使用 BLF (Bottom-Left-Front) 算法尋找最佳位置
+        - 水平優先: X → Z → Y
+        - 邊界夾限: 確保不超出容器
+        - 起始偏移: 預留 min_gap 作為間距
+        """
+        # 取得物件尺寸
         dims = self._dims(obj)
         obj_width = dims['x']
         obj_height = dims['y']
         obj_depth = dims['z']
-        
-        # 生成候選位置
-        candidate_positions = []
-        
-        # 底部優先策略
-        # 以 min_gap 為步長，降低重疊風險並加速搜尋
+
+        # 起始偏移與步長
         step = max(1, int(self.min_gap))
-        for z in range(0, int(self.container_depth - obj_depth) + 1, step):
-            for x in range(0, int(self.container_width - obj_width) + 1, step):
-                for y in range(0, int(self.container_height - obj_height) + 1, step):
-                    candidate_positions.append({'x': x, 'y': y, 'z': z})
-        
-        # 按BLF順序排序：優先選擇底部、左側、前側的位置
-        candidate_positions.sort(key=lambda pos: (pos['z'], pos['x'], pos['y']))
-        
-        for position in candidate_positions:
-            if self.can_place_object(obj, position, packed_objects):
-                return position
-        
+
+        # 最大可放置位置 (避免超界)
+        max_x = self.container_width  - obj_width - self.min_gap
+        max_z = self.container_depth  - obj_depth - self.min_gap
+
+        # y 固定為 0（或某個地面高度）
+        for x in range(0, int(max_x) + 1, step):
+            for z in range(0, int(max_z) + 1, step):
+                y = 0
+                position = {'x': x, 'y': y, 'z': z}
+                if self.can_place_object(obj, position, packed_objects):
+                    return position
+
+        # 找不到合法位置
         return None
-    
     def simulated_annealing_optimization(self, objects: List[Dict], max_iterations: int = 1000) -> Tuple[List[Dict], float]:
         """使用模擬退火法優化物件排列"""
         # 初始解：使用BLF算法

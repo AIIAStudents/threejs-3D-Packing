@@ -20,16 +20,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
   </head>
   <body>
-    <!-- Icon toolbar at the top -->
-    <div id="icon-toolbar" class="hidden">
-      <div class="icon-wrapper" id="createIsocahedron" data-type="icosahedron">
-       <svg class="circle-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-          <path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512z" />
-       </svg>
-       <span class="tooltip">createIcosahedron</span>
-     </div>
-    </div>
-
     <div id="app">
       <!-- 左側工具列 -->
       <div id="left-sidebar">
@@ -74,126 +64,125 @@
             </button>
           </div>
           <div class="toolbar-content">
-                         <div class="toolbar-section">
-               <h4>基本屬性</h4>
-               <div class="input-group">
-                 <label>物件名稱:</label>
-                 <input type="text" id="item-name" value="Box">
-               </div>
-               <div class="input-group">
-                 <label>物件類型:</label>
-                 <select id="item-type">
-                   <option value="cube">Cube (立方體)</option>
-                   <option value="sphere">Sphere (球體)</option>
-                   <option value="cylinder">Cylinder (圓柱體)</option>
-                   <option value="icosahedron">Icosahedron (二十面體)</option>
-                   <option value="irregular">Irregular (不規則形狀)</option>
-                 </select>
-               </div>
-               
-             </div>
-             
-             <div class="toolbar-section" id="cube-params" style="display: none;">
-               <h4>立方體參數</h4>
-               <div class="input-group">
-                 <label>寬度:</label>
-                 <input type="number" id="cube-width" value="15" min="1" max="50" step="1">
-               </div>
-               <div class="input-group">
-                 <label>高度:</label>
-                 <input type="number" id="cube-height" value="15" min="1" max="50" step="1">
-               </div>
-               <div class="input-group">
-                 <label>深度:</label>
-                 <input type="number" id="cube-depth" value="15" min="1" max="50" step="1">
-               </div>
-             </div>
-             
-             <div class="toolbar-section" id="sphere-params" style="display: none;">
-               <h4>球體參數</h4>
-               <div class="input-group">
-                 <label>半徑:</label>
-                 <input type="number" id="sphere-radius" value="10" min="1" max="20" step="0.5">
-               </div>
-               <div class="input-group">
-                 <label>寬度分段:</label>
-                 <input type="number" id="sphere-widthSegments" value="16" min="3" max="64" step="1">
-               </div>
-               <div class="input-group">
-                 <label>高度分段:</label>
-                 <input type="number" id="sphere-heightSegments" value="16" min="2" max="32" step="1">
-               </div>
-             </div>
-             
-             <div class="toolbar-section" id="cylinder-params" style="display: none;">
-               <h4>圓柱體參數</h4>
-               <div class="input-group">
-                 <label>頂部半徑:</label>
-                 <input type="number" id="cylinder-radiusTop" value="5" min="0" max="20" step="0.5">
-               </div>
-               <div class="input-group">
-                 <label>底部半徑:</label>
-                 <input type="number" id="cylinder-radiusBottom" value="5" min="0" max="20" step="0.5">
-               </div>
-               <div class="input-group">
-                 <label>高度:</label>
-                 <input type="number" id="cylinder-height" value="10" min="1" max="50" step="1">
-               </div>
-               <div class="input-group">
-                 <label>徑向分段:</label>
-                 <input type="number" id="cylinder-radialSegments" value="8" min="3" max="64" step="1">
-               </div>
-               <div class="input-group">
-                 <label>高度分段:</label>
-                 <input type="number" id="cylinder-heightSegments" value="1" min="1" max="32" step="1">
-               </div>
-             </div>
-             
-             <div class="toolbar-section" id="icosahedron-params" style="display: none;">
-               <h4>二十面體參數</h4>
-               <div class="input-group">
-                 <label>半徑:</label>
-                 <input type="number" id="icosahedron-radius" value="10" min="1" max="20" step="0.5">
-               </div>
-               <div class="input-group">
-                 <label>細節:</label>
-                 <input type="number" id="icosahedron-detail" value="0" min="0" max="5" step="1">
-               </div>
-             </div>
-             
-             <div class="toolbar-section" id="irregular-params" style="display: none;">
-               <h4>不規則形狀參數</h4>
-               <div class="input-group">
-                 <label>寬度:</label>
-                 <input type="number" id="irregular-width" value="10" min="1" max="50" step="1">
-               </div>
-               <div class="input-group">
-                 <label>高度:</label>
-                 <input type="number" id="irregular-height" value="15" min="1" max="50" step="1">
-               </div>
-               <div class="input-group">
-                 <label>深度:</label>
-                 <input type="number" id="irregular-depth" value="8" min="1" max="50" step="1">
-               </div>
-             </div>
-
-                         <div class="toolbar-section">
-               <h4>材質</h4>
-               <div class="input-group">
-                 <label>顏色:</label>
-                 <input type="color" id="item-color" value="#ff6b6b">
-               </div>
-               <div class="input-group">
-                 <label>透明度:</label>
-                 <input type="range" id="item-opacity" min="0" max="1" step="0.1" value="0.9">
-                 <span id="opacity-value">0.9</span>
-               </div>
-             </div>
-             
-             <div class="toolbar-section">
-               <button id="delete-item-btn" class="cancel-btn">刪除物件</button>
-             </div>
+            <div class="toolbar-section">
+              <h4>基本屬性</h4>
+              <div class="input-group">
+                <label>物件名稱:</label>
+                <input type="text" id="item-name" value="Box">
+              </div>
+              <div class="input-group">
+                <label>物件類型:</label>
+                <select id="item-type">
+                  <option value="cube">Cube (立方體)</option>
+                  <option value="sphere">Sphere (球體)</option>
+                  <option value="cylinder">Cylinder (圓柱體)</option>
+                  <option value="icosahedron">Icosahedron (二十面體)</option>
+                  <option value="irregular">Irregular (不規則形狀)</option>
+                </select>
+              </div>
+            </div>
             
+            <div class="toolbar-section" id="cube-params" style="display: none;">
+              <h4>立方體參數</h4>
+              <div class="input-group">
+                <label>寬度:</label>
+                <input type="number" id="cube-width" value="15" min="1" max="50" step="1">
+              </div>
+              <div class="input-group">
+                <label>高度:</label>
+                <input type="number" id="cube-height" value="15" min="1" max="50" step="1">
+              </div>
+              <div class="input-group">
+                <label>深度:</label>
+                <input type="number" id="cube-depth" value="15" min="1" max="50" step="1">
+              </div>
+            </div>
+            
+            <div class="toolbar-section" id="sphere-params" style="display: none;">
+              <h4>球體參數</h4>
+              <div class="input-group">
+                <label>半徑:</label>
+                <input type="number" id="sphere-radius" value="10" min="1" max="20" step="0.5">
+              </div>
+              <div class="input-group">
+                <label>寬度分段:</label>
+                <input type="number" id="sphere-widthSegments" value="16" min="3" max="64" step="1">
+              </div>
+              <div class="input-group">
+                <label>高度分段:</label>
+                <input type="number" id="sphere-heightSegments" value="16" min="2" max="32" step="1">
+              </div>
+            </div>
+            
+            <div class="toolbar-section" id="cylinder-params" style="display: none;">
+              <h4>圓柱體參數</h4>
+              <div class="input-group">
+                <label>頂部半徑:</label>
+                <input type="number" id="cylinder-radiusTop" value="5" min="0" max="20" step="0.5">
+              </div>
+              <div class="input-group">
+                <label>底部半徑:</label>
+                <input type="number" id="cylinder-radiusBottom" value="5" min="0" max="20" step="0.5">
+              </div>
+              <div class="input-group">
+                <label>高度:</label>
+                <input type="number" id="cylinder-height" value="10" min="1" max="50" step="1">
+              </div>
+              <div class="input-group">
+                <label>徑向分段:</label>
+                <input type="number" id="cylinder-radialSegments" value="8" min="3" max="64" step="1">
+              </div>
+              <div class="input-group">
+                <label>高度分段:</label>
+                <input type="number" id="cylinder-heightSegments" value="1" min="1" max="32" step="1">
+              </div>
+            </div>
+            
+            <div class="toolbar-section" id="icosahedron-params" style="display: none;">
+              <h4>二十面體參數</h4>
+              <div class="input-group">
+                <label>半徑:</label>
+                <input type="number" id="icosahedron-radius" value="10" min="1" max="20" step="0.5">
+              </div>
+              <div class="input-group">
+                <label>細節:</label>
+                <input type="number" id="icosahedron-detail" value="0" min="0" max="5" step="1">
+              </div>
+            </div>
+            
+            <div class="toolbar-section" id="irregular-params" style="display: none;">
+              <h4>不規則形狀參數</h4>
+              <div class="input-group">
+                <label>寬度:</label>
+                <input type="number" id="irregular-width" value="10" min="1" max="50" step="1">
+              </div>
+              <div class="input-group">
+                <label>高度:</label>
+                <input type="number" id="irregular-height" value="15" min="1" max="50" step="1">
+              </div>
+              <div class="input-group">
+                <label>深度:</label>
+                <input type="number" id="irregular-depth" value="8" min="1" max="50" step="1">
+              </div>
+            </div>
+
+            <div class="toolbar-section">
+              <h4>材質</h4>
+              <div class="input-group">
+                <label>顏色:</label>
+                <input type="color" id="item-color" value="#ff6b6b">
+              </div>
+              <div class="input-group">
+                <label>透明度:</label>
+                <input type="range" id="item-opacity" min="0" max="1" step="0.1" value="0.9">
+                <span id="opacity-value">0.9</span>
+              </div>
+            </div>
+            
+            <div class="toolbar-section">
+              <button id="delete-item-btn" class="cancel-btn">刪除物件</button>
+            </div>
+           
             <button id="create-item-btn" class="create-btn">創建物件</button>
           </div>
         </div>
@@ -227,5 +216,3 @@
     <script type="module" src="./src/js/main.js"></script>
   </body>
 </html>
-
-
