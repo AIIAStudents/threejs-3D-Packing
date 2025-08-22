@@ -7,7 +7,7 @@ import { initPhysics, updatePhysics, addPhysicsObject, removePhysicsObject, worl
 // 模組
 import { ObjectManager } from './modules/objectManager.js';
 import { MouseControls } from './modules/mouseControls.js';
-import { PackingManager } from './modules/packingManager.js';
+import { PackingManager } from './modules/packingManager/test.js';
 import { ObjectCreator } from './modules/objectCreator.js';
 // 3D Bin Packing API
 import {
@@ -233,7 +233,7 @@ function setupEventListeners() {
 function animate() {
   requestAnimationFrame(animate);
 
-  if (!packingManager || packingManager.physicsEnabled) {
+  if (packingManager && packingManager.physicsEnabled) {
     updatePhysics();
   }
 
