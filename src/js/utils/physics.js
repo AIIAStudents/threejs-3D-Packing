@@ -27,6 +27,7 @@ export function addPhysicsObject(mesh, shape, mass = 1) {
   body.quaternion.copy(mesh.quaternion);
   world.addBody(body);
   physicsObjects.push({ mesh, body });
+  return body;
 }
 
 export function updatePhysicsShape(mesh, newShape) {
@@ -45,10 +46,10 @@ export function updatePhysicsShape(mesh, newShape) {
   }
 }
 
-export function removePhysicsObject(mesh) {
-  const index = physicsObjects.findIndex(o => o.mesh === mesh);
+export function removePhysicsObject(body) {
+  const index = physicsObjects.findIndex(o => o.body === body);
   if (index !== -1) {
-    world.removeBody(physicsObjects[index].body);
+    world.removeBody(body);
     physicsObjects.splice(index, 1);
   }
 }
@@ -56,7 +57,9 @@ export function removePhysicsObject(mesh) {
 export function updatePhysics() {
   world.step(1 / 60);
   for (const { mesh, body } of physicsObjects) {
-    mesh.position.copy(body.position);
-    mesh.quaternion.copy(body.quaternion);
+    if (body.type === CANNON.Body.DYNAMIC) {
+      mesh.position.copy(body.position);
+      mesh.quaternion.copy(body.quaternion);
+    }
   }
 }
