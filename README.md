@@ -1,42 +1,68 @@
-# 3D 模型互動場景（Three.js + GLTF + TrackballControls）
+# 3D 裝箱系統 (3D Bin Packing System)
 
-本專案是一個基於 [Three.js](https://threejs.org/) 建立的 3D 模型互動環境，使用 `TrackballControls` 實現視角控制、可拖曳的 3D 幾何物件，以及載入 `.glb` 格式背景模型。
+## 專案概覽
 
+本專案是一個用於視覺化 3D 裝箱問題的網頁應用程式。它允許使用者動態地將 3D 物件加入容器中，並將其發送到後端服務以計算最佳的裝箱方案，然後在 3D 場景中將結果視覺化呈現。
 
-## 功能介紹
+前端使用 Three.js 和 Vite 構建，後端則是一個 Python Flask 伺服器。
 
-- 使用 `GLTFLoader` 載入 `.glb` 格式的 3D 倉庫背景。
-- 可從工具列新增 3D 幾何物件（球體、立方體、二十面體）。
-- 使用滑鼠直接拖曳新增的物件（限制在背景邊界範圍內）。
-- 按住 `Tab` 鍵啟用視角控制（可旋轉、平移、縮放場景）。
-- 拖曳與視角控制不互相干擾。
-- 使用 `dat.GUI` 調整物件參數與編輯。
+## 功能特性
 
+- 將自訂的 3D 物件（立方體、球體等）加入場景。
+- 一個互動式的 3D 畫布，用於檢視和操作物件。
+- 與 Python 後端整合，以解決 3D 裝箱問題。
+- 即時視覺化顯示已裝箱物件的排列方式。
+- 直觀的滑鼠控制，用於物件操作和視角導航。
 
-## 操作方式
+## 安裝與使用
 
-| 動作             | 效果                       |
-|------------------|----------------------------|
-| 點選圖示按鈕     | 新增幾何物件               |
-| 拖曳物件         | 移動至其他位置（有限制範圍）|
-| 按住 `Shift` 鍵    | 啟用視角控制               |
-| 放開 `Shift` 鍵    | 回復為拖曳模式             |
+### 後端設定
 
-## 控制切換
-- 預設關閉 `TrackballControls`：
-`controls.enabled = false;`
+後端伺服器透過 REST API 提供裝箱演算法，建議使用Windows 命令提示字元 (Command Prompt)執行。
 
-- 按住 `Shift` 啟用視角控制，放開則恢復拖曳模式。
+1.  首先，請切換到 `src` 目錄：
+    ```bash
+    cd src
+    ```
+2.  使用 Python 模組的方式執行伺服器：
+    ```bash
+    python -m api_server.bin_packing_api
+    ```
+3.  伺服器將會啟動於 `http://localhost:8889`。
 
-- 拖曳與視角互斥，不會互相干擾。
+### 前端設定
 
-## 使用套件
+前端是使用 Vite 建置的現代化 JavaScript 應用程式。
 
-- [`three`](https://www.npmjs.com/package/three)
-- [`three/examples/jsm/controls/TrackballControls.js`](https://threejs.org/docs/#examples/en/controls/TrackballControls)
-- [`three/examples/jsm/loaders/GLTFLoader.js`](https://threejs.org/docs/#examples/en/loaders/GLTFLoader)
-- [`dat.gui`](https://github.com/dataarts/dat.gui)
+1.  請確保您位於 `three.js` 專案的根目錄下。
+2.  安裝必要的依賴套件：
+    ```bash
+    npm install
+    ```
+3.  啟動 Vite 開發伺服器：
+    ```bash
+    npx vite
+    ```
+4.  打開您的網頁瀏覽器，並訪問 Vite 所提供的本地網址 (通常是 `http://localhost:5173`)。
 
+## 操作說明
 
-## 工具列icon來源
-- https://www.flaticon.com/
+### 網頁按鈕
+
+- **Add Item (新增物件)**: 開啟一個面板，用於定義和創建新的 3D 物件（如立方體、球體等），然後將其加入容器中。
+- **Execution 3D Packing (執行3D裝箱)**: 將場景中所有物件發送到後端 API。後端會計算最佳擺放位置並回傳結果，然後顯示在 3D 視圖中。
+- **Refresh (刷新頁面)**: 重新載入網頁應用程式。
+
+### 滑鼠操作
+
+本應用程式提供兩種主要的滑鼠互動模式。
+
+- **物件模式 (預設)**:
+  - **選取與拖曳**: 在物件上按下滑鼠左鍵並拖曳，即可在容器內移動它。
+
+- **視角模式 (按住 Shift 鍵)**:
+  - **啟動**: 按住 `Shift` 鍵以啟用視角控制功能。
+  - **旋轉**: 按下滑鼠左鍵並拖曳，可以圍繞場景中心旋轉視角。
+  - **縮放**: 使用滑鼠滾輪進行畫面的放大與縮小。
+  - **平移**: 按下滑鼠右鍵並拖曳，可以平移視角。
+  - **停用**: 放開 `Shift` 鍵即可回到預設的物件拖曳模式。
