@@ -26,6 +26,10 @@ Thumbs.db
 
 
 # unnecessary files
-src/test_file/
-src/rl_model/
-src/rl_ppo_model/tests/
+/src/test_file/
+/src/rl_model/
+/src/rl_ppo_model/
+/src/assets/
+
+# Database files (not used by current implementation)                                                                                                          │
+/src/db/ 
