@@ -37,9 +37,9 @@
             <i class="fas fa-play"></i>
              Execution 3D Packing
           </button>
-          <a href="./src/html/test-pages.html" class="action-btn" style="text-decoration: none; justify-content: center;">
-            <i class="fas fa-flask"></i>
-             Test Pages
+          <a href="." class="action-btn" style="text-decoration: none; justify-content: center;" title="Refresh Page">
+            <i class="fas fa-sync-alt"></i>
+             Refresh
           </a>
         </div>
 
@@ -51,6 +51,9 @@
         </div>
       </div>
 
+      <!-- 調整側邊欄寬度的拖曳條 -->
+      <div id="resizer"></div>
+
       <!-- 右側3D場景 -->
       <div id="right-canvas">
         <canvas id="canvas"></canvas>
@@ -58,7 +61,7 @@
         <!-- 物件屬性工具列 (預設隱藏) -->
         <div id="item-toolbar" class="toolbar-panel" style="display: none;">
           <div class="toolbar-header">
-            <h3>物件屬性工具列</h3>
+            <h3>物件屬性</h3>
             <button class="close-btn" id="close-item-toolbar">
               <i class="fas fa-times"></i>
             </button>
@@ -179,11 +182,10 @@
               </div>
             </div>
             
-            <div class="toolbar-section">
-              <button id="delete-item-btn" class="cancel-btn">刪除物件</button>
+            <div class="toolbar-actions">
+                <button id="create-item-btn" class="create-btn">創建物件</button>
+                <button id="delete-item-btn" class="cancel-btn" style="display: none;">刪除物件</button>
             </div>
-           
-            <button id="create-item-btn" class="create-btn">創建物件</button>
           </div>
         </div>
 
