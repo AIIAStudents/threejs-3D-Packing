@@ -2,11 +2,13 @@ import uuid
 import time
 import threading
 import queue
+import itertools
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 import math
 import random
+import traceback
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -20,20 +22,18 @@ class JobStatus(Enum):
 
 @dataclass
 class PackRequest:
-    """前端送出的pack request schema"""
     objects: List[Dict]
-    container_size: Dict[str, float]  # {width, height, depth}
-    optimization_type: str = "volume_utilization"  # 優化目標
-    algorithm: str = "blf_sa"  # 使用的算法
-    async_mode: bool = False  # 是否使用非同步模式
-    timeout: int = 30  # 超時時間(秒)
+    container_size: Dict[str, float]
+    optimization_type: str = "volume_utilization"
+    algorithm: str = "blf_sa"
+    async_mode: bool = False
+    timeout: int = 30
 
 @dataclass
 class PackResult:
-    """後端回傳的pack result schema"""
     job_id: str
     success: bool
-    packed_objects: List[Dict]  # 包含新位置的物件列表
+    packed_objects: List[Dict]
     volume_utilization: float
     execution_time: float
     algorithm_used: str
@@ -42,192 +42,297 @@ class PackResult:
 
 @dataclass
 class JobStatusResponse:
-    """非同步流程的job status response schema"""
     job_id: str
     status: JobStatus
-    progress: float  # 0-100
+    progress: float
     estimated_time_remaining: Optional[float] = None
     result: Optional[PackResult] = None
     error: str = ""
 
 # 全局變數
-jobs: Dict[str, Dict] = {}  # 存儲所有任務
+jobs: Dict[str, Dict] = {}
 job_queue = queue.Queue()
 
 class BLF_SA_Algorithm:
-    """BLF (Bottom-Left-Fill) + SA (Simulated Annealing) 算法實現"""
+    """BLF (Bottom-Left-Fill) + SA (Simulated Annealing) 算法實現 (V6)
+    
+    主要改進:
+    1. 排序策略: 體積 -> 最長邊，解決同體積物件順序不穩定問題。
+    2. SA鄰域生成: 改為交換兩個物件，避免過度隨機。
+    3. 放置點優化: 候選點生成時過濾邊界外位置。
+    4. 重力下墜: 在找尋最佳位置時，模擬物件下墜，使其緊靠支撐面。
+    5. 邊界檢查: 確保物件嚴格在容器內部 (減去gap)。
+    """
     
     def __init__(self, container_size: Dict[str, float]):
-        self.container_width = container_size['width']
-        self.container_height = container_size['height']
-        self.container_depth = container_size['depth']
+        self.container_width = container_size.get('width', 0)
+        self.container_height = container_size.get('height', 0)
+        self.container_depth = container_size.get('depth', 0)
         self.container_volume = self.container_width * self.container_height * self.container_depth
-        self.min_gap = 0.5  # 最小間隙，避免物體緊貼造成重疊/物理爆開
+        self.min_gap = 0.0 # 設置為0以確保完全利用邊界
 
-    def _dims(self, obj: Dict) -> Dict[str, float]:
-        """取得物件的實際尺寸。優先使用 dimensions，其次使用 scale。"""
-        d = obj.get('dimensions') or obj.get('size') or obj.get('scale') or {}
-        return {
-            'x': float(d.get('x', 0.0)),
-            'y': float(d.get('y', 0.0)),
-            'z': float(d.get('z', 0.0)),
-        }
-        
-    def calculate_volume_utilization(self, packed_objects: List[Dict]) -> float:
-        """計算體積利用率"""
-        total_packed_volume = 0
-        for obj in packed_objects:
-            dims = self._dims(obj)
-            volume = dims['x'] * dims['y'] * dims['z']
-            total_packed_volume += volume
-        return (total_packed_volume / self.container_volume) * 100
-    
-    def can_place_object(self, obj: Dict, position: Dict, packed_objects: List[Dict]) -> bool:
-        """檢查物件是否可以放置在指定位置"""
-        dims = self._dims(obj)
-        obj_width = dims['x']
-        obj_height = dims['y']
-        obj_depth = dims['z']
-        
-        # 檢查是否超出容器邊界（保留最小間隙）
-        g = self.min_gap
-        if (position['x'] < 0 or position['y'] < 0 or position['z'] < 0 or
-            position['x'] + obj_width + g > self.container_width or
-            position['y'] + obj_height + g > self.container_height or
-            position['z'] + obj_depth + g > self.container_depth):
-            return False
-        
-        # 檢查是否與其他物件重疊
-        for packed_obj in packed_objects:
-            if self.objects_overlap(obj, position, packed_obj, packed_obj['position']):
-                return False
-        
-        return True
-    
-    def objects_overlap(self, obj1: Dict, pos1: Dict, obj2: Dict, pos2: Dict) -> bool:
-        """檢查兩個物件是否重疊"""
-        d1 = self._dims(obj1)
-        d2 = self._dims(obj2)
-        g = self.min_gap
-        # 若有至少 g 的分離，則不重疊
-        return not (
-            (pos1['x'] + d1['x'] + g <= pos2['x']) or
-            (pos2['x'] + d2['x'] + g <= pos1['x']) or
-            (pos1['y'] + d1['y'] + g <= pos2['y']) or
-            (pos2['y'] + d2['y'] + g <= pos1['y']) or
-            (pos1['z'] + d1['z'] + g <= pos2['z']) or
-            (pos2['z'] + d2['z'] + g <= pos1['z'])
-        )
-    
-    def find_best_position_blf(self, obj: Dict, packed_objects: List[Dict]) -> Optional[Dict]:
-        """
-        使用 BLF (Bottom-Left-Front) 算法尋找最佳位置
-        - 水平優先: X → Z → Y
-        - 邊界夾限: 確保不超出容器
-        - 起始偏移: 預留 min_gap 作為間距
-        """
-        # 取得物件尺寸
-        dims = self._dims(obj)
-        obj_width = dims['x']
-        obj_height = dims['y']
-        obj_depth = dims['z']
+    def _get_rotations(self, obj: Dict) -> List[Dict]:
+        dims = obj.get('dimensions') or obj.get('size') or {}
+        d = [dims.get('x', 1), dims.get('y', 1), dims.get('z', 1)]
+        if d[0] == d[1] and d[1] == d[2]:
+            return [{'x': d[0], 'y': d[1], 'z': d[2]}]
+        unique_permutations = set(itertools.permutations(d))
+        return [{'x': p[0], 'y': p[1], 'z': p[2]} for p in unique_permutations]
 
-        # 起始偏移與步長
-        step = max(1, int(self.min_gap))
-
-        # 最大可放置位置 (避免超界)
-        max_x = self.container_width  - obj_width - self.min_gap
-        max_z = self.container_depth  - obj_depth - self.min_gap
-
-        # y 固定為 0（或某個地面高度）
-        for x in range(0, int(max_x) + 1, step):
-            for z in range(0, int(max_z) + 1, step):
-                y = 0
-                position = {'x': x, 'y': y, 'z': z}
-                if self.can_place_object(obj, position, packed_objects):
-                    return position
-
-        # 找不到合法位置
-        return None
-    def simulated_annealing_optimization(self, objects: List[Dict], max_iterations: int = 1000) -> Tuple[List[Dict], float]:
-        """使用模擬退火法優化物件排列"""
-        # 初始解：使用BLF算法
-        current_solution = []
+    def _pre_filter_unfittable_objects(self, objects: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+        fittable_objects = []
+        unfittable_objects = []
         for obj in objects:
-            position = self.find_best_position_blf(obj, current_solution)
-            if position:
+            can_fit_any_rotation = False
+            for rot_dims in self._get_rotations(obj):
+                if (rot_dims['x'] <= self.container_width and
+                    rot_dims['y'] <= self.container_height and
+                    rot_dims['z'] <= self.container_depth):
+                    can_fit_any_rotation = True
+                    break
+            if can_fit_any_rotation:
+                fittable_objects.append(obj)
+            else:
+                unfittable_objects.append(obj)
+        return fittable_objects, unfittable_objects
+
+    def calculate_cost(self, packed_objects: List[Dict]) -> Tuple[int, float]:
+        if not self.container_volume:
+            return 0, 0.0
+        
+        count = len(packed_objects)
+        total_packed_volume = sum(
+            (obj['dimensions']['x'] * obj['dimensions']['y'] * obj['dimensions']['z'])
+            for obj in packed_objects
+        )
+        utilization = (total_packed_volume / self.container_volume) * 100 if self.container_volume > 0 else 0
+        return (count, utilization)
+
+    def _can_place_at(self, obj_dims: Dict, position: Dict, packed_objects: List[Dict]) -> bool:
+        gap = self.min_gap
+        # 1. 檢查是否在容器邊界內
+        if not (position['x'] >= 0 and position['x'] + obj_dims['x'] <= self.container_width + gap and
+                position['y'] >= 0 and position['y'] + obj_dims['y'] <= self.container_height + gap and
+                position['z'] >= 0 and position['z'] + obj_dims['z'] <= self.container_depth + gap):
+            return False
+
+        # 2. 檢查是否與已放置物件重疊
+        for packed in packed_objects:
+            packed_dims = packed['dimensions']
+            packed_pos = packed['position']
+            if not (
+                position['x'] >= packed_pos['x'] + packed_dims['x'] + gap or
+                position['x'] + obj_dims['x'] + gap <= packed_pos['x'] or
+                position['y'] >= packed_pos['y'] + packed_dims['y'] + gap or
+                position['y'] + obj_dims['y'] + gap <= packed_pos['y'] or
+                position['z'] >= packed_pos['z'] + packed_dims['z'] + gap or
+                position['z'] + obj_dims['z'] + gap <= packed_pos['z']
+            ):
+                return False
+        return True
+
+    def _find_best_position_for_item(self, obj: Dict, packed_objects: List[Dict]) -> Optional[Tuple[Dict, Dict]]:
+        best_pos = None
+        best_rot_dims = None
+        min_y = float('inf')
+
+        for rot_dims in self._get_rotations(obj):
+            # 生成有效的候選放置點
+            possible_positions = [{'x': 0, 'y': 0, 'z': 0}]
+            for packed in packed_objects:
+                p_dims = packed['dimensions']
+                p_pos = packed['position']
+                # 在每個已放置物件的頂面和三個方向的側面生成候選點
+                possible_positions.extend([
+                    {'x': p_pos['x'] + p_dims['x'], 'y': p_pos['y'], 'z': p_pos['z']},
+                    {'x': p_pos['x'], 'y': p_pos['y'] + p_dims['y'], 'z': p_pos['z']},
+                    {'x': p_pos['x'], 'y': p_pos['y'], 'z': p_pos['z'] + p_dims['z']},
+                ])
+            
+            # 過濾掉超出邊界的候選點
+            valid_positions = []
+            for pos in possible_positions:
+                if (pos['x'] + rot_dims['x'] <= self.container_width and
+                    pos['y'] + rot_dims['y'] <= self.container_height and
+                    pos['z'] + rot_dims['z'] <= self.container_depth):
+                    valid_positions.append(pos)
+
+            # 按 y, z, x 排序，優先考慮較低的位置
+            for candidate_pos in sorted(valid_positions, key=lambda p: (p['y'], p['z'], p['x'])):
+                # 模擬重力下墜
+                final_y = 0
+                # 找到所有在當前物件投影下方的已放置物件
+                support_objects = [
+                    p for p in packed_objects
+                    if (p['position']['x'] < candidate_pos['x'] + rot_dims['x'] and
+                        candidate_pos['x'] < p['position']['x'] + p['dimensions']['x'] and
+                        p['position']['z'] < candidate_pos['z'] + rot_dims['z'] and
+                        candidate_pos['z'] < p['position']['z'] + p['dimensions']['z'])
+                ]
+                if support_objects:
+                    # 將 y 座標設置為最高支撐物件的頂部
+                    final_y = max(p['position']['y'] + p['dimensions']['y'] for p in support_objects)
+
+                final_pos = {'x': candidate_pos['x'], 'y': final_y, 'z': candidate_pos['z']}
+
+                # 再次檢查下墜後的位置是否合法
+                if final_y + rot_dims['y'] > self.container_height:
+                    continue
+
+                if self._can_place_at(rot_dims, final_pos, packed_objects):
+                    if final_pos['y'] < min_y:
+                        min_y = final_pos['y']
+                        best_pos = final_pos
+                        best_rot_dims = rot_dims
+                        # 如果已經在底部，這就是最佳位置
+                        if min_y == 0:
+                            break
+            if best_pos and min_y == 0:
+                break
+
+        if best_pos:
+            return best_pos, best_rot_dims
+        return None, None
+
+    def _blf_pack_with_rotation(self, objects: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+        packed_objects = []
+        unpacked_objects = []
+        
+        # 確保物件有尺寸信息
+        for obj in objects:
+            if 'dimensions' not in obj or not obj['dimensions']:
+                 obj['dimensions'] = obj.get('size', {'x':1, 'y':1, 'z':1})
+
+        # 排序：體積 -> 最長邊
+        objects.sort(key=lambda o: (
+            o['dimensions']['x'] * o['dimensions']['y'] * o['dimensions']['z'],
+            max(o['dimensions'].values())
+        ), reverse=True)
+
+        for obj in objects:
+            position, rotation_dims = self._find_best_position_for_item(obj, packed_objects)
+            if position and rotation_dims:
                 packed_obj = obj.copy()
                 packed_obj['position'] = position
-                current_solution.append(packed_obj)
+                packed_obj['dimensions'] = rotation_dims
+                packed_objects.append(packed_obj)
+            else:
+                unpacked_objects.append(obj)
+        return packed_objects, unpacked_objects
+
+    def simulated_annealing_optimization(self, objects: List[Dict], max_iterations: int = 100, progress_callback=None) -> Tuple[List[Dict], List[Dict]]:
+        # 初始排序
+        initial_objects = objects.copy()
+        for obj in initial_objects:
+             if 'dimensions' not in obj or not obj['dimensions']:
+                 obj['dimensions'] = obj.get('size', {'x':1, 'y':1, 'z':1})
+        initial_objects.sort(key=lambda o: (
+            o['dimensions']['x'] * o['dimensions']['y'] * o['dimensions']['z'],
+            max(o['dimensions'].values())
+        ), reverse=True)
+
+        current_solution_order = initial_objects
+        current_packed, _ = self._blf_pack_with_rotation(current_solution_order)
+        current_cost = self.calculate_cost(current_packed)
         
-        current_utilization = self.calculate_volume_utilization(current_solution)
-        best_solution = current_solution.copy()
-        best_utilization = current_utilization
+        best_solution_packed = current_packed
+        best_cost = current_cost
         
-        # 模擬退火參數
-        temperature = 100.0
-        cooling_rate = 0.95
-        min_temperature = 0.1
+        temperature = 1.0
+        cooling_rate = 0.99
         
-        for iteration in range(max_iterations):
-            # 生成鄰居解：隨機交換兩個物件的位置
-            if len(current_solution) > 1:
-                neighbor_solution = current_solution.copy()
-                i, j = random.sample(range(len(neighbor_solution)), 2)
-                
-                # 交換位置
-                temp_pos = neighbor_solution[i]['position'].copy()
-                neighbor_solution[i]['position'] = neighbor_solution[j]['position'].copy()
-                neighbor_solution[j]['position'] = temp_pos
-                
-                # 檢查新解是否可行
-                valid_solution = True
-                for k, obj in enumerate(neighbor_solution):
-                    if not self.can_place_object(obj, obj['position'], neighbor_solution[:k]):
-                        valid_solution = False
-                        break
-                
-                if valid_solution:
-                    neighbor_utilization = self.calculate_volume_utilization(neighbor_solution)
-                    
-                    # 計算接受概率
-                    delta_e = neighbor_utilization - current_utilization
-                    if delta_e > 0 or random.random() < math.exp(delta_e / temperature):
-                        current_solution = neighbor_solution
-                        current_utilization = neighbor_utilization
-                        
-                        if current_utilization > best_utilization:
-                            best_solution = current_solution.copy()
-                            best_utilization = current_utilization
+        for i in range(max_iterations):
+            if progress_callback:
+                progress_callback(i / max_iterations * 100)
+
+            # 鄰域操作：交換兩個物件
+            neighbor_order = current_solution_order.copy()
+            if len(neighbor_order) > 1:
+                idx1, idx2 = random.sample(range(len(neighbor_order)), 2)
+                neighbor_order[idx1], neighbor_order[idx2] = neighbor_order[idx2], neighbor_order[idx1]
+
+            neighbor_packed, _ = self._blf_pack_with_rotation(neighbor_order)
+            neighbor_cost = self.calculate_cost(neighbor_packed)
             
-            # 降溫
+            if neighbor_cost > current_cost:
+                current_solution_order = neighbor_order
+                current_packed = neighbor_packed
+                current_cost = neighbor_cost
+                if current_cost > best_cost:
+                    best_solution_packed = current_packed
+                    best_cost = current_cost
+            else:
+                delta = (neighbor_cost[0] - current_cost[0]) * 100 + (neighbor_cost[1] - current_cost[1])
+                if temperature > 0 and math.exp(delta / temperature) > random.random():
+                    current_solution_order = neighbor_order
+                    current_packed = neighbor_packed
+                    current_cost = neighbor_cost
+            
             temperature *= cooling_rate
-            if temperature < min_temperature:
-                break
         
-        return best_solution, best_utilization
-    
-    def pack_objects(self, objects: List[Dict], progress_callback=None) -> PackResult:
-        """執行3D Bin packing"""
-        start_time = time.time()
-        
-        try:
-            # 使用BLF + SA算法
-            packed_objects, utilization = self.simulated_annealing_optimization(objects)
+        if progress_callback:
+            progress_callback(100)
             
+        packed_ids = {o['uuid'] for o in best_solution_packed}
+        unpacked_objects = [o for o in objects if o['uuid'] not in packed_ids]
+
+        return best_solution_packed, unpacked_objects
+
+    def pack_objects(self, objects: List[Dict], progress_callback=None) -> PackResult:
+        start_time = time.time()
+        try:
+            if not objects:
+                return PackResult(job_id="", success=True, packed_objects=[], volume_utilization=0.0, execution_time=0, algorithm_used="BLF_SA_V6", message="沒有物件需要打包。 সন")
+
+            fittable_objects, unfittable_objects = self._pre_filter_unfittable_objects(objects)
+            
+            if not fittable_objects:
+                all_unpacked = []
+                for obj in objects:
+                    obj_copy = obj.copy()
+                    obj_copy['packed'] = False
+                    all_unpacked.append(obj_copy)
+                return PackResult(job_id="", success=True, packed_objects=all_unpacked, volume_utilization=0.0, execution_time=time.time() - start_time, algorithm_used="BLF_SA_V6", message=f"所有 {len(objects)} 個物件都因尺寸過大而無法放入容器。 সন")
+
+            packed_solution, unpacked_from_sa = self.simulated_annealing_optimization(fittable_objects, progress_callback=progress_callback)
+            
+            final_objects = []
+            packed_ids = {o['uuid'] for o in packed_solution}
+            
+            for obj in objects:
+                obj_copy = obj.copy()
+                if obj_copy['uuid'] in packed_ids:
+                    packed_version = next((p for p in packed_solution if p['uuid'] == obj_copy['uuid']), None)
+                    if packed_version:
+                        obj_copy['packed'] = True
+                        obj_copy['position'] = packed_version['position']
+                        obj_copy['dimensions'] = packed_version['dimensions']
+                    else:
+                         obj_copy['packed'] = False
+                else:
+                    obj_copy['packed'] = False
+                final_objects.append(obj_copy)
+
+            _, utilization = self.calculate_cost(packed_solution)
             execution_time = time.time() - start_time
             
+            total_unpacked_count = len(unfittable_objects) + len(unpacked_from_sa)
+            message = f"成功打包 {len(packed_solution)}/{len(objects)} 個物件。體積利用率: {utilization:.2f}%"
+            if total_unpacked_count > 0:
+                message += f" ({total_unpacked_count} 個物件無法放入)"
+
             return PackResult(
-                job_id="",  # 將由調用者設置
+                job_id="",
                 success=True,
-                packed_objects=packed_objects,
+                packed_objects=final_objects,
                 volume_utilization=utilization,
                 execution_time=execution_time,
-                algorithm_used="BLF_SA",
-                message=f"成功打包 {len(packed_objects)}/{len(objects)} 個物件，體積利用率: {utilization:.2f}%"
+                algorithm_used="BLF_SA_V6",
+                message=message
             )
-            
+
         except Exception as e:
+            error_info = traceback.format_exc()
             execution_time = time.time() - start_time
             return PackResult(
                 job_id="",
@@ -235,12 +340,11 @@ class BLF_SA_Algorithm:
                 packed_objects=[],
                 volume_utilization=0.0,
                 execution_time=execution_time,
-                algorithm_used="BLF_SA",
-                error=str(e)
+                algorithm_used="BLF_SA_V6",
+                error=str(e) + "\n" + error_info
             )
 
 def process_job_async(job_id: str):
-    """非同步處理任務"""
     if job_id not in jobs:
         return
     
@@ -249,19 +353,16 @@ def process_job_async(job_id: str):
     job['progress'] = 0.0
     
     try:
-        # 創建算法實例
         algorithm = BLF_SA_Algorithm(job['request'].container_size)
         
-        # 模擬進度更新
         def progress_callback(progress):
             job['progress'] = progress
             job['last_update'] = time.time()
         
-        # 執行打包算法
         result = algorithm.pack_objects(job['request'].objects, progress_callback)
         result.job_id = job_id
         
-        job['result'] = result
+        job['result'] = asdict(result) # 修正: 序列化 PackResult 物件
         job['status'] = JobStatus.COMPLETED
         job['progress'] = 100.0
         
@@ -270,7 +371,6 @@ def process_job_async(job_id: str):
         job['error'] = str(e)
 
 def start_worker_thread():
-    """啟動工作線程處理非同步任務"""
     def worker():
         while True:
             try:
@@ -285,25 +385,19 @@ def start_worker_thread():
     worker_thread = threading.Thread(target=worker, daemon=True)
     worker_thread.start()
 
-# 啟動工作線程
 start_worker_thread()
 
 def create_bin_packing_routes(app: Flask):
-    """創建3D Bin packing相關的API路由"""
-    
     @app.route('/pack_objects', methods=['POST'])
     def pack_objects():
-        """3D Bin packing主端點"""
         try:
             data = request.get_json()
             if not data:
                 return jsonify({"error": "No JSON data provided"}), 400
             
-            # 驗證請求數據
             if 'objects' not in data or 'container_size' not in data:
                 return jsonify({"error": "Missing required fields: objects, container_size"}), 400
             
-            # 創建PackRequest對象
             pack_request = PackRequest(
                 objects=data['objects'],
                 container_size=data['container_size'],
@@ -313,12 +407,10 @@ def create_bin_packing_routes(app: Flask):
                 timeout=data.get('timeout', 30)
             )
             
-            # 檢查物件數量決定同步或非同步
             object_count = len(pack_request.objects)
             should_use_async = pack_request.async_mode or object_count > 10
             
             if should_use_async:
-                # 非同步處理
                 job_id = str(uuid.uuid4())
                 jobs[job_id] = {
                     'request': pack_request,
@@ -330,7 +422,6 @@ def create_bin_packing_routes(app: Flask):
                     'error': ''
                 }
                 
-                # 加入隊列
                 job_queue.put(job_id)
                 
                 return jsonify({
@@ -339,7 +430,6 @@ def create_bin_packing_routes(app: Flask):
                     "message": f"任務已加入隊列，物件數量: {object_count}"
                 })
             else:
-                # 同步處理
                 algorithm = BLF_SA_Algorithm(pack_request.container_size)
                 result = algorithm.pack_objects(pack_request.objects)
                 result.job_id = "sync_" + str(uuid.uuid4())[:8]
@@ -351,7 +441,6 @@ def create_bin_packing_routes(app: Flask):
     
     @app.route('/job_status/<job_id>', methods=['GET'])
     def get_job_status(job_id):
-        """獲取任務狀態"""
         if job_id not in jobs:
             return jsonify({"error": "Job not found"}), 404
         
@@ -364,13 +453,11 @@ def create_bin_packing_routes(app: Flask):
             error=job.get('error', '')
         )
         
-        # 計算預估剩餘時間
         if job['status'] == JobStatus.PROCESSING and job['progress'] > 0:
             elapsed_time = time.time() - job['created_at']
             estimated_total_time = elapsed_time / (job['progress'] / 100.0)
             response.estimated_time_remaining = max(0, estimated_total_time - elapsed_time)
 
-        # 將 Enum 轉為可序列化的字串值
         payload = asdict(response)
         payload['status'] = response.status.value
 
@@ -378,7 +465,6 @@ def create_bin_packing_routes(app: Flask):
     
     @app.route('/cancel_job/<job_id>', methods=['POST'])
     def cancel_job(job_id):
-        """取消任務"""
         if job_id not in jobs:
             return jsonify({"error": "Job not found"}), 404
         
@@ -392,7 +478,6 @@ def create_bin_packing_routes(app: Flask):
     
     @app.route('/list_jobs', methods=['GET'])
     def list_jobs():
-        """列出所有任務"""
         job_list = []
         for job_id, job in jobs.items():
             job_info = {
@@ -408,7 +493,6 @@ def create_bin_packing_routes(app: Flask):
     
     @app.route('/clear_completed_jobs', methods=['POST'])
     def clear_completed_jobs():
-        """清理已完成的任務"""
         completed_jobs = [job_id for job_id, job in jobs.items() 
                          if job['status'] in [JobStatus.COMPLETED, JobStatus.FAILED]]
         
