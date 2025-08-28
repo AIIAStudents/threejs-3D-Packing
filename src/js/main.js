@@ -7,8 +7,8 @@ import { initPhysics, updatePhysics, addPhysicsObject, removePhysicsObject, worl
 // 模組
 import { ObjectManager } from './modules/objectManager.js';
 import { MouseControls } from './modules/mouseControls.js';
-import { PackingManager } from './modules/packingManager/test.js';
-import { ObjectCreator } from './modules/objectCreator.js';
+import { PackingManager } from './modules/packingManager/packingManager.js';
+import { ObjectCreator } from './modules/objectCreator.js'; // 已整合至 ObjectManager
 // 3D Bin Packing API
 import {
   requestBinPacking,
@@ -17,7 +17,7 @@ import {
 
 // 全局變數
 let scene, camera, renderer, controls;
-let objectManager, mouseControls, packingManager, objectCreator;
+let objectManager, mouseControls, packingManager;
 
 
 // 容器尺寸與邊界
@@ -156,9 +156,9 @@ function initThreeJS() {
   createBoundaryWalls(world, boundarySize);
 
   // 4) 初始化模組（需要 scene、camera、renderer 等）
-  objectManager = new ObjectManager();
-  objectCreator = new ObjectCreator(scene, objectManager);
+  objectManager = new ObjectManager(scene, animate); // 傳入 scene 和 render callback
   packingManager = new PackingManager(objectManager);
+  objectManager.setPackingManager(packingManager); // 建立兩者之間的關聯
   mouseControls = new MouseControls(camera, renderer, objectManager, controls);
 
   // 5) 對外掛載參考（可用於除錯）
@@ -181,52 +181,87 @@ function initThreeJS() {
 
 // 視窗調整
 function onWindowResize() {
-  const width = window.innerWidth - 300;
-  const height = window.innerHeight;
+  const rightCanvas = document.getElementById('right-canvas');
+  const width = rightCanvas.clientWidth;
+  const height = rightCanvas.clientHeight;
+
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
 }
 
+// 初始化可調整寬度的側邊欄
+function initResizer() {
+  const resizer = document.getElementById('resizer');
+  const leftSidebar = document.getElementById('left-sidebar');
+  const rightCanvas = document.getElementById('right-canvas');
+
+  if (resizer && leftSidebar && rightCanvas) {
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    function onMouseMove(e) {
+      if (!isResizing) return;
+
+      const newWidth = e.clientX;
+      const minWidth = parseInt(getComputedStyle(leftSidebar).minWidth, 10);
+      const maxWidth = parseInt(getComputedStyle(leftSidebar).maxWidth, 10);
+
+      if (newWidth > minWidth && newWidth < maxWidth) {
+        leftSidebar.style.width = `${newWidth}px`;
+        onWindowResize(); // 重新計算 canvas 大小
+      }
+    }
+
+    function onMouseUp() {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+  }
+}
+
 // UI 事件
 function setupEventListeners() {
-  // 添加物件按鈕
-  document.getElementById('add-item-btn').addEventListener('click', () => {
-    document.getElementById('item-toolbar').style.display = 'block';
-    document.getElementById('create-item-btn').textContent = '創建物件';
-    document.getElementById('create-item-btn').onclick = () => objectCreator.createNewItem();
-    objectCreator.showObjectTypeParams('cube');
-  });
+  const addItemBtn = document.getElementById('add-item-btn');
+  if (addItemBtn) {
+    addItemBtn.addEventListener('click', () => {
+      objectManager.showCreatePanel();
+    });
+  }
 
-  // 執行打包
-  document.getElementById('execute-packing-btn').addEventListener('click', () => {
-    packingManager.executePacking();
-  });
+  const executePackingBtn = document.getElementById('execute-packing-btn');
+  if (executePackingBtn) {
+    executePackingBtn.addEventListener('click', () => {
+      packingManager.executePacking();
+    });
+  }
 
-  // 關閉側欄
-  document.getElementById('close-item-toolbar').addEventListener('click', () => {
-    document.getElementById('item-toolbar').style.display = 'none';
-  });
+  const closeItemToolbar = document.getElementById('close-item-toolbar');
+  if (closeItemToolbar) {
+    closeItemToolbar.addEventListener('click', () => {
+      document.getElementById('item-toolbar').style.display = 'none';
+    });
+  }
 
-  document.getElementById('close-packing-panel').addEventListener('click', () => {
-    document.getElementById('packing-panel').style.display = 'none';
-  });
+  const closePackingPanel = document.getElementById('close-packing-panel');
+  if (closePackingPanel) {
+    closePackingPanel.addEventListener('click', () => {
+      document.getElementById('packing-panel').style.display = 'none';
+    });
+  }
 
-  // 取消打包
-  document.getElementById('cancel-packing-btn').addEventListener('click', () => {
-    packingManager.cancelPacking();
-  });
-
-  // 透明度滑塊
-  document.getElementById('item-opacity').addEventListener('input', (e) => {
-    document.getElementById('opacity-value').textContent = e.target.value;
-  });
-
-  // 物件類型切換
-  document.getElementById('item-type').addEventListener('change', (e) => {
-    const type = e.target.value;
-    objectCreator.showObjectTypeParams(type);
-  });
+  const cancelPackingBtn = document.getElementById('cancel-packing-btn');
+  if (cancelPackingBtn) {
+    cancelPackingBtn.addEventListener('click', () => {
+      packingManager.cancelPacking();
+    });
+  }
 }
 
 // 動畫循環
@@ -256,4 +291,5 @@ function animate() {
 // 等待 DOM 後啟動（單一入口）
 document.addEventListener('DOMContentLoaded', () => {
   initThreeJS();
+  initResizer();
 });
