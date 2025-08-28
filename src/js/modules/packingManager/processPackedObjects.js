@@ -1,13 +1,7 @@
-import { updateProgress } from "./updateProgressDisplay.js";
-import { updateDOM } from "./updateDOM.js";
+import * as THREE from 'three';
 
-export function processPackedObjects(result, objectManager, physicsEnabled) {
-    const { 
-        packed_objects : packedObjects, 
-        volume_utilization: utilization,
-        execution_time : executionTime
-    } = result ;
-    const objects = objectManager.getObjects();
+export function processPackedObjects(packedObjects, utilization, executionTime, forceUpdateScene) {
+    const objects = this.objectManager.getObjects();
     const sceneMeshes = objects.map(obj => obj.mesh);
   
     console.log('🎯 場景中的物件:', objects.map(obj => ({ uuid: obj.mesh.uuid, type: obj.type })));
@@ -113,115 +107,24 @@ export function processPackedObjects(result, objectManager, physicsEnabled) {
     });
   
     // 關閉物理引擎
-    if (window.packingManager) {
-      window.packingManager.setPhysicsEnabled(false);
-      console.log("🔄 已經關閉物理引擎 !");
-    }
-    
-    // physicsEnabled = false;
-    // console.log("🔄 已經關閉物理引擎 !");
-
-
+    this.physicsEnabled = false;
+    console.log("🔄 已經關閉物理引擎 !");
+  
     // === 安全格式化利用率與執行時間 ===
-    const utilizationText = formatMetric(utilization, '%');
-    const executionTimeText = formatMetric(executionTime, 's');
+    const utilizationText = this.formatMetric(utilization, '%');
+    const executionTimeText = this.formatMetric(executionTime, 's');
   
     console.log('📊 格式化後的顯示數據:', { utilization: utilizationText, executionTime: executionTimeText });
   
+    // 強制刷新 3D 場景
+    forceUpdateScene();
+
     // 更新 UI
-    updateDOM(utilizationText, executionTimeText);
-    updateProgress({
+    this.forceUpdateDOM(utilizationText, executionTimeText);
+    this.updateProgressDisplay({
       status: 'completed',
       progress: 100,
       utilization: utilizationText,
-      executionTime: executionTimeText
+      execution_time: executionTimeText
     });
-  
-    // 強制刷新 3D 場景
-    forceUpdateScene();
-  }
-  
-  // 小工具方法：安全格式化數值
-function formatMetric(value, unit) {
-    if (value === undefined || value === null || isNaN(value)) return '-';
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return isNaN(num) ? '-' : `${num.toFixed(2)}${unit}`;
-  }
-
- // 強制更新3D場景 - 新增方法
-function  forceUpdateScene() {
-    console.log('🎨 強制更新3D場景渲染');
-    
-    if (window.scene && window.renderer && window.camera) {
-        // 多次強制更新，確保渲染
-        for (let i = 0; i < 5; i++) {
-            window.renderer.render(window.scene, window.camera);
-        }
-        
-        // 標記場景需要持續更新
-        if (window.scene.userData) {
-            window.scene.userData.needsUpdate = true;
-            window.scene.userData.lastUpdateTime = Date.now();
-            console.log("✅ 設定 needsUpdate = true !");
-        }
-        // 強制更新所有物件的可見性和矩陣
-        const allMeshes = [];
-        window.scene.traverse((child) => {
-            if (child.isMesh) {
-                allMeshes.push(child);
-            }
-        });
-        
-        allMeshes.forEach(mesh => {
-            mesh.visible = true;
-            mesh.matrixWorldNeedsUpdate = true;
-            mesh.updateMatrix();
-            mesh.updateMatrixWorld(true);
-        
-            // 強制更新材質
-            if (mesh.material) {
-                mesh.material.needsUpdate = true;
-            }
-        });
-        
-        console.log('✅ 3D場景渲染更新完成');
-      
-      // 啟動持續更新機制
-      startContinuousRendering();
-    } else {
-      console.warn('⚠️ 無法找到場景、渲染器或相機引用');
-      console.log('🔍 全局變量檢查:', {
-        scene: !!window.scene,
-        renderer: !!window.renderer,
-        camera: !!window.camera
-      });
-    }
-  }
-
-  // 啟動持續渲染機制 - 新增方法
-function startContinuousRendering() {
-    console.log('🔄 啟動持續渲染機制...');
-    
-    let updateCount = 0;
-    const maxUpdates = 100; // 增加更新次數
-    const updateInterval = setInterval(() => {
-      if (window.scene && window.renderer && window.camera && updateCount < maxUpdates) {
-        // 每次更新都強制渲染
-        window.renderer.render(window.scene, window.camera);
-        updateCount++;
-        
-        if (updateCount % 20 === 0) {
-          console.log(`🔄 持續渲染 ${updateCount}/${maxUpdates}`);
-        }
-      } else {
-        clearInterval(updateInterval);
-        console.log('✅ 持續渲染完成，物件位置應該已經穩定顯示');
-        
-        // 最後一次強制渲染
-        if (window.scene && window.renderer && window.camera) {
-          window.renderer.render(window.scene, window.camera);
-          console.log('🎯 最終強制渲染完成');
-        }
-      }
-    }, 30); // 減少間隔時間，提高更新頻率
-  }
+}
