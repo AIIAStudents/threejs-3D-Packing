@@ -1,3 +1,5 @@
+import os
+import json
 import uuid
 import time
 import threading
@@ -64,12 +66,13 @@ class BLF_SA_Algorithm:
     5. 邊界檢查: 確保物件嚴格在容器內部 (減去gap)。
     """
     
-    def __init__(self, container_size: Dict[str, float]):
+    def __init__(self, container_size: Dict[str, float], initial_obstacles: List[Dict] = None):
         self.container_width = container_size.get('width', 0)
         self.container_height = container_size.get('height', 0)
         self.container_depth = container_size.get('depth', 0)
         self.container_volume = self.container_width * self.container_height * self.container_depth
         self.min_gap = 0.0 # 設置為0以確保完全利用邊界
+        self.initial_obstacles = initial_obstacles or []
 
     def _get_rotations(self, obj: Dict) -> List[Dict]:
         dims = obj.get('dimensions') or obj.get('size') or {}
@@ -100,23 +103,23 @@ class BLF_SA_Algorithm:
         if not self.container_volume:
             return 0, 0.0
         
-        count = len(packed_objects)
+        actual_packed = [obj for obj in packed_objects if not obj.get('is_obstacle')]
+
+        count = len(actual_packed)
         total_packed_volume = sum(
             (obj['dimensions']['x'] * obj['dimensions']['y'] * obj['dimensions']['z'])
-            for obj in packed_objects
+            for obj in actual_packed
         )
         utilization = (total_packed_volume / self.container_volume) * 100 if self.container_volume > 0 else 0
         return (count, utilization)
 
     def _can_place_at(self, obj_dims: Dict, position: Dict, packed_objects: List[Dict]) -> bool:
         gap = self.min_gap
-        # 1. 檢查是否在容器邊界內
         if not (position['x'] >= 0 and position['x'] + obj_dims['x'] <= self.container_width + gap and
                 position['y'] >= 0 and position['y'] + obj_dims['y'] <= self.container_height + gap and
                 position['z'] >= 0 and position['z'] + obj_dims['z'] <= self.container_depth + gap):
             return False
 
-        # 2. 檢查是否與已放置物件重疊
         for packed in packed_objects:
             packed_dims = packed['dimensions']
             packed_pos = packed['position']
@@ -137,19 +140,16 @@ class BLF_SA_Algorithm:
         min_y = float('inf')
 
         for rot_dims in self._get_rotations(obj):
-            # 生成有效的候選放置點
             possible_positions = [{'x': 0, 'y': 0, 'z': 0}]
             for packed in packed_objects:
                 p_dims = packed['dimensions']
                 p_pos = packed['position']
-                # 在每個已放置物件的頂面和三個方向的側面生成候選點
                 possible_positions.extend([
                     {'x': p_pos['x'] + p_dims['x'], 'y': p_pos['y'], 'z': p_pos['z']},
                     {'x': p_pos['x'], 'y': p_pos['y'] + p_dims['y'], 'z': p_pos['z']},
                     {'x': p_pos['x'], 'y': p_pos['y'], 'z': p_pos['z'] + p_dims['z']},
                 ])
             
-            # 過濾掉超出邊界的候選點
             valid_positions = []
             for pos in possible_positions:
                 if (pos['x'] + rot_dims['x'] <= self.container_width and
@@ -157,11 +157,8 @@ class BLF_SA_Algorithm:
                     pos['z'] + rot_dims['z'] <= self.container_depth):
                     valid_positions.append(pos)
 
-            # 按 y, z, x 排序，優先考慮較低的位置
             for candidate_pos in sorted(valid_positions, key=lambda p: (p['y'], p['z'], p['x'])):
-                # 模擬重力下墜
                 final_y = 0
-                # 找到所有在當前物件投影下方的已放置物件
                 support_objects = [
                     p for p in packed_objects
                     if (p['position']['x'] < candidate_pos['x'] + rot_dims['x'] and
@@ -170,12 +167,10 @@ class BLF_SA_Algorithm:
                         candidate_pos['z'] < p['position']['z'] + p['dimensions']['z'])
                 ]
                 if support_objects:
-                    # 將 y 座標設置為最高支撐物件的頂部
                     final_y = max(p['position']['y'] + p['dimensions']['y'] for p in support_objects)
 
                 final_pos = {'x': candidate_pos['x'], 'y': final_y, 'z': candidate_pos['z']}
 
-                # 再次檢查下墜後的位置是否合法
                 if final_y + rot_dims['y'] > self.container_height:
                     continue
 
@@ -184,7 +179,6 @@ class BLF_SA_Algorithm:
                         min_y = final_pos['y']
                         best_pos = final_pos
                         best_rot_dims = rot_dims
-                        # 如果已經在底部，這就是最佳位置
                         if min_y == 0:
                             break
             if best_pos and min_y == 0:
@@ -195,15 +189,13 @@ class BLF_SA_Algorithm:
         return None, None
 
     def _blf_pack_with_rotation(self, objects: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
-        packed_objects = []
+        packed_objects = self.initial_obstacles.copy()
         unpacked_objects = []
         
-        # 確保物件有尺寸信息
         for obj in objects:
             if 'dimensions' not in obj or not obj['dimensions']:
                  obj['dimensions'] = obj.get('size', {'x':1, 'y':1, 'z':1})
 
-        # 排序：體積 -> 最長邊
         objects.sort(key=lambda o: (
             o['dimensions']['x'] * o['dimensions']['y'] * o['dimensions']['z'],
             max(o['dimensions'].values())
@@ -221,7 +213,6 @@ class BLF_SA_Algorithm:
         return packed_objects, unpacked_objects
 
     def simulated_annealing_optimization(self, objects: List[Dict], max_iterations: int = 100, progress_callback=None) -> Tuple[List[Dict], List[Dict]]:
-        # 初始排序
         initial_objects = objects.copy()
         for obj in initial_objects:
              if 'dimensions' not in obj or not obj['dimensions']:
@@ -245,7 +236,6 @@ class BLF_SA_Algorithm:
             if progress_callback:
                 progress_callback(i / max_iterations * 100)
 
-            # 鄰域操作：交換兩個物件
             neighbor_order = current_solution_order.copy()
             if len(neighbor_order) > 1:
                 idx1, idx2 = random.sample(range(len(neighbor_order)), 2)
@@ -282,7 +272,7 @@ class BLF_SA_Algorithm:
         start_time = time.time()
         try:
             if not objects:
-                return PackResult(job_id="", success=True, packed_objects=[], volume_utilization=0.0, execution_time=0, algorithm_used="BLF_SA_V6", message="沒有物件需要打包。 সন")
+                return PackResult(job_id="", success=True, packed_objects=[], volume_utilization=0.0, execution_time=0, algorithm_used="BLF_SA_V6", message="沒有物件需要打包。")
 
             fittable_objects, unfittable_objects = self._pre_filter_unfittable_objects(objects)
             
@@ -292,17 +282,19 @@ class BLF_SA_Algorithm:
                     obj_copy = obj.copy()
                     obj_copy['packed'] = False
                     all_unpacked.append(obj_copy)
-                return PackResult(job_id="", success=True, packed_objects=all_unpacked, volume_utilization=0.0, execution_time=time.time() - start_time, algorithm_used="BLF_SA_V6", message=f"所有 {len(objects)} 個物件都因尺寸過大而無法放入容器。 সন")
+                return PackResult(job_id="", success=True, packed_objects=all_unpacked, volume_utilization=0.0, execution_time=time.time() - start_time, algorithm_used="BLF_SA_V6", message=f"所有 {len(objects)} 個物件都因尺寸過大而無法放入容器。")
 
             packed_solution, unpacked_from_sa = self.simulated_annealing_optimization(fittable_objects, progress_callback=progress_callback)
             
+            final_packed_solution = [obj for obj in packed_solution if not obj.get('is_obstacle')]
+
             final_objects = []
-            packed_ids = {o['uuid'] for o in packed_solution}
+            packed_ids = {o['uuid'] for o in final_packed_solution}
             
             for obj in objects:
                 obj_copy = obj.copy()
                 if obj_copy['uuid'] in packed_ids:
-                    packed_version = next((p for p in packed_solution if p['uuid'] == obj_copy['uuid']), None)
+                    packed_version = next((p for p in final_packed_solution if p['uuid'] == obj_copy['uuid']), None)
                     if packed_version:
                         obj_copy['packed'] = True
                         obj_copy['position'] = packed_version['position']
@@ -317,7 +309,7 @@ class BLF_SA_Algorithm:
             execution_time = time.time() - start_time
             
             total_unpacked_count = len(unfittable_objects) + len(unpacked_from_sa)
-            message = f"成功打包 {len(packed_solution)}/{len(objects)} 個物件。體積利用率: {utilization:.2f}%"
+            message = f"成功打包 {len(final_packed_solution)}/{len(objects)} 個物件。體積利用率: {utilization:.2f}%"
             if total_unpacked_count > 0:
                 message += f" ({total_unpacked_count} 個物件無法放入)"
 
@@ -347,28 +339,175 @@ class BLF_SA_Algorithm:
 def process_job_async(job_id: str):
     if job_id not in jobs:
         return
-    
     job = jobs[job_id]
     job['status'] = JobStatus.PROCESSING
     job['progress'] = 0.0
-    
     try:
-        algorithm = BLF_SA_Algorithm(job['request'].container_size)
-        
-        def progress_callback(progress):
-            job['progress'] = progress
+        initial_obstacles = job.get('initial_obstacles', [])
+        algorithm = BLF_SA_Algorithm(job['request'].container_size, initial_obstacles=initial_obstacles)
+
+        def progress_callback(p):
+            job['progress'] = p
             job['last_update'] = time.time()
-        
+
         result = algorithm.pack_objects(job['request'].objects, progress_callback)
         result.job_id = job_id
-        
-        job['result'] = asdict(result) # 修正: 序列化 PackResult 物件
+        job['result'] = asdict(result)
         job['status'] = JobStatus.COMPLETED
         job['progress'] = 100.0
-        
+
     except Exception as e:
         job['status'] = JobStatus.FAILED
         job['error'] = str(e)
+
+def create_bin_packing_routes(app: Flask):
+    @app.route('/pack_objects', methods=['POST'])
+    def pack_objects():
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No JSON data provided"}), 400
+            if 'objects' not in data:
+                return jsonify({"error": "Missing required field: objects"}), 400
+
+            container_size = None
+            config_path = 'container_config.json'
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    container_config = json.load(f)
+                if container_config.get('shape') == 'l-shape':
+                    return jsonify({
+                        "error": "L-Shape container packing is not yet supported by the algorithm.",
+                        "error_code": "L_SHAPE_UNSUPPORTED"
+                    }), 400
+                if container_config.get('shape') == 'cube':
+                    container_size = container_config.get('dimensions')
+
+            if container_size is None:
+                if 'container_size' not in data:
+                    return jsonify({"error": "Missing required field: container_size (or no valid container_config.json found)"}), 400
+                container_size = data['container_size']
+
+            initial_obstacles = data.get('initial_obstacles', [])
+
+            pack_request = PackRequest(
+                objects=data['objects'],
+                container_size=container_size,
+                optimization_type=data.get('optimization_type', 'volume_utilization'),
+                algorithm=data.get('algorithm', 'blf_sa'),
+                async_mode=data.get('async_mode', False),
+                timeout=data.get('timeout', 30)
+            )
+
+            object_count = len(pack_request.objects)
+            should_use_async = pack_request.async_mode or object_count > 10
+
+            if should_use_async:
+                job_id = str(uuid.uuid4())
+                jobs[job_id] = {
+                    'request': pack_request,
+                    'initial_obstacles': initial_obstacles,
+                    'status': JobStatus.PENDING,
+                    'progress': 0.0,
+                    'created_at': time.time(),
+                    'last_update': time.time(),
+                    'result': None,
+                    'error': ''
+                }
+                job_queue.put(job_id)
+                return jsonify({"job_id": job_id, "status": "async",
+                                "message": f"任務已加入隊列，物件數量: {object_count}"})
+            else:
+                algorithm = BLF_SA_Algorithm(pack_request.container_size, initial_obstacles=initial_obstacles)
+                result = algorithm.pack_objects(pack_request.objects)
+                result.job_id = "sync_" + str(uuid.uuid4())[:8]
+                return jsonify(asdict(result))
+
+        except Exception as e:
+            return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+    @app.route('/save_container_config', methods=['POST'])
+    def save_container_config():
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No JSON data provided"}), 400
+            
+            config_path = 'container_config.json'
+            
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            
+            return jsonify({"message": f"Container configuration saved successfully to {config_path}"})
+
+        except Exception as e:
+            return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+    @app.route('/load_container_config', methods=['GET'])
+    def load_container_config():
+        try:
+            config_path = 'container_config.json'
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return jsonify(config)
+            else:
+                default_config = {
+                    "shape": "cube",
+                    "dimensions": {"width": 587, "height": 234, "depth": 238},
+                    "doors": []
+                }
+                return jsonify(default_config)
+        except Exception as e:
+            return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+    @app.route('/job_status/<job_id>', methods=['GET'])
+    def get_job_status(job_id):
+        if job_id not in jobs:
+            return jsonify({"error": "Job not found"}), 404
+        job = jobs[job_id]
+        response = JobStatusResponse(
+            job_id=job_id,
+            status=job['status'],
+            progress=job['progress'],
+            result=job.get('result'),
+            error=job.get('error', '')
+        )
+        if job['status'] == JobStatus.PROCESSING and job['progress'] > 0:
+            elapsed = time.time() - job['created_at']
+            eta_total = elapsed / (job['progress'] / 100.0)
+            response.estimated_time_remaining = max(0, eta_total - elapsed)
+        payload = asdict(response)
+        payload['status'] = response.status.value
+        return jsonify(payload)
+
+    @app.route('/cancel_job/<job_id>', methods=['POST'])
+    def cancel_job(job_id):
+        if job_id not in jobs:
+            return jsonify({"error": "Job not found"}), 404
+        job = jobs[job_id]
+        if job['status'] in [JobStatus.PENDING, JobStatus.PROCESSING]:
+            job['status'] = JobStatus.FAILED
+            job['error'] = "Task cancelled by user"
+            return jsonify({"message": "Job cancelled successfully"})
+        return jsonify({"error": "Cannot cancel completed or failed job"}), 400
+
+    @app.route('/list_jobs', methods=['GET'])
+    def list_jobs():
+        return jsonify({"jobs": [{
+            'job_id': jid,
+            'status': j['status'].value,
+            'progress': j['progress'],
+            'created_at': j['created_at'],
+            'object_count': len(j['request'].objects)
+        } for jid, j in jobs.items()]})
+
+    @app.route('/clear_completed_jobs', methods=['POST'])
+    def clear_completed_jobs():
+        done = [jid for jid, j in jobs.items() if j['status'] in [JobStatus.COMPLETED, JobStatus.FAILED]]
+        for jid in done:
+            del jobs[jid]
+        return jsonify({"message": f"Cleared {len(done)} completed jobs", "cleared_count": len(done)})
 
 def start_worker_thread():
     def worker():
@@ -387,122 +526,7 @@ def start_worker_thread():
 
 start_worker_thread()
 
-def create_bin_packing_routes(app: Flask):
-    @app.route('/pack_objects', methods=['POST'])
-    def pack_objects():
-        try:
-            data = request.get_json()
-            if not data:
-                return jsonify({"error": "No JSON data provided"}), 400
-            
-            if 'objects' not in data or 'container_size' not in data:
-                return jsonify({"error": "Missing required fields: objects, container_size"}), 400
-            
-            pack_request = PackRequest(
-                objects=data['objects'],
-                container_size=data['container_size'],
-                optimization_type=data.get('optimization_type', 'volume_utilization'),
-                algorithm=data.get('algorithm', 'blf_sa'),
-                async_mode=data.get('async_mode', False),
-                timeout=data.get('timeout', 30)
-            )
-            
-            object_count = len(pack_request.objects)
-            should_use_async = pack_request.async_mode or object_count > 10
-            
-            if should_use_async:
-                job_id = str(uuid.uuid4())
-                jobs[job_id] = {
-                    'request': pack_request,
-                    'status': JobStatus.PENDING,
-                    'progress': 0.0,
-                    'created_at': time.time(),
-                    'last_update': time.time(),
-                    'result': None,
-                    'error': ''
-                }
-                
-                job_queue.put(job_id)
-                
-                return jsonify({
-                    "job_id": job_id,
-                    "status": "async",
-                    "message": f"任務已加入隊列，物件數量: {object_count}"
-                })
-            else:
-                algorithm = BLF_SA_Algorithm(pack_request.container_size)
-                result = algorithm.pack_objects(pack_request.objects)
-                result.job_id = "sync_" + str(uuid.uuid4())[:8]
-                
-                return jsonify(asdict(result))
-                
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    
-    @app.route('/job_status/<job_id>', methods=['GET'])
-    def get_job_status(job_id):
-        if job_id not in jobs:
-            return jsonify({"error": "Job not found"}), 404
-        
-        job = jobs[job_id]
-        response = JobStatusResponse(
-            job_id=job_id,
-            status=job['status'],
-            progress=job['progress'],
-            result=job.get('result'),
-            error=job.get('error', '')
-        )
-        
-        if job['status'] == JobStatus.PROCESSING and job['progress'] > 0:
-            elapsed_time = time.time() - job['created_at']
-            estimated_total_time = elapsed_time / (job['progress'] / 100.0)
-            response.estimated_time_remaining = max(0, estimated_total_time - elapsed_time)
 
-        payload = asdict(response)
-        payload['status'] = response.status.value
-
-        return jsonify(payload)
-    
-    @app.route('/cancel_job/<job_id>', methods=['POST'])
-    def cancel_job(job_id):
-        if job_id not in jobs:
-            return jsonify({"error": "Job not found"}), 404
-        
-        job = jobs[job_id]
-        if job['status'] in [JobStatus.PENDING, JobStatus.PROCESSING]:
-            job['status'] = JobStatus.FAILED
-            job['error'] = "Task cancelled by user"
-            return jsonify({"message": "Job cancelled successfully"})
-        else:
-            return jsonify({"error": "Cannot cancel completed or failed job"}), 400
-    
-    @app.route('/list_jobs', methods=['GET'])
-    def list_jobs():
-        job_list = []
-        for job_id, job in jobs.items():
-            job_info = {
-                'job_id': job_id,
-                'status': job['status'].value,
-                'progress': job['progress'],
-                'created_at': job['created_at'],
-                'object_count': len(job['request'].objects)
-            }
-            job_list.append(job_info)
-        
-        return jsonify({"jobs": job_list})
-    
-    @app.route('/clear_completed_jobs', methods=['POST'])
-    def clear_completed_jobs():
-        completed_jobs = [job_id for job_id, job in jobs.items() 
-                         if job['status'] in [JobStatus.COMPLETED, JobStatus.FAILED]]
-        
-        for job_id in completed_jobs:
-            del jobs[job_id]
-        
-        return jsonify({
-            "message": f"Cleared {len(completed_jobs)} completed jobs",
-            "cleared_count": len(completed_jobs)
-        })
 
 if __name__ == "__main__":
     app = Flask(__name__)

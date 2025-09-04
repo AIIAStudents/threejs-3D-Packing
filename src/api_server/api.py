@@ -158,5 +158,49 @@ def get_action():
         return jsonify({
             "error": f"執行失敗：{str(e)}"
         }), 400
+
+@app.route('/api/save_container', methods=['POST', 'OPTIONS'])
+def save_container():
+    """
+    Saves the container configuration (shape, dimensions, doors) to a JSON file.
+    """
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({
+            "error_code": "NO_JSON",
+            "error": "未收到容器設定的 JSON 資料。"
+        }), 400
+
+    print("收到容器設定資料：", json.dumps(data, indent=2, ensure_ascii=False))
+
+    # 基本的資料驗證
+    if not isinstance(data, dict) or 'shape' not in data or 'dimensions' not in data or 'doors' not in data:
+        return jsonify({
+            "error_code": "INVALID_CONTAINER_CONFIG",
+            "error": "容器設定格式不正確，必須包含 'shape', 'dimensions', 和 'doors'。"
+        }), 400
+
+    try:
+        # 將設定儲存至專案根目錄下的 container_config.json 檔案
+        save_path = "container_config.json"
+
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+
+        return jsonify({
+            "status": "容器設定已儲存",
+            "saved_to": save_path
+        })
+
+    except Exception as e:
+        return jsonify({
+            "error_code": "SERVER_ERROR",
+            "error": str(e),
+            "trace": traceback.format_exc()
+        }), 500
+
 if __name__ == "__main__":
     app.run(port=8888)
