@@ -4,10 +4,12 @@ import { processPackedObjects } from './processPackedObjects.js';
 import { simulatePacking, simulatePackingAlgorithm, calculateVolumeUtilization } from './simulatePacking.js';
 import { forceUpdateDOM, observeDOMChanges, forceRepaint, forceUpdateScene, startContinuousRendering } from './updateDOM.js';
 import { updateProgressDisplay, formatMetric } from './updateProgressDisplay.js';
+import { requestBinPacking, pollJobUntilComplete } from '../../utils/binPackingAPI.js';
 
 export class PackingManager {
-    constructor(objectManager) {
-      this.objectManager = objectManager;
+    constructor(groupManager) {
+      this.groupManager = groupManager;
+      this.objectManager = groupManager.objectManager; // Get objectManager from groupManager
       this.physicsEnabled = true;
       // Bind methods to this instance
       this.executePacking = this._executePacking.bind(this);

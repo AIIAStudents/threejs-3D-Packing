@@ -1,153 +1,128 @@
 import * as THREE from 'three';
+import { requestBinPacking, pollJobUntilComplete } from '../../utils/binPackingAPI.js';
 
 export async function executePacking() {
-    console.log('🚀 開始執行3D打包...');
-      
-    const objects = this.objectManager.getObjects();
-    console.log('📦 當前物件數量:', objects.length);
-    
-    if (objects.length === 0) {
-      alert('請先添加物件');
-      return;
+    console.log('🚀 開始執行分組3D打包...');
+
+    const groups = this.groupManager.groups;
+    if (groups.length === 0) {
+        alert('請先創建至少一個群組並添加物件');
+        return;
     }
-    
+
     const packingPanel = document.getElementById('packing-panel');
     packingPanel.style.display = 'block';
-    
-    // 重置進度顯示
-    this.updateProgressDisplay({ status: 'pending', progress: 0 });
-    
+    this.updateProgressDisplay({ status: 'pending', progress: 0, text: '準備中...' });
+
     try {
-      // 轉換物件格式
-      const packObjects = objects.map(obj => {
-        const mesh = obj.mesh;
-        // 根據物件類型獲取尺寸
-        let dims;
-        switch (obj.type) {
-          case 'cube':
-            dims = {
-              x: parseFloat(document.getElementById('cube-width').value) || 15,
-              y: parseFloat(document.getElementById('cube-height').value) || 15,
-              z: parseFloat(document.getElementById('cube-depth').value) || 15
+        const mainContainer = { width: 120, height: 120, depth: 120 };
+        const numGroups = groups.length;
+        const subContainerDepth = mainContainer.depth / numGroups;
+
+        // 為每個群組創建一個打包任務
+        const packingPromises = groups.map((group, index) => {
+            if (group.items.length === 0) {
+                console.log(`⏭️ 群組 '${group.name}' 為空，已跳過`);
+                return Promise.resolve(null); // 對於空群組，返回一個已解決的Promise
+            }
+
+            console.log(`📦 正在為群組 '${group.name}' 準備打包...`);
+
+            const packObjects = group.items.map(obj => {
+                const params = obj.geometryParams;
+                let dims;
+                switch (obj.type) {
+                    case 'cube':
+                    case 'irregular':
+                        dims = { x: params.width, y: params.height, z: params.depth };
+                        break;
+                    case 'sphere':
+                        dims = { x: params.radius * 2, y: params.radius * 2, z: params.radius * 2 };
+                        break;
+                    case 'cylinder':
+                        dims = { x: Math.max(params.radiusTop, params.radiusBottom) * 2, y: params.height, z: Math.max(params.radiusTop, params.radiusBottom) * 2 };
+                        break;
+                    case 'icosahedron':
+                        dims = { x: params.radius * 2, y: params.radius * 2, z: params.radius * 2 };
+                        break;
+                    default:
+                        dims = { x: 1, y: 1, z: 1 };
+                }
+                return {
+                    uuid: obj.uuid, // Use the conceptual item's unique ID
+                    type: obj.type,
+                    dimensions: dims
+                };
+            });
+
+            const subContainer = { ...mainContainer, depth: subContainerDepth };
+
+            const request = {
+                objects: packObjects,
+                container_size: subContainer,
+                optimization_type: 'volume_utilization',
+                algorithm: 'blf_sa',
+                async_mode: true,
+                timeout: 30
             };
-            break;
-          case 'sphere':
-            const radius = parseFloat(document.getElementById('sphere-radius').value) || 10;
-            dims = { x: radius * 2, y: radius * 2, z: radius * 2 };
-            break;
-          case 'cylinder':
-            const cylinderHeight = parseFloat(document.getElementById('cylinder-height').value) || 10;
-            const cylinderRadius = Math.max(
-              parseFloat(document.getElementById('cylinder-radiusTop').value) || 5,
-              parseFloat(document.getElementById('cylinder-radiusBottom').value) || 5
-            );
-            dims = { x: cylinderRadius * 2, y: cylinderHeight, z: cylinderRadius * 2 };
-            break;
-          case 'icosahedron':
-            const icosahedronRadius = parseFloat(document.getElementById('icosahedron-radius').value) || 10;
-            dims = { x: icosahedronRadius * 2, y: icosahedronRadius * 2, z: icosahedronRadius * 2 };
-            break;
-          case 'irregular':
-            dims = {
-              x: parseFloat(document.getElementById('irregular-width').value) || 10,
-              y: parseFloat(document.getElementById('irregular-height').value) || 15,
-              z: parseFloat(document.getElementById('irregular-depth').value) || 8
-            };
-            break;
-          default:
-            dims = { x: 1, y: 1, z: 1 };
-        }
-        
-        const packObj = {
-          uuid: mesh.uuid,
-          type: obj.type,
-          dimensions: dims,
-          position: {
-            x: mesh.position.x,
-            y: mesh.position.y,
-            z: mesh.position.z
-          },
-          scale: { x: 1, y: 1, z: 1 },
-          rotation: { x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z },
-          material: {
-            color: mesh.material?.color?.getHex?.() || 0xffffff,
-            metalness: 0,
-            roughness: 1
-          }
+
+            console.log(`📤 為群組 '${group.name}' 發送打包請求`, request);
+            
+            // 執行打包並等待結果
+            return (async () => {
+                const response = await requestBinPacking(request);
+                if (!response.job_id) {
+                    throw new Error(`群組 '${group.name}' 的打包請求未能獲取 job_id`);
+                }
+                return await pollJobUntilComplete(response.job_id, (progress) => {
+                    // 可以根據需要更新每個組的進度，或匯總進度
+                    console.log(`📊 群組 '${group.name}' 進度:`, progress);
+                });
+            })();
+        });
+
+        // 等待所有群組的打包任務完成
+        const groupResults = await Promise.all(packingPromises);
+        console.log('📥 所有群組打包完成', groupResults);
+
+        // --- 合併並偏移結果 ---
+        let finalPackedObjects = [];
+        let totalVolume = 0;
+        let totalItemVolume = 0;
+
+        groupResults.forEach((result, index) => {
+            if (!result || !result.result || !result.result.packed_objects) {
+                return; // 跳過空的或失敗的結果
+            }
+
+            const packedGroup = result.result.packed_objects;
+            const zOffset = index * subContainerDepth;
+            
+            totalVolume += mainContainer.width * mainContainer.height * subContainerDepth;
+            totalItemVolume += result.result.total_item_volume || 0;
+
+            packedGroup.forEach(packedObj => {
+                // 應用Z軸偏移
+                packedObj.position.z += zOffset;
+                finalPackedObjects.push(packedObj);
+            });
+        });
+
+        console.log('📦 合併後的最終打包物件:', finalPackedObjects);
+
+        const finalUtilization = totalVolume > 0 ? (totalItemVolume / totalVolume) : 0;
+        const finalResult = {
+            packed_objects: finalPackedObjects,
+            volume_utilization: finalUtilization,
+            execution_time: null // 執行時間需要另外計算或匯總
         };
-        
-        console.log(`📦 物件 ${mesh.uuid} 打包數據:`, packObj);
-        return packObj;
-      });
-      
-      console.log('📦 所有物件打包數據:', packObjects);
-      
-      // 使用固定的120^3容器
-      const packContainer = {
-        width: 120,
-        height: 120,
-        depth: 120
-      };
-      
-      // 發送打包請求
-      const request = {
-        objects: packObjects,
-        container_size: packContainer,
-        optimization_type: 'volume_utilization',
-        algorithm: 'blf_sa',
-        async_mode: true,
-        timeout: 30
-      };
-      
-      console.log('📤 發送打包請求:', request);
-      
-      // 這裡需要導入binPackingAPI
-      if (requestBinPacking) {
-        console.log('✅ Bin packing API 可用，發送請求...');
-        try {
-          const response = await requestBinPacking(request);
-          console.log('📥 收到打包響應:', response);
-          
-          if (response.job_id) {
-            console.log('🆔 任務ID:', response.job_id);
-            // 輪詢結果
-            if (pollJobUntilComplete) {
-              console.log('🔄 開始輪詢任務結果...');
-              const result = await pollJobUntilComplete(response.job_id, (progress) => {
-                console.log('📊 進度更新:', progress);
-                this.updateProgressDisplay(progress);
-              });
-              
-              console.log('🎯 輪詢完成，最終結果:', result);
-              if (result) {
-                this.applyPackingResult(result);
-                console.log("✅ applyPackingResult 被呼叫，結果是:", result);
-              }
-            } else {
-              console.error('❌ pollJobUntilComplete 函數不可用');
-            }
-          } else {
-            console.warn('⚠️ 響應中沒有job_id');
-            // 可能是同步響應，直接處理
-            if (response.packed_objects || response.result) {
-              console.log('🔄 處理同步響應...');
-              this.applyPackingResult(response);
-            }
-          }
-        } catch (apiError) {
-          console.warn('⚠️ API調用失敗，使用模擬打包:', apiError);
-          // 如果API調用失敗，使用模擬打包
-          this.simulatePacking(packObjects, packContainer);
-        }
-      } else {
-        console.log('🔄 Bin packing API 不可用，使用模擬打包...');
-        // 使用模擬打包
-        this.simulatePacking(packObjects, packContainer);
-      }
+
+        // 應用最終結果
+        this.applyPackingResult(finalResult);
+
     } catch (error) {
-      console.error('❌ 打包失敗:', error);
-      alert('打包失敗: ' + error.message);
-      // 顯示錯誤狀態
-      this.updateProgressDisplay({ status: 'failed', progress: 0 });
+        console.error('❌ 打包過程中發生嚴重錯誤:', error);
+        alert('打包失敗: ' + error.message);
+        this.updateProgressDisplay({ status: 'failed', progress: 0 });
     }
-  }
+}
