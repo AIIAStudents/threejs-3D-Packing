@@ -20,15 +20,11 @@
 
 後端伺服器透過 REST API 提供裝箱演算法，建議使用Windows 命令提示字元 (Command Prompt)執行。
 
-1.  首先，請切換到 `src` 目錄：
+1.  使用 Python 模組的方式執行伺服器：
     ```bash
-    cd src
+    python -m src.python.start_servers
     ```
-2.  使用 Python 模組的方式執行伺服器：
-    ```bash
-    python -m api_server.bin_packing_api
-    ```
-3.  伺服器將會啟動於 `http://localhost:8889`。
+2.  伺服器將會啟動於 `http://localhost:8889`。
 
 ### 前端設定
 
