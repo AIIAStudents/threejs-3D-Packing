@@ -8,14 +8,14 @@ import sys
 import os
 
 # 添加路徑
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from flask import Flask
 from flask_cors import CORS
 from api_server.bin_packing_api import create_bin_packing_routes
 
 def main():
-    print("🚀 啟動 3D Bin Packing 服務器...")
+    print("啟動 3D Bin Packing 服務器...")
     
     # 創建 Flask 應用
     app = Flask(__name__)
@@ -44,10 +44,10 @@ def main():
         </ul>
         '''
     
-    print("✅ 服務器配置完成")
-    print("🌐 服務器將在 http://localhost:8889 啟動")
-    print("📦 3D Bin Packing API 端點: http://localhost:8889/pack_objects")
-    print("🔄 按 Ctrl+C 停止服務器")
+    print("服務器配置完成")
+    print("服務器將在 http://localhost:8889 啟動")
+    print("3D Bin Packing API 端點: http://localhost:8889/pack_objects")
+    print("按 Ctrl+C 停止服務器")
     
     # 啟動服務器
     app.run(host='0.0.0.0', port=8889, debug=True)
