@@ -31,5 +31,3 @@ Thumbs.db
 /src/rl_ppo_model/
 /src/assets/
 
-# Database files (not used by current implementation)                                                                                                          │
-/src/db/ 
