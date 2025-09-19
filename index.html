@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <title>3D Bin Packing System</title>
     <link rel="stylesheet" href="./src/css/style.css">
+    <link rel="stylesheet" href="./src/css/container.css">
     <style>
       body {
         margin: 0;
@@ -18,6 +19,31 @@
       crossorigin="anonymous" 
       referrerpolicy="no-referrer" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <link rel="stylesheet" href="./src/css/group_flow.css">
+    <link rel="stylesheet" href="./src/css/ui_controls.css">
+    <style>
+      /* Styles for group collapse/expand */
+      .group-header {
+        cursor: pointer;
+        user-select: none; /* Prevent text selection on click */
+      }
+      .group-toggle {
+        margin-right: 8px;
+        transition: transform 0.2s ease-in-out;
+        width: 12px; /* Allocate space for the icon */
+        display: inline-block;
+        text-align: center;
+      }
+      .group-items {
+        padding-left: 20px;
+      }
+      .group.collapsed .group-items {
+        display: none;
+      }
+      .group:not(.collapsed) .group-toggle {
+        transform: rotate(90deg);
+      }
+    </style>
   </head>
   <body>
     <div id="app">
@@ -29,24 +55,63 @@
         
         <!-- 功能按鈕區域 -->
         <div class="action-buttons">
-          <button id="add-item-btn" class="action-btn">
-            <i class="fas fa-plus"></i>
-             Add Item
+          <button id="change-container-btn" class="action-btn secondary">
+            <i class="fas fa-box-open"></i>
+             Change container size
           </button>
-          <button id="execute-packing-btn" class="action-btn">
+          <button id="add-group-btn" class="action-btn primary">
+            <i class="fas fa-folder-plus"></i>
+             Add Group
+          </button>
+          
+          <button id="execute-packing-btn" class="action-btn primary">
             <i class="fas fa-play"></i>
-             Execution 3D Packing
+             Pack Selected Group
           </button>
-          <a href="." class="action-btn" style="text-decoration: none; justify-content: center;" title="Refresh Page">
+          <button id="pack-all-btn" class="action-btn primary">
+            <i class="fas fa-cubes"></i>
+             Pack All Groups
+          </button>
+          <a href="." class="action-btn secondary" style="text-decoration: none; justify-content: center;" title="Refresh Page">
             <i class="fas fa-sync-alt"></i>
              Refresh
           </a>
         </div>
 
+        <!-- 物品類型選擇區域 -->
+        <div class="item-type-selection">
+          <button class="item-icon-button" data-item-type-id="3" title="Add Cube" draggable="true">
+            <img src="./src/assets/icons/cube.png" alt="Cube">
+          </button>
+        </div>
+
         <!-- 物件列表區域 -->
         <div class="objects-section">
           <div id="objects-list" class="objects-list">
-            <!-- 物件項目將在這裡動態生成 -->
+            <div class="group collapsed">
+              <div class="group-header">
+                <i class="fas fa-chevron-right group-toggle"></i>
+                <span class="group-name">Group 1</span>
+                <button class="kebab">⋮</button>
+                <!-- 群組功能表 -->
+                <div class="menu">
+                  <div class="menu-item">修改名稱</div>
+                  <div class="menu-item">刪除群組</div>
+                </div>
+              </div>
+              <div class="group-items">
+                <div class="item">
+                  <span class="item-name">Item A</span>
+                  <button class="kebab">⋮</button>
+                  <!-- 物件功能表 -->
+                  <div class="menu">
+                    <div class="menu-item">修改尺寸</div>
+                    <div class="menu-item">狀態列</div>
+                    <div class="menu-item">刪除物件</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -55,139 +120,16 @@
       <div id="resizer"></div>
 
       <!-- 右側3D場景 -->
-      <div id="right-canvas">
+      <div id="container">
         <canvas id="canvas"></canvas>
         
-        <!-- 物件屬性工具列 (預設隱藏) -->
+        <!-- 物件屬性工具列 (已停用) -->
         <div id="item-toolbar" class="toolbar-panel" style="display: none;">
-          <div class="toolbar-header">
-            <h3>物件屬性</h3>
-            <button class="close-btn" id="close-item-toolbar">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="toolbar-content">
-            <div class="toolbar-section">
-              <h4>基本屬性</h4>
-              <div class="input-group">
-                <label>物件名稱:</label>
-                <input type="text" id="item-name" value="Box">
-              </div>
-              <div class="input-group">
-                <label>物件類型:</label>
-                <select id="item-type">
-                  <option value="cube">Cube (立方體)</option>
-                  <option value="sphere">Sphere (球體)</option>
-                  <option value="cylinder">Cylinder (圓柱體)</option>
-                  <option value="icosahedron">Icosahedron (二十面體)</option>
-                  <option value="irregular">Irregular (不規則形狀)</option>
-                </select>
-              </div>
-            </div>
-            
-            <div class="toolbar-section" id="cube-params" style="display: none;">
-              <h4>立方體參數</h4>
-              <div class="input-group">
-                <label>寬度:</label>
-                <input type="number" id="cube-width" value="15" min="1" max="50" step="1">
-              </div>
-              <div class="input-group">
-                <label>高度:</label>
-                <input type="number" id="cube-height" value="15" min="1" max="50" step="1">
-              </div>
-              <div class="input-group">
-                <label>深度:</label>
-                <input type="number" id="cube-depth" value="15" min="1" max="50" step="1">
-              </div>
-            </div>
-            
-            <div class="toolbar-section" id="sphere-params" style="display: none;">
-              <h4>球體參數</h4>
-              <div class="input-group">
-                <label>半徑:</label>
-                <input type="number" id="sphere-radius" value="10" min="1" max="20" step="0.5">
-              </div>
-              <div class="input-group">
-                <label>寬度分段:</label>
-                <input type="number" id="sphere-widthSegments" value="16" min="3" max="64" step="1">
-              </div>
-              <div class="input-group">
-                <label>高度分段:</label>
-                <input type="number" id="sphere-heightSegments" value="16" min="2" max="32" step="1">
-              </div>
-            </div>
-            
-            <div class="toolbar-section" id="cylinder-params" style="display: none;">
-              <h4>圓柱體參數</h4>
-              <div class="input-group">
-                <label>頂部半徑:</label>
-                <input type="number" id="cylinder-radiusTop" value="5" min="0" max="20" step="0.5">
-              </div>
-              <div class="input-group">
-                <label>底部半徑:</label>
-                <input type="number" id="cylinder-radiusBottom" value="5" min="0" max="20" step="0.5">
-              </div>
-              <div class="input-group">
-                <label>高度:</label>
-                <input type="number" id="cylinder-height" value="10" min="1" max="50" step="1">
-              </div>
-              <div class="input-group">
-                <label>徑向分段:</label>
-                <input type="number" id="cylinder-radialSegments" value="8" min="3" max="64" step="1">
-              </div>
-              <div class="input-group">
-                <label>高度分段:</label>
-                <input type="number" id="cylinder-heightSegments" value="1" min="1" max="32" step="1">
-              </div>
-            </div>
-            
-            <div class="toolbar-section" id="icosahedron-params" style="display: none;">
-              <h4>二十面體參數</h4>
-              <div class="input-group">
-                <label>半徑:</label>
-                <input type="number" id="icosahedron-radius" value="10" min="1" max="20" step="0.5">
-              </div>
-              <div class="input-group">
-                <label>細節:</label>
-                <input type="number" id="icosahedron-detail" value="0" min="0" max="5" step="1">
-              </div>
-            </div>
-            
-            <div class="toolbar-section" id="irregular-params" style="display: none;">
-              <h4>不規則形狀參數</h4>
-              <div class="input-group">
-                <label>寬度:</label>
-                <input type="number" id="irregular-width" value="10" min="1" max="50" step="1">
-              </div>
-              <div class="input-group">
-                <label>高度:</label>
-                <input type="number" id="irregular-height" value="15" min="1" max="50" step="1">
-              </div>
-              <div class="input-group">
-                <label>深度:</label>
-                <input type="number" id="irregular-depth" value="8" min="1" max="50" step="1">
-              </div>
-            </div>
-
-            <div class="toolbar-section">
-              <h4>材質</h4>
-              <div class="input-group">
-                <label>顏色:</label>
-                <input type="color" id="item-color" value="#ff6b6b">
-              </div>
-              <div class="input-group">
-                <label>透明度:</label>
-                <input type="range" id="item-opacity" min="0" max="1" step="0.1" value="0.9">
-                <span id="opacity-value">0.9</span>
-              </div>
-            </div>
-            
-            <div class="toolbar-actions">
-                <button id="create-item-btn" class="create-btn">創建物件</button>
-                <button id="delete-item-btn" class="cancel-btn" style="display: none;">刪除物件</button>
-            </div>
-          </div>
+          <!-- The content of this toolbar is now handled by simpler prompts -->
+          <!-- and the new data-driven flow. -->
         </div>
+
+        
 
         <!-- 打包進度面板 -->
         <div id="packing-panel" class="floating-panel" style="display: none;">
@@ -216,5 +158,144 @@
     </div>
 
     <script type="module" src="./src/js/main.js"></script>
+
+    <script src="./src/js/ripple.js" defer></script>
+
+    <!-- Container Size Modal -->
+    <div id="container-modal">
+        <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div id="container-preview">
+                <canvas id="container-canvas"></canvas>
+            </div>
+            <div id="container-controls">
+                <div id="container-controls-content" class="scrollable-section">
+                    <!-- Controls for shape and size will be dynamically added here -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-icon-buttons">
+            <button id="arrow-icon-btn" class="modal-icon-btn" title="Submit"><img src="./src/assets/container/arrow.png" width="24" height="24"></button>
+            <button id="door-icon-btn" class="modal-icon-btn" title="Door"><img src="./src/assets/container/opened-door-aperture.png" width="24" height="24"></button>
+            <button id="size-icon-btn" class="modal-icon-btn" title="Size"><img src="./src/assets/container/size.png" width="24" height="24"></button>
+            <button id="container-icon-btn" class="modal-icon-btn" title="Container"><img src="./src/assets/container/container.png" width="24" height="24"></button>
+        </div>
+        
+        <!-- Confirmation Dialogs -->
+        <div id="submit-confirmation" class="confirmation-dialog">
+            <p>確定使用容器?</p>
+            <div class="btn-group">
+                <button id="confirm-submit-yes" class="confirm-yes">是</button>
+                <button id="confirm-submit-no" class="confirm-no">否</button>
+            </div>
+        </div>
+
+        <div id="discard-confirmation" class="confirmation-dialog">
+            <p>確定捨棄當前編輯?</p>
+            <div class="btn-group">
+                <button id="confirm-discard-yes" class="confirm-yes">是</button>
+                <button id="confirm-discard-no" class="confirm-no">否</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Group Flow Editor UI -->
+    <div id="group-flow-editor" style="display: none;">
+      <button id="close-flow-editor-btn" class="modal-close-btn">&times;</button>
+      <div id="group-flow-canvas"></div>
+
+      <div id="group-flow-controls" class="flow-controls">
+        <button id="bin-btn" class="control-button" title="Delete Group"><img src="./src/assets/3D packing/bin.png"></button>
+        <button id="history-btn" class="control-button" title="History"><img src="./src/assets/3D packing/history.png"></button>
+        <button id="play-btn" class="control-button" title="Execute Packing"><img src="./src/assets/3D packing/play-button-arrowhead.png"></button>
+        <button id="planning-btn" class="control-button" title="Edit Order"><img src="./src/assets/3D packing/planning.png"></button>
+      </div>
+
+      <div id="delete-group-dialog" class="confirmation-dialog">
+        <p>確定要刪除群組?</p>
+        <div class="btn-group">
+          <button id="confirm-delete-yes" class="confirm-yes">是</button>
+          <button id="confirm-delete-no" class="confirm-no">否</button>
+        </div>
+      </div>
+
+      <div id="history-panel" class="history-panel">
+        <div class="history-header">
+          <h3>刪除紀錄</h3>
+          <button id="close-history-panel" class="close-btn">&times;</button>
+        </div>
+        <div id="history-content" class="history-content">
+          <p>目前沒有任何歷史紀錄</p>
+        </div>
+      </div>
+    </div>
+  <!-- Kebab menu icon -->
+      <div id="kebab-menu-icon" class="kebab-icon" style="display: none;">
+        <i class="fas fa-ellipsis-v"></i>
+      </div>
+      <!-- Item Edit Modal -->
+      <div id="item-edit-modal" class="edit-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>修改物件屬性</h3>
+            
+            <!-- Item Name -->
+            <div class="input-group">
+                <label for="item-name-input">物件名稱</label>
+                <input type="text" id="item-name-input" class="text-input">
+            </div>
+
+            <!-- Dimensions -->
+            <div class="input-group">
+                <label for="item-width-input">寬度 (Width): <span id="item-width-value"></span></label>
+                <input type="range" id="item-width-input" min="1" max="30" step="1">
+            </div>
+            <div class="input-group">
+                <label for="item-height-input">高度 (Height): <span id="item-height-value"></span></label>
+                <input type="range" id="item-height-input" min="1" max="30" step="1">
+            </div>
+            <div class="input-group">
+                <label for="item-depth-input">深度 (Depth): <span id="item-depth-value"></span></label>
+                <input type="range" id="item-depth-input" min="1" max="30" step="1">
+            </div>
+
+            <!-- Status Selection -->
+            <div class="input-group">
+              <label>狀態</label>
+              <div class="status-btn-group">
+                <button class="status-btn" data-status="pending">尚未確認</button>
+                <button class="status-btn" data-status="confirmed">已確認</button>
+                <button class="status-btn" data-status="reconfirmed">補確認</button>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="btn-group">
+                <button id="save-item-btn" class="confirm-yes">儲存</button>
+                <button id="cancel-edit-item-btn" class="confirm-no">取消</button>
+            </div>
+        </div>
+    </div>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const objectsList = document.getElementById('objects-list');
+
+        objectsList.addEventListener('click', (event) => {
+          const header = event.target.closest('.group-header');
+          
+          if (!header || event.target.closest('button') || event.target.closest('.menu')) {
+            return;
+          }
+
+          const group = header.parentElement;
+          group.classList.toggle('collapsed');
+        });
+
+        // Initialize existing groups to be collapsed
+        document.querySelectorAll('.group').forEach(group => {
+          group.classList.add('collapsed');
+        });
+      });
+    </script>
   </body>
 </html>
