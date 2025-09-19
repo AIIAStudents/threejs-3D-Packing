@@ -1,0 +1,226 @@
+/* Container for the bottom-right control buttons */
+.flow-controls {
+  position: absolute;
+  bottom: 5vh;
+  right: 5vw;
+  display: flex;
+  flex-direction: row-reverse; /* Right to left order */
+  gap: 15px;
+}
+
+/* General style for control buttons */
+.control-button {
+  width: 50px;
+  height: 50px;
+  background-color: white;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s, box-shadow 0.3s, transform 0.2s;
+}
+
+.control-button img {
+  width: 24px;
+  height: 24px;
+  filter: grayscale(50%);
+  transition: filter 0.3s;
+}
+
+.control-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+}
+
+.control-button:hover img {
+  filter: grayscale(0%);
+}
+
+/* Specific hover colors */
+#planning-btn:hover { background-color: #FFA500; }
+#play-btn:hover { background-color: #FFD306; }
+#history-btn:hover { background-color: #206DD6; }
+#bin-btn:hover { background-color: #749551; }
+
+/* Active/lit state for buttons */
+.control-button.active {
+  box-shadow: 0 0 15px 5px var(--active-color, #007bff);
+  transform: scale(1.1);
+}
+
+#planning-btn.active { --active-color: #FFA500; }
+#bin-btn.active { --active-color: #749551; }
+
+/* Confirmation Dialog */
+.confirmation-dialog {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    text-align: center;
+    z-index: 1020;
+}
+.confirmation-dialog p {
+    margin: 0 0 15px;
+    font-size: 16px;
+}
+.btn-group button {
+    margin: 0 10px;
+    padding: 8px 20px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+}
+
+/* Item Type Selection */
+.item-type-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 15px;
+  border-top: 1px solid #eee;
+  margin-top: 15px;
+  justify-content: center;
+}
+
+.item-icon-button {
+  width: 60px;
+  height: 60px;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.item-icon-button:hover {
+  background-color: #e0e0e0;
+  border-color: #bbb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.item-icon-button img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+/* --- Item Edit Modal --- */
+.edit-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  z-index: 1050;
+  width: 90%;
+  max-width: 400px;
+  border-top: 5px solid #4A90E2;
+}
+
+.edit-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.edit-modal h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+}
+
+.edit-modal .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-modal label {
+  font-size: 14px;
+  color: #555;
+}
+
+.edit-modal .text-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box; /* Important for padding */
+}
+
+.edit-modal input[type="range"] {
+  width: 100%;
+}
+
+/* --- Status Buttons --- */
+.status-btn-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.status-btn {
+  flex-grow: 1;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-btn.active {
+  color: #fff;
+  border-width: 2px;
+  transform: scale(1.05);
+}
+
+.status-btn[data-status="pending"].active {
+  background-color: #f0ad4e; /* Yellow */
+  border-color: #eea236;
+}
+
+.status-btn[data-status="confirmed"].active {
+  background-color: #5cb85c; /* Green */
+  border-color: #4cae4c;
+}
+
+.status-btn[data-status="reconfirmed"].active {
+  background-color: #f78c38; /* Orange */
+  border-color: #f67d20;
+}
+
+/* --- Kebab Menu Icon --- */
+#kebab-menu-icon {
+  position: absolute;
+  background-color: #4A90E2;
+  color: white;
+  padding: 8px 10px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 100;
+  pointer-events: none; /* So it doesn't interfere with mouse events on the canvas */
+}
