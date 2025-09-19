@@ -1,551 +1,199 @@
-/* 全局變數 */
-:root {
-  --sidebar-bg: #2D3134;
-  --button-bg: #48555E;
-  --button-hover: #517289;
-  --text-color: #ffffff;
-  --border-color: #3a3a3a;
-  --panel-bg: rgba(45, 49, 52, 0.95);
-  --input-bg: #3a3a3a;
-  --input-border: #555;
-  --success-color: #4CAF50;
-  --warning-color: #FF9800;
-  --error-color: #f44336;
-}
-
-/* 基礎樣式 */
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
+/* 基本設定 */
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f7f8fa;
   margin: 0;
-  padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  overflow: hidden;
+  color: #333;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
+header {
+  background: #fff;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
 }
 
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* 工具列 */
+.toolbar {
+  background: #fff;
+  padding: 10px 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* 通用按鈕樣式 */
+button {
+  position: relative;
+  overflow: hidden; /* 限制 ripple */
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+/* 主要操作按鈕 */
+button.primary {
+  background: #4A90E2;
+  color: #fff;
+}
+button.primary:hover {
+  background: #357ABD;
+}
+button.primary:active {
+  transform: scale(0.97);
+  background: #2C5EA8;
+}
+
+/* 次要操作按鈕 */
+button.secondary {
+  background: #fff;
+  border: 1px solid #4A90E2;
+  color: #4A90E2;
+}
+button.secondary:hover {
+  background: #EAF2FD;
+}
+button.secondary:active {
+  transform: scale(0.97);
+  background: #D4E4FA;
+}
+
+/* 禁用狀態 */
+button:disabled {
+  background: #eee;
+  color: #999;
+  border: none;
+  cursor: not-allowed;
+}
+
+/* Ripple 效果 */
+button .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.6);
+  transform: scale(0);
+  animation: ripple 0.6s linear;
+  pointer-events: none;
+}
+ @keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* --- 群組管理 (Group Management) --- */
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 280px;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 12px;
+  overflow-y: auto;
+}
+.sidebar h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+/* 群組與物件 */
+.group, .item {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+.group:hover, .item:hover {
+  background: #f9f9f9;
+}
+
+/* Kebab 按鈕 */
+.kebab {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.kebab:hover {
+  background: #eee;
+}
+
+/* 功能選單 */
+.menu {
+  display: none;
+  position: absolute;
+  right: 30px;
+  top: 30px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  z-index: 10;
+}
+.menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: #f0f0f0;
+}
+
+/* --- Styling for highlighted item during editing --- */
+.item.is-editing, .group-header.is-editing {
+  background-color: #eaf2fd !important; /* Light blue highlight */
+  border-left: 3px solid #4A90E2;
+}
+
+/* --- Main Layout --- */
 #app {
   display: flex;
-  height: 100vh; /* 確保 app 佔滿整個視窗高度 */
+  height: 100vh;
 }
 
 #left-sidebar {
-  width: 300px; /* 初始寬度 */
-  min-width: 200px; /* 最小寬度 */
-  max-width: 600px; /* 最大寬度 */
-  background-color: var(--sidebar-bg);
-  color: var(--text-color);
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border-color);
-}
-
-#resizer {
-  width: 5px;
-  cursor: col-resize;
-  background-color: #1a1a1a;
-  border-left: 1px solid var(--border-color);
-  border-right: 1px solid var(--border-color);
-}
-
-#right-canvas {
-  flex: 1; /* 佔用剩餘空間 */
-  position: relative;
-  overflow: hidden; /* 確保 canvas 不會超出範圍 */
-}
-
-#canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.sidebar-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.sidebar-header h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-/* 功能按鈕區域 */
-.action-buttons {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.action-btn {
-  background-color: var(--button-bg);
-  color: var(--text-color);
-  border: none;
-  padding: 12px 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background-color 0.3s ease;
-}
-
-.action-btn:hover {
-  background-color: var(--button-hover);
-}
-
-.action-btn i {
-  font-size: 12px;
-}
-
-/* 物件列表區域 */
-.objects-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border-color);
-  min-height: 0; /* 確保在 flex 容器中可以正確計算高度 */
-}
-
-.section-header {
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.section-header span {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.3s ease;
-}
-
-.close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.objects-list {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.object-item {
-  background-color: var(--button-bg);
-  border-radius: 8px;
-  padding: 12px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.object-item:hover {
-  background-color: var(--button-hover);
-}
-
-.object-info {
-  flex: 1;
-}
-
-.object-name {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.object-details {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.object-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.menu-btn {
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.3s ease;
-}
-
-.menu-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-/* 右側3D場景 */
-#right-canvas {
-  flex: 1;
-  position: relative;
-  background-color: #ffffff;
-  min-height: 100vh;
-  overflow: hidden;
-}
-
-#canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-  background-color: #ffffff;
-}
-
-/* 浮動面板 */
-.floating-panel {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 320px;
-  background-color: var(--panel-bg);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
-  color: var(--text-color);
-  z-index: 1000;
-}
-
-/* 工具列面板 */
-.toolbar-panel {
-  position: absolute;
-  top: 20px;
-  right: 20px;
   width: 350px;
-  max-height: 80vh;
-  background-color: var(--panel-bg);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
-  color: var(--text-color);
-  z-index: 1000;
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 12px;
   overflow-y: auto;
-}
-
-.toolbar-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: sticky;
-  top: 0;
-  background-color: var(--panel-bg);
-  z-index: 1;
+  flex-direction: column;
 }
 
-.toolbar-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+#container {
+  flex-grow: 1; /* Allow 3D container to take remaining space */
+  position: relative; /* Needed for canvas and other overlays */
 }
 
-.toolbar-content {
-  padding: 20px;
+/* Ensure canvas fills its container */
+#container, #canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
 }
 
-.toolbar-section {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.toolbar-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-.toolbar-section h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-color);
-  opacity: 0.9;
-}
-
-.panel-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.panel-content {
-  padding: 20px;
-}
-
-.input-group {
-  margin-bottom: 16px;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 10px 12px;
-  background-color: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: 6px;
-  color: var(--text-color);
-  font-size: 14px;
-}
-
-.input-group input:focus {
-  outline: none;
-  border-color: var(--button-hover);
-}
-
-.create-btn {
-  width: 100%;
-  background-color: var(--success-color);
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
-}
-
-.create-btn:hover {
-  background-color: #45a049;
-}
-
-.cancel-btn {
-  width: 100%;
-  background-color: var(--error-color);
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
-}
-
-.cancel-btn:hover {
-  background-color: #da190b;
-}
-
-/* 進度條樣式 */
-.progress-container {
-  margin-bottom: 20px;
-}
-
-.progress-status {
-  font-size: 14px;
-  margin-bottom: 8px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 4px;
-  text-align: center;
-}
-
-/* 狀態樣式 */
-.status-pending {
-  background-color: var(--warning-color);
-  color: white;
-}
-
-.status-processing {
-  background-color: #2196F3;
-  color: white;
-}
-
-.status-completed {
-  background-color: var(--success-color);
-  color: white;
-}
-
-.status-failed {
-  background-color: var(--error-color);
-  color: white;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background-color: var(--input-bg);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.progress-fill {
-  height: 100%;
-  background-color: var(--success-color);
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 12px;
-  text-align: center;
-  opacity: 0.8;
-}
-
-#packing-results {
-  margin-bottom: 16px;
-}
-
-#packing-results p {
-  margin: 8px 0;
-  font-size: 14px;
-}
-
-#utilization-text, #execution-time-text {
-  color: var(--success-color);
-  font-weight: 600;
-}
-
-/* 響應式設計 */
-@media (max-width: 768px) {
-  #left-sidebar {
-    width: 250px;
-  }
-  
-  .floating-panel {
-    width: 280px;
-    right: 10px;
-  }
-}
-
-/* 滾動條樣式 */
-.objects-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.objects-list::-webkit-scrollbar-track {
-  background: var(--input-bg);
-}
-
-.objects-list::-webkit-scrollbar-thumb {
-  background: var(--button-bg);
-  border-radius: 3px;
-}
-
-.objects-list::-webkit-scrollbar-thumb:hover {
-  background: var(--button-hover);
-}
-
-/* ----------------------這是分隔線------------------- */
-/* 工具列位置與背景 */
-#icon-toolbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  background-color: #111;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-  padding: 10px 0;
-  z-index: 9999;
-  backdrop-filter: blur(6px);
-  background-color: rgba(17, 17, 17, 0.6);
-  pointer-events: none;
-}
-
-/* 隱藏 class 控制 */
-.hidden {
-  display: none;
-}
-
-/* 包裹 SVG 的容器 */
-.icon-wrapper {
-  position: relative;
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  background-color: #111;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: background-color 0.3s ease;
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-/* SVG 圓形樣式（空心圓） */
-.circle-icon {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: #aaa;
-  stroke-width: 32;
-  transition: stroke 0.3s ease;
-}
-
-/* Tooltip 提示字 */
-.tooltip {
-  position: absolute;
-  bottom: -28px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #333;
-  color: #eee;
-  font-size: 10px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 10;
-}
-
-/* 滑鼠滑過效果 */
-.icon-wrapper:hover {
-  background-color: #333;
-}
-
-.icon-wrapper:hover .circle-icon {
-  stroke: #fff;
-}
-
-.icon-wrapper:hover .tooltip {
-  opacity: 1;
+/* Adjust resizer to work with flexbox */
+#resizer {
+    width: 5px;
+    cursor: col-resize;
+    background: #e4e4e4;
+    z-index: 10;
 }
