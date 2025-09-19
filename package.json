@@ -13,7 +13,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.13",
     "cannon-es": "^0.20.0",
+    "tailwindcss": "^4.1.13",
     "three": "^0.178.0",
     "three-csg-ts": "^3.2.0"
   },

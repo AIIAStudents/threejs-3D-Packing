@@ -1,4 +1,224 @@
-const BASE_URL = "http://localhost:8888";
+const BASE_URL = "http://localhost:8889";
+
+// --- 新增：群組與庫存管理 API ---
+
+export async function updateGroupOrder(groupIds) {
+  try {
+    const response = await fetch(`${BASE_URL}/groups/update-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(groupIds),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("❌ [updateGroupOrder] 更新群組順序失敗:", error);
+    throw error;
+  }
+}
+
+/**
+ * 獲取所有群組
+ * @returns {Promise<Array>}
+ */
+export async function getGroups() {
+  try {
+    const response = await fetch(`${BASE_URL}/groups`);
+    if (!response.ok) {
+      throw new Error(`伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("❌ [getGroups] 獲取群組失敗:", error);
+    throw error;
+  }
+}
+
+/**
+ * 建立一個新群組
+ * @param {Object} groupData - e.g., { name: "A組", packingTime: "2023-10-27T15:30:00" }
+ * @returns {Promise<Object>}
+ */
+export async function createGroup(groupData) {
+  try {
+    const response = await fetch(`${BASE_URL}/groups`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(groupData),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("❌ [createGroup] 建立群組失敗:", error);
+    throw error;
+  }
+}
+
+/**
+ * 獲取指定群組的物品
+ * @param {number} groupId
+ * @param {string|null} status - 'pending', 'confirmed', or 'delayed'
+ * @returns {Promise<Array>}
+ */
+export async function getGroupItems(groupId, status = null) {
+  try {
+    const url = new URL(`${BASE_URL}/groups/${groupId}/items`);
+    if (status) {
+      url.searchParams.append('status', status);
+    }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [getGroupItems] 獲取群組 ${groupId} 的物品失敗:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 新增一個物品到庫存
+ * @param {Object} itemData - e.g., { item_type_id: 1, group_id: 1 }
+ * @returns {Promise<Object>}
+ */
+export async function addInventoryItem(itemData) {
+  try {
+    const response = await fetch(`${BASE_URL}/inventory_items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(itemData),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("❌ [addInventoryItem] 新增物品到庫存失敗:", error);
+    throw error;
+  }
+}
+
+/**
+ * 確認物品狀態
+ * @param {number} itemId
+ * @returns {Promise<Object>}
+ */
+export async function confirmItem(itemId) {
+  try {
+    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}/confirm`, {
+      method: "PUT",
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [confirmItem] 確認物品 ${itemId} 失敗:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 更新一個庫存物品
+ * @param {number} itemId
+ * @param {Object} itemData - e.g., { name: "New Name", width: 10, height: 10, depth: 10 }
+ * @returns {Promise<Object>}
+ */
+export async function updateInventoryItem(itemId, itemData) {
+  try {
+    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(itemData),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [updateInventoryItem] 更新物品 ${itemId} 失敗:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 更新群組
+ * @param {number} groupId
+ * @param {Object} groupData - e.g., { name: "New Name" }
+ * @returns {Promise<Object>}
+ */
+export async function updateGroup(groupId, groupData) {
+  try {
+    const response = await fetch(`${BASE_URL}/groups/${groupId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(groupData),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [updateGroup] 更新群組 ${groupId} 失敗:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 刪除群組
+ * @param {number} groupId
+ * @returns {Promise<Object>}
+ */
+export async function deleteGroup(groupId) {
+  try {
+    const response = await fetch(`${BASE_URL}/groups/${groupId}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [deleteGroup] 刪除群組 ${groupId} 失敗:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 刪除庫存物品
+ * @param {number} itemId
+ * @returns {Promise<Object>}
+ */
+export async function deleteItem(itemId) {
+  try {
+    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ [deleteItem] 刪除物品 ${itemId} 失敗:`, error);
+    throw error;
+  }
+}
+
+
+// --- 保留的既有 API ---
 
 /**
  * 傳送場景資料給後端
@@ -15,7 +235,6 @@ export async function sendSceneConfig(sceneConfig) {
       body: JSON.stringify(sceneConfig)
     });
 
-    // 若非 2xx，嘗試讀取錯誤訊息
     if (!response.ok) {
       let errData = {};
       try {
@@ -39,15 +258,12 @@ export async function sendSceneConfig(sceneConfig) {
   }
 }
 
-
 /**
- * 傳送當前狀態並請 agent 執行動作（已加雙層安全檢查）
+ * 傳送當前狀態並請 agent 執行動作
  * @param {Object} state - current scene state
  * @returns {Promise<{ action: Object|null, reward: number, message?: string }>}
  */
 export async function requestAgentAction(state) {
-
-  // 🔍 第一層保險：檢查 state.objects 是否合理
   if (!state.objects || !Array.isArray(state.objects) || state.objects.length === 0) {
     console.warn("⚠️ [get_action] 傳送前檢查失敗：state.objects 不存在或是空陣列！");
     return { action: null, reward: 0, message: "無效的場景資料" };
@@ -61,7 +277,7 @@ export async function requestAgentAction(state) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();  // 有些 Flask 回錯不是 JSON
+      const errorText = await response.text();
       console.error("🔴 [get_action] 伺服器回傳錯誤狀態碼：", response.status);
       console.error("🔴 錯誤內容：", errorText);
       throw new Error(`伺服器返回錯誤：${response.status} | ${errorText}`);
@@ -69,7 +285,6 @@ export async function requestAgentAction(state) {
 
     const data = await response.json();
 
-    // 🧪 二層保險：檢查 action 結構是否正常
     if (!data.action || typeof data.action !== "object" || !data.action.uuid) {
       console.warn("⚠️ [get_action] 後端回傳的 action 無效！", data);
       return {
@@ -79,7 +294,6 @@ export async function requestAgentAction(state) {
       };
     }
 
-    // 🎯 成功，印出動作與獎勵
     console.info("✅ [get_action] 成功獲取動作:", data.action.uuid, "| reward:", data.reward);
     return data;
 

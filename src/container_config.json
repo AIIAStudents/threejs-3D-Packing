@@ -1,0 +1,9 @@
+{
+    "shape": "cube",
+    "dimensions": {
+        "width": 120,
+        "height": 120,
+        "depth": 120
+    },
+    "doors": []
+}
