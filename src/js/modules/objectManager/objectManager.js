@@ -1,488 +1,324 @@
-/* global THREE, CANNON */
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { addPhysicsObject, removePhysicsObject, world } from '../../utils/physics.js';
+import * as api from '../../utils/agentAPI.js';
 import { getGroupColor } from './groupColor.js';
-import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+import * as physics from '../../utils/physics.js'; // ADDED PHYSICS IMPORT
 
-const DOOR_SIZES = {
-    'human': { w: 12, h: 22 }, // 1.2m x 2.2m
-    'forklift': { w: 30, h: 40 }, // 3m x 4m
-    'truck': { w: 40, h: 50 } // 4m x 5m
-};
+const CONTAINER_SIZE = { width: 120, height: 150, depth: 120 };
 
-/**
- * ObjectManager - Manages Three.js objects and their Cannon.js bodies.
- */
+function clampToContainer(object) {
+    const objectSize = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
+    const halfContainer = { 
+        width: CONTAINER_SIZE.width / 2, 
+        depth: CONTAINER_SIZE.depth / 2 
+    };
+
+    object.position.x = Math.max(
+        -halfContainer.width + objectSize.x / 2,
+        Math.min(object.position.x, halfContainer.width - objectSize.x / 2)
+    );
+    object.position.z = Math.max(
+        -halfContainer.depth + objectSize.z / 2,
+        Math.min(object.position.z, halfContainer.depth - objectSize.z / 2)
+    );
+    object.position.y = Math.max(
+        objectSize.y / 2,
+        Math.min(object.position.y, CONTAINER_SIZE.height - objectSize.y / 2)
+    );
+}
+
 export class ObjectManager {
   constructor(scene, renderCallback) {
     this.scene = scene;
     this.render = renderCallback;
-    this.groupManager = null;
-    this.selectedObject = null;
     this.activeGroupId = null;
-    this.containerSize = { x: 120, y: 120, z: 120 };
-    this.doorOutlines = []; // To keep track of door outlines
-
-    this.items = []; // Stores conceptual items with references to mesh
-    this.groups = []; // Reference to groupManager's groups
+    this.items = [];
+    this.allGroups = [];
+    this.selectedObject = null; // Add this line
 
     this._setupEventListeners();
-
-    // Listen for container changes from the containerManager modal
-    window.addEventListener('containerChanged', (e) => {
-        this.updateContainer(e.detail);
-    });
   }
 
-  setGroupManager(manager) {
-    this.groupManager = manager;
-  }
-
-  setGroups(groups) {
-    this.groups = groups;
-  }
-
-  updateContainer(containerConfig) {
-    console.log('ObjectManager received containerChanged event:', containerConfig);
-
-    // --- 1. Update containerSize for item placement ---
-    if (containerConfig.shape === 'cube') {
-        this.containerSize = { ...containerConfig.dimensions };
-    } else if (containerConfig.shape === 'l-shape') {
-        const { mainWidth, mainHeight, mainDepth } = containerConfig.dimensions;
-        this.containerSize = {
-            x: mainWidth,
-            y: mainHeight,
-            z: mainDepth,
-        };
-        console.warn('L-shape container size for item placement is an approximation based on the main part.');
-    }
-
-    // --- 2. Draw door outlines ---
-    this.doorOutlines.forEach(outline => this.scene.remove(outline));
-    this.doorOutlines = [];
-
-    const { shape, dimensions, doors } = containerConfig;
-    if (!doors || !Array.isArray(doors)) {
-        if (this.render) this.render();
-        return;
-    }
-
-    const createOutline = (w, h, color) => {
-        const material = new THREE.LineBasicMaterial({ color: color, linewidth: 3, depthTest: false });
-        // Draw the outline from y=0 to y=h, assuming floor is at y=0
-        const points = [
-            new THREE.Vector3(-w / 2, 0, 0), new THREE.Vector3(w / 2, 0, 0),
-            new THREE.Vector3(w / 2, h, 0), new THREE.Vector3(-w / 2, h, 0),
-            new THREE.Vector3(-w / 2, 0, 0)
-        ];
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geometry, material);
-        line.renderOrder = 1; // Ensure lines are drawn on top
-        this.doorOutlines.push(line);
-        this.scene.add(line);
-        return line;
-    };
-
-    const colorMap = { front: 0x00ff00, back: 0xff0000, side: 0x0000ff };
-
-    if (shape === 'cube') {
-        const { width, height, depth } = dimensions;
-
-        doors.forEach(door => {
-            if (!door.enabled) return;
-
-            const doorSize = DOOR_SIZES[door.type];
-            if (!doorSize) return;
-
-            let outline;
-            let color;
-
-            if (door.face.includes('front')) color = colorMap.front;
-            else if (door.face.includes('back')) color = colorMap.back;
-            else color = colorMap.side;
-
-            // Create outline with the specific door's dimensions
-            outline = createOutline(doorSize.w, doorSize.h, color);
-
-            // Position the outline based on the face and slider position
-            // A small Y offset (0.2) is added to prevent z-fighting with the floor.
-            switch (door.face) {
-                case 'front':
-                    outline.position.set(door.position.x, 0.2, depth / 2 + 0.1);
-                    break;
-                case 'back':
-                    outline.position.set(door.position.x, 0.2, -depth / 2 - 0.1);
-                    break;
-                case 'left':
-                    outline.position.set(-width / 2 - 0.1, 0.2, door.position.x);
-                    outline.rotation.y = Math.PI / 2;
-                    break;
-                case 'right':
-                    outline.position.set(width / 2 + 0.1, 0.2, door.position.x);
-                    outline.rotation.y = Math.PI / 2;
-                    break;
-            }
-        });
-        console.log('Drew specific door outlines for cube container.');
-    } else if (shape === 'l-shape') {
-        console.warn('Drawing door outlines for L-Shape containers is not yet implemented due to complex geometry.');
-    }
-
-    if (this.render) this.render();
-  }
-
-  _createGeometry(params) {
-    switch (params.type) {
-      case 'cube':
-      case 'irregular':
-        return new THREE.BoxGeometry(params.width, params.height, params.depth);
-      case 'sphere':
-        return new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-      case 'cylinder':
-        return new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments);
-      case 'icosahedron':
-        return new THREE.IcosahedronGeometry(params.radius, params.detail);
-      case 'l-shape-item': // L-shape items are not instanced due to their complex geometry
-        const totalWidth = params.totalWidth;
-        const totalHeight = params.totalHeight;
-        const totalDepth = params.totalDepth;
-        const cutWidth = params.cutWidth;
-        const cutDepth = params.cutDepth;
-
-        const geometries = [];
-
-        // Part 1 (horizontal part of L)
-        const geom1 = new THREE.BoxGeometry(totalWidth, totalHeight, cutDepth);
-        geom1.translate(0, 0, totalDepth / 2 - cutDepth / 2);
-        geometries.push(geom1);
-
-        // Part 2 (vertical part of L)
-        const geom2 = new THREE.BoxGeometry(cutWidth, totalHeight, totalDepth - cutDepth);
-        geom2.translate(totalWidth / 2 - cutWidth / 2, 0, -cutDepth / 2);
-        geometries.push(geom2);
-
-        return BufferGeometryUtils.mergeGeometries(geometries);
-      default:
-        return new THREE.BoxGeometry(10, 10, 10);
-    }
-  }
-
-  _createCannonShape(params) {
-    let shape;
-    let body = new CANNON.Body({ mass: 1 }); // 統一先建 body
-
-    switch (params.type) {
-      case 'cube':
-      case 'irregular':
-        shape = new CANNON.Box(new CANNON.Vec3(params.width / 2, params.height / 2, params.depth / 2));
-        body.addShape(shape);
-        break;
-      case 'sphere':
-        shape = new CANNON.Sphere(params.radius);
-        body.addShape(shape);
-        break;
-      case 'cylinder':
-        shape = new CANNON.Cylinder(params.radiusTop, params.radiusBottom, params.height, params.radialSegments);
-        body.addShape(shape);
-        break;
-      case 'icosahedron':
-        shape = new CANNON.Sphere(params.radius);
-        body.addShape(shape);
-        break;
-      case 'l-shape-item':
-        const totalWidth = params.totalWidth;
-        const totalHeight = params.totalHeight;
-        const totalDepth = params.totalDepth;
-        const cutWidth = params.cutWidth;
-        const cutDepth = params.cutDepth;
-
-        // Part 1 (horizontal part of L)
-        const shape1 = new CANNON.Box(new CANNON.Vec3(totalWidth / 2, totalHeight / 2, cutDepth / 2));
-        const offset1 = new CANNON.Vec3(0, 0, totalDepth / 2 - cutDepth / 2);
-        body.addShape(shape1, offset1);
-
-        // Part 2 (vertical part of L)
-        const shape2 = new CANNON.Box(new CANNON.Vec3(cutWidth / 2, totalHeight / 2, (totalDepth - cutDepth) / 2));
-        const offset2 = new CANNON.Vec3(totalWidth / 2 - cutWidth / 2, 0, -cutDepth / 2);
-        body.addShape(shape2, offset2);
-
-        break;
-      default:
-        shape = new CANNON.Box(new CANNON.Vec3(5, 5, 5));
-        body.addShape(shape);
-    }
-
-    return body; // 永遠回傳 CANNON.Body
-  }
-
-
-  createObject(groupId) {
-    if (!this.groupManager || !groupId) {
-      console.error('GroupManager not set or groupId not provided.');
-      return;
-    }
-
-    const params = this._getParamsFromUI(document.getElementById('item-type-select').value);
-    
-    const geometry = this._createGeometry(params);
-    if (!geometry) {
-        console.error(`Failed to create geometry for ${params.type} item.`);
-        return;
-    }
-    const material = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(getGroupColor(groupId, this.groups)),
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    if (!mesh) {
-        console.error(`Failed to create mesh for ${params.type} item.`);
-        return;
-    }
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.scene.add(mesh);
-    const initialPosition = this._getPlacementPosition(groupId, this.groups);
-    mesh.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
-
-    const body = this._createCannonShape(params);
-    body.position.copy(initialPosition);
-    body.quaternion.copy(mesh.quaternion);
-    world.addBody(body);
-
-    const newItem = {
-        id: `item-${THREE.MathUtils.generateUUID()}`,
-        uuid: THREE.MathUtils.generateUUID(),
-        name: params.name,
-        type: params.type,
-        mesh: mesh, // Store the mesh directly
-        body: body,
-        groupId: groupId,
-        geometryParams: params
-    };
-    this.items.push(newItem);
-    this.groupManager.addItemToGroup(newItem, groupId);
-    document.getElementById('item-toolbar').style.display = 'none';
-    if (this.render) this.render();
-    console.log(`📦 Created ${params.type} object with ID ${newItem.id}`);
-  }
-
-  deleteObject(item, shouldRenderList = true) {
-    if (!item) return;
-
-    console.log(`🗑️ Deleting object ${item.id}`);
-
-    if (item.mesh) { // Now all items will have a mesh property
-      this.scene.remove(item.mesh);
-      item.mesh.geometry.dispose();
-      item.mesh.material.dispose();
-    }
-
-    if (item.body) {
-      removePhysicsObject(item.id);
-    }
-
-    const itemIndex = this.items.findIndex(i => i.id === item.id);
-    if (itemIndex > -1) {
-      this.items.splice(itemIndex, 1);
-    }
-
-    if (this.selectedObject && this.selectedObject.id === item.id) {
-      document.getElementById('item-toolbar').style.display = 'none';
-      this.selectedObject = null;
-    }
-    
-    if (this.render) this.render();
-  }
-
-  getObjects() {
-    return this.items;
-  }
-
-  setSelectedObject(item) {
-    this.selectedObject = item;
+  // Add these two methods
+  setSelectedObject(object) {
+    this.selectedObject = object;
   }
 
   getSelectedObject() {
     return this.selectedObject;
   }
 
-  // --- UI METHODS ---
-
-  updateObject() {
-      console.warn("updateObject is not implemented yet.");
-      document.getElementById('item-toolbar').style.display = 'none';
+  getSceneObjects() {
+    return this.scene.children.filter(child => child.userData.isManagedByObjectManager);
   }
 
-  showCreatePanel(groupId) {
-    this.selectedObject = null;
-    this.activeGroupId = groupId;
-    document.getElementById('item-name').value = '新物件';
-
-    const currentType = document.getElementById('item-type-select').value;
-    this._showObjectParams(currentType);
-    document.getElementById('create-item-btn').textContent = '創建物件';
-    document.getElementById('delete-item-btn').style.display = 'none';
-    document.getElementById('item-toolbar').style.display = 'block';
-  }
-
-  showEditPanel(item) {
-    if (!item) return;
-    this.selectedObject = item;
-    this.activeGroupId = null;
-
-    document.getElementById('item-name').value = item.name;
-    document.getElementById('item-type-select').value = item.type;
-    
-    this._showObjectParams(item.type);
-    const paramSections = document.querySelectorAll('.toolbar-section[id$="-params"]');
-    paramSections.forEach(section => {
-      const inputs = section.querySelectorAll('input');
-      inputs.forEach(input => input.disabled = false);
+  async _setupEventListeners() {
+    document.addEventListener('groupSelected', async (e) => {
+      const { groupId } = e.detail;
+      this.activeGroupId = groupId;
+      try {
+          this.allGroups = await api.getGroups();
+          this.loadItemsForGroup(groupId);
+      } catch (error) {
+          console.error("Failed to fetch all groups for color mapping:", error);
+          this.allGroups = [];
+          this.loadItemsForGroup(groupId);
+      }
     });
 
-    document.getElementById('create-item-btn').textContent = '更新物件';
-    document.getElementById('delete-item-btn').style.display = 'inline-block';
-    document.getElementById('item-toolbar').style.display = 'block';
+    const addItemBtn = document.getElementById('add-item-btn');
+    if(addItemBtn) {
+        addItemBtn.addEventListener('click', () => this.addNewCube()); // MODIFIED CALL
+    }
   }
 
-  _setupEventListeners() {
-    const itemTypeSelect = document.getElementById('item-type-select');
-    if (itemTypeSelect) {
-      itemTypeSelect.addEventListener('change', (e) => {
-        this._showObjectParams(e.target.value);
-      });
+  async loadItemsForGroup(groupId) {
+    if (groupId === null || typeof groupId === 'undefined') {
+      this.clearItemsList();
+      // Do not clear the scene, allow multiple groups to be shown
+      return;
     }
+    console.log(`🔄 Loading items for group ${groupId}...`);
+    try {
+      let itemsFromApi = await api.getGroupItems(groupId);
+      console.log(`[DEBUG] API returned ${itemsFromApi.length} items.`);
 
-    const itemToolbar = document.getElementById('item-toolbar');
-    if (itemToolbar) {
-      itemToolbar.addEventListener('click', (e) => {
-        const target = e.target.closest('button');
-        if (!target) return;
+      this.items = itemsFromApi; // This might need adjustment if showing multiple groups
+      this.renderItemsList();
 
-        if (target.id === 'create-item-btn') {
-          if (this.selectedObject) {
-            this.updateObject();
-          } else {
-            this.createObject(this.activeGroupId);
-          }
-        } else if (target.id === 'delete-item-btn') {
-          this.deleteObject(this.selectedObject, true);
+      // Instead of clearing, add new items if they don't exist
+      this.items.forEach((item, index) => {
+        const existingObject = this.scene.children.find(child => child.userData.id === item.id);
+        if (!existingObject) {
+          addObject(this.scene, item, this.allGroups, index);
         }
       });
+
+    } catch (error) {
+      console.error(`❌ Failed to load items for group ${groupId}:`, error);
     }
   }
 
-  _showObjectParams(type) {
-    const paramSections = document.querySelectorAll('.toolbar-section[id$="-params"]');
-    paramSections.forEach(section => {
-      section.style.display = 'none';
+  _clearSceneObjects() {
+    const objectsToRemove = this.scene.children.filter(child => child.userData.isManagedByObjectManager);
+    objectsToRemove.forEach(obj => {
+      this.scene.remove(obj);
+      // REMOVE PHYSICS BODY WHEN REMOVING MESH
+      if (obj.userData.body) {
+          physics.removePhysicsObject(obj.userData.id);
+      }
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) {
+          if (Array.isArray(obj.material)) {
+              obj.material.forEach(m => m.dispose());
+          } else {
+              obj.material.dispose();
+          }
+      }
     });
-    const targetSection = document.getElementById(`${type}-params`);
-    if (targetSection) {
-      targetSection.style.display = 'block';
-    }
-
-    if (type === 'l-shape-item') {
-        document.getElementById('l-shape-item-params').style.display = 'block';
-    }
+    console.log(`🧹 Cleared ${objectsToRemove.length} objects from the scene.`);
   }
 
-  _getParamsFromUI(type) {
-    const params = { type };
-    params.name = document.getElementById('item-name').value || '未命名物件';
+  renderItemsList() {
+    const activeGroupElement = document.querySelector(`.group-item[data-id='${this.activeGroupId}']`);
+    if (!activeGroupElement) return;
 
-    switch (type) {
-      case 'cube':
-      case 'irregular':
-        params.width = parseFloat(document.getElementById(`${type}-width`).value) || 15;
-        params.height = parseFloat(document.getElementById(`${type}-height`).value) || 15;
-        params.depth = parseFloat(document.getElementById(`${type}-depth`).value) || 15;
-        break;
-      case 'sphere':
-        params.radius = parseFloat(document.getElementById('sphere-radius').value) || 10;
-        params.widthSegments = 32;
-        params.heightSegments = 16;
-        break;
-      case 'cylinder':
-        params.radiusTop = parseFloat(document.getElementById('cylinder-radiusTop').value) || 8;
-        params.radiusBottom = parseFloat(document.getElementById('cylinder-radiusBottom').value) || 8;
-        params.height = parseFloat(document.getElementById('cylinder-height').value) || 20;
-        params.radialSegments = 32;
-        params.heightSegments = 1;
-        break;
-      case 'icosahedron':
-        params.radius = parseFloat(document.getElementById('icosahedron-radius').value) || 10;
-        params.detail = 1;
-        break;
-      case 'l-shape-item':
-        params.totalWidth = parseFloat(document.getElementById('l-shape-item-total-width').value) || 30;
-        params.totalHeight = parseFloat(document.getElementById('l-shape-item-total-height').value) || 15;
-        params.totalDepth = parseFloat(document.getElementById('l-shape-item-total-depth').value) || 30;
-        params.cutWidth = parseFloat(document.getElementById('l-shape-item-cut-width').value) || 10;
-        params.cutDepth = parseFloat(document.getElementById('l-shape-item-cut-depth').value) || 10;
-        break;
+    const listElement = activeGroupElement.querySelector('.group-items-list');
+    if (!listElement) return;
+
+    listElement.innerHTML = '';
+    listElement.classList.remove('collapsed');
+
+    if (this.items.length === 0) {
+        listElement.innerHTML = '<div class="empty-list-placeholder">此群組尚無物品</div>';
     }
-    return params;
+
+    this.items.forEach(item => {
+      const itemElement = this._createItemElement(item);
+      listElement.appendChild(itemElement);
+    });
   }
 
-  _getPlacementPosition(groupId, allGroups) {
-    if (!Array.isArray(allGroups) || allGroups.length === 0) {
-        console.warn("⚠️ 沒有群組，使用預設座標");
-        return new THREE.Vector3(0, 100, 0); // Default position inside container
-    }
-
-    const numGroups = allGroups.length;
-    let groupIndex = allGroups.findIndex(g => g.id === groupId);
-
-    if (groupIndex === -1) {
-        console.warn(`⚠️ Group ID ${groupId} 不存在，放到第一組`);
-        groupIndex = 0;
-    }
-
-    const inset = 5; // Inset from container walls
-
-    // Place objects near the top of the container, assuming container's base is at y=0
-    const startY = this.containerSize.y - inset;
-
-    const randomX = THREE.MathUtils.randFloat(
-        -this.containerSize.x / 2 + inset,
-        this.containerSize.x / 2 - inset
-    );
-
-    const zPartitionSize = this.containerSize.z / numGroups;
-    const zStart = -this.containerSize.z / 2 + (groupIndex * zPartitionSize);
-    const randomZ = THREE.MathUtils.randFloat(zStart + inset, zStart + zPartitionSize - inset);
-    
-    const position = new THREE.Vector3(randomX, startY, randomZ);
-
-    return position;
+  clearItemsList() {
+      document.querySelectorAll('.group-items-list').forEach(list => {
+          list.innerHTML = '';
+          list.classList.add('collapsed');
+      });
   }
 
-  createItemElement(item) {
-    const objectItem = document.createElement('div');
-    objectItem.className = 'object-item';
-    objectItem.dataset.id = item.id;
+  _createItemElement(item) {
+    const itemElement = document.createElement('div');
+    itemElement.className = `object-item status-${item.status}`;
+    itemElement.dataset.id = item.id;
 
-    objectItem.innerHTML = `
+    let buttons = '';
+    if (item.status === 'pending') {
+      buttons = '<button class="confirm-btn">確認</button>';
+    }
+
+    itemElement.innerHTML = `
       <div class="object-info">
-        <div class="object-name">${item.name}</div>
+        <span class="object-name">${item.name} (ID: ${item.item_type_id})</span>
+        <span class="object-status">${item.status}</span>
       </div>
       <div class="object-actions">
-        <button class="menu-btn">
-          <i class="fas fa-ellipsis-v"></i>
-        </button>
+        ${buttons}
       </div>
     `;
 
-    const menuBtn = objectItem.querySelector('.menu-btn');
-    if (menuBtn) {
-      menuBtn.addEventListener('click', (e) => {
+    const confirmBtn = itemElement.querySelector('.confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        this.showEditPanel(item);
+        try {
+          await api.confirmItem(item.id);
+          itemElement.classList.remove('status-pending');
+          itemElement.classList.add('status-confirmed');
+          itemElement.querySelector('.object-status').textContent = 'confirmed';
+          confirmBtn.remove();
+          updateObjectOpacity(this.scene, item.id, 'confirmed');
+        } catch (error) {
+          console.error(`❌ Failed to confirm item ${item.id}:`, error);
+          alert(`確認物品失敗: ${error.message}`);
+        }
       });
     }
 
-    return objectItem;
+    return itemElement;
+  }
+
+  async addNewCube() { // RENAMED FROM promptForNewItem
+    if (this.activeGroupId === null) {
+      alert("請先選擇一個群組！");
+      return;
+    }
+
+    const itemTypeId = 3; // Hardcode item_type_id to 3 for Cube
+
+    try {
+      const newItemData = {
+        item_type_id: itemTypeId,
+        group_id: this.activeGroupId,
+      };
+      await api.addInventoryItem(newItemData);
+      this.loadItemsForGroup(this.activeGroupId);
+    } catch (error) {
+      console.error("❌ Failed to add cube:", error);
+      alert(`新增立方體失敗: ${error.message}`);
+    }
+  }
+
+  update() {
+    this.scene.children.forEach(mesh => {
+      if (mesh.userData.isManagedByObjectManager && mesh.userData.body) {
+        mesh.position.copy(mesh.userData.body.position);
+        mesh.quaternion.copy(mesh.userData.body.quaternion);
+      }
+    });
   }
 }
+
+export function addObject(scene, item, allGroups = [], itemIndex = 0) {
+    // All items are considered to be cubes, so we don't need to check the name.
+    // We will render any item that comes from the API.
+
+    const dims = item.dimensions || {};
+    const width = parseFloat(dims.width) || 15;
+    const height = parseFloat(dims.height) || 15;
+    const depth = parseFloat(dims.depth) || 15;
+
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+
+    const color = getGroupColor(item.group_id, allGroups);
+    const material = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: 0.5,
+        metalness: 0.1,
+        transparent: item.status === 'pending',
+        opacity: item.status === 'pending' ? 0.5 : 1.0
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = item.name || 'Unnamed Object';
+    
+    mesh.userData = { ...item, isManagedByObjectManager: true };
+
+    const spacing = 25;
+    const itemsPerRow = 4;
+    const x = (itemIndex % itemsPerRow) * spacing - (itemsPerRow - 1) * spacing / 2;
+    const z = Math.floor(itemIndex / itemsPerRow) * spacing;
+    mesh.position.set(x, height / 2, z);
+    clampToContainer(mesh);
+
+    scene.add(mesh);
+    console.log(`📦 Added ${mesh.name} to the scene with color #${color.toString(16)} at position`, mesh.position);
+
+    // ADD PHYSICS BODY
+    const physicsShape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2));
+    const physicsBody = physics.addPhysicsObject(
+        new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
+        new CANNON.Quaternion(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w),
+        physicsShape,
+        item.id // Use item.id as the unique ID for physics body
+    );
+    mesh.userData.body = physicsBody; // Store physics body in mesh userData
+}
+
+export function updateObject(object, data) {
+    const { name, width, height, depth, status } = data;
+
+    // --- Update Visual Mesh ---
+    object.name = name;
+    if (object.geometry) {
+        object.geometry.dispose(); // Dispose old geometry to free memory
+    }
+    object.geometry = new THREE.BoxGeometry(width, height, depth);
+    object.material.transparent = (status === 'pending');
+    object.material.opacity = (status === 'pending') ? 0.5 : 1.0;
+
+    // --- Update Physics Body ---
+    if (object.userData.body) {
+        // Remove the old physics body from the world
+        physics.removePhysicsObject(object.userData.id);
+    }
+
+    // Create a new physics body with the new dimensions
+    const newPhysicsShape = new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2));
+    const newPhysicsBody = physics.addPhysicsObject(
+        new CANNON.Vec3(object.position.x, object.position.y, object.position.z),
+        new CANNON.Quaternion(object.quaternion.x, object.quaternion.y, object.quaternion.z, object.quaternion.w),
+        newPhysicsShape,
+        object.userData.id,
+        object.userData.body ? object.userData.body.mass : 1 // Preserve mass if it exists
+    );
+    object.userData.body = newPhysicsBody; // Link the new body
+
+    // --- Update UserData Store ---
+    object.userData.name = name;
+    object.userData.width = width;
+    object.userData.height = height;
+    object.userData.depth = depth;
+    object.userData.status = status;
+
+    clampToContainer(object);
+    object.updateMatrixWorld(true);
+
+    console.log(`🔄 Updated ${name} (visuals and physics).`);
+}
+
+export function updateObjectOpacity(scene, itemId, status) {
+    if (typeof itemId === 'undefined') {
+        console.error('updateObjectOpacity called with undefined itemId');
+        return;
+    }
+    const object = scene.children.find(obj => obj.userData.id === itemId);
+    if (object && object.material) {
+        object.material.transparent = status === 'pending';
+        object.material.opacity = status === 'pending' ? 0.5 : 1.0;
+    } else {
+        console.warn(`Object with inventory ID ${itemId} not found in scene or has no material.`);
+    }
+}
+
