@@ -1,9 +1,13 @@
 
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-// Export the init function to be called from main.js
+import * as physics from '../utils/physics.js';
+
+// 導出 init 給 main.js 使用
 export { init as initContainerManager };
-// DOM Elements
+
+// -------------------- DOM 元素 --------------------
 const changeContainerBtn = document.getElementById('change-container-btn');
 const modal = document.getElementById('container-modal');
 const previewCanvas = document.getElementById('container-canvas');
@@ -11,13 +15,13 @@ const controlsPanel = document.getElementById('container-controls');
 const containerControlsContent = document.getElementById('container-controls-content');
 const modalCloseBtn = document.getElementById('modal-close-btn');
 
-// Icon Buttons
+// 功能圖示按鈕
 const containerIconBtn = document.getElementById('container-icon-btn');
 const sizeIconBtn = document.getElementById('size-icon-btn');
 const doorIconBtn = document.getElementById('door-icon-btn');
 const arrowIconBtn = document.getElementById('arrow-icon-btn');
 
-// Confirmation Dialogs
+// 確認對話框元素
 const submitConfirmation = document.getElementById('submit-confirmation');
 const discardConfirmation = document.getElementById('discard-confirmation');
 const confirmSubmitYes = document.getElementById('confirm-submit-yes');
@@ -26,14 +30,14 @@ const confirmDiscardYes = document.getElementById('confirm-discard-yes');
 const confirmDiscardNo = document.getElementById('confirm-discard-no');
 
 
-// 3D Preview Scene
+// -------------------- 3D 預覽場景 --------------------
 let scene, camera, renderer, controls, containerMesh;
 
-// State
+// 當前容器狀態
 let currentContainer = {
     shape: 'cube',
     dimensions: { width: 120, height: 120, depth: 120 },
-    doors: [] // Doors are now a flexible array
+    doors: [] // 多門
 };
 
 const DOOR_SIZES = {
@@ -42,93 +46,146 @@ const DOOR_SIZES = {
     'truck': { w: 40, h: 50 } // 4m x 5m
 };
 
-function init() {
-    // Event listener to open the modal
-    changeContainerBtn.addEventListener('click', showModal);
-    modalCloseBtn.addEventListener('click', () => discardConfirmation.style.display = 'block');
+// -------------------- 建立容器 --------------------
+function createDefaultContainer(mainScene) {
+    const { dimensions } = currentContainer;
 
-    // Basic modal functionality (for now, just close)
-    // A proper close button needs to be added
-    // For now, clicking outside could be an option, or we add it later.
-    
-    // Icon button events
-    containerIconBtn.addEventListener('click', showContainerControls);
-    sizeIconBtn.addEventListener('click', showSizeControls);
-    doorIconBtn.addEventListener('click', showDoorControls); // New listener
-    arrowIconBtn.addEventListener('click', () => submitConfirmation.style.display = 'block');
+    // 建立地板網格輔助線
+    const gridHelper = new THREE.GridHelper(dimensions.width, 10, 0x888888, 0x444444);
+    mainScene.add(gridHelper);
 
-    
+    // 建立容器線框和
+    const geometry = new THREE.BoxGeometry(dimensions.width, dimensions.height, dimensions.depth);
+    const edges = new THREE.EdgesGeometry(geometry);
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+    const wireframe = new THREE.LineSegments(edges, lineMaterial);
+    wireframe.position.y = dimensions.height / 2;
 
-    // Confirmation dialog events
-    confirmSubmitNo.addEventListener('click', () => submitConfirmation.style.display = 'none');
-    confirmDiscardNo.addEventListener('click', () => discardConfirmation.style.display = 'none');
-    
-    confirmSubmitYes.addEventListener('click', async () => {
-        console.log('Submitting container configuration:', currentContainer);
-        try {
-            const response = await fetch('http://127.0.0.1:8889/save_container_config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(currentContainer),
-            });
+    mainScene.add(wireframe);
+    console.log("Default container created in the main scene.");
+    console.log("Container dimensions:", dimensions);
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Invalid JSON response' }));
-                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-            }
+    // -------------------- 添加物理碰撞牆 --------------------
+    const wallMaterial = new CANNON.Material('wall');
+    const walls = [
+        // Floor
+        { quaternion: new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0), position: new CANNON.Vec3(0, 0, 0) },
+        // Back wall
+        { quaternion: new CANNON.Quaternion(), position: new CANNON.Vec3(0, dimensions.height / 2, -dimensions.depth / 2) },
+        // Front wall
+        { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI, 0), position: new CANNON.Vec3(0, dimensions.height / 2, dimensions.depth / 2) },
+        // Right wall
+        { quaternion: new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0), position: new CANNON.Vec3(dimensions.width / 2, dimensions.height / 2, 0) },
+        // Left wall
+        { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0), position: new CANNON.Vec3(-dimensions.width / 2, dimensions.height / 2, 0) }
+    ];
 
-            const data = await response.json();
-            console.log('Container configuration successfully saved:', data.message);
-            alert('容器設定已成功儲存！');
-
-            // Dispatch an event with the new dimensions for other modules
-            window.dispatchEvent(new CustomEvent('containerChanged', { detail: currentContainer }));
-            
-            submitConfirmation.style.display = 'none';
-            hideModal();
-
-        } catch (error) {
-            console.error('Error saving container configuration:', error);
-            alert(`儲存容器設定時發生錯誤: ${error.message}`);
-        }
-    });
-
-    confirmDiscardYes.addEventListener('click', () => {
-        console.log('Edits discarded');
-        // Reset to default
-        currentContainer = {
-            shape: 'cube',
-            dimensions: { width: 120, height: 120, depth: 120 },
-            doors: [] // Reset to an empty array
-        };
-        alert('編輯已捨棄，恢復預設容器。');
-        discardConfirmation.style.display = 'none';
-        hideModal();
+    walls.forEach(wallData => {
+        const wallBody = new CANNON.Body({
+            mass: 0, // 靜態牆
+            shape: new CANNON.Plane(),
+            material: wallMaterial,
+            position: wallData.position,
+            quaternion: wallData.quaternion
+        });
+        physics.world.addBody(wallBody);
     });
 }
+// -------------------- 初始化模組 --------------------
+function init(mainScene) {
+    console.log("containerManager.js: init - Start");
 
+    // -------------------- 模態框事件 --------------------
+    try {
+        changeContainerBtn.addEventListener('click', showModal);
+        modalCloseBtn.addEventListener('click', () => discardConfirmation.style.display = 'block');
+    } catch (e) { console.error("Error attaching modal event listeners:", e); }
+    console.log("containerManager.js: init - After modal event listeners");
+
+    // -------------------- 圖示按鈕事件 --------------------
+    try {
+        containerIconBtn.addEventListener('click', showContainerControls);
+        sizeIconBtn.addEventListener('click', showSizeControls);
+        doorIconBtn.addEventListener('click', showDoorControls); // New listener
+        arrowIconBtn.addEventListener('click', () => submitConfirmation.style.display = 'block');
+    } catch (e) { console.error("Error attaching icon button event listeners:", e); }
+    console.log("containerManager.js: init - After icon button event listeners");
+
+    // -------------------- 確認對話框事件 --------------------
+    try {
+        confirmSubmitNo.addEventListener('click', () => submitConfirmation.style.display = 'none');
+        confirmDiscardNo.addEventListener('click', () => discardConfirmation.style.display = 'none');
+
+        confirmSubmitYes.addEventListener('click', async () => {
+            console.log('Submitting container configuration:', currentContainer);
+            try {
+                const response = await fetch('http://127.0.0.1:8889/save_container_config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentContainer),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Invalid JSON response' }));
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Container configuration successfully saved:', data.message);
+                alert('容器設定已成功儲存！');
+
+                // 通知其他模組更新容器
+                window.dispatchEvent(new CustomEvent('containerChanged', { detail: currentContainer }));
+
+                submitConfirmation.style.display = 'none';
+                hideModal();
+
+            } catch (error) {
+                console.error('Error saving container configuration:', error);
+                alert(`儲存容器設定時發生錯誤: ${error.message}`);
+            }
+        });
+
+        confirmDiscardYes.addEventListener('click', () => {
+            console.log('Edits discarded');
+            // 恢復預設容器
+            currentContainer = {
+                shape: 'cube',
+                dimensions: { width: 120, height: 120, depth: 120 },
+                doors: [] 
+            };
+            alert('編輯已捨棄，恢復預設容器。');
+            discardConfirmation.style.display = 'none';
+            hideModal();
+        });
+    } catch (e) { console.error("Error attaching confirmation dialog event listeners:", e); }
+    console.log("containerManager.js: init - After confirmation dialog event listeners");
+
+    createDefaultContainer(mainScene);
+    console.log("containerManager.js: init - After createDefaultContainer");
+}
+
+// -------------------- 模態框顯示與隱藏 --------------------
 function showModal() {
     modal.style.display = 'flex';
-    // Initialize the 3D scene if it hasn't been already
     if (!renderer) {
-        initPreviewScene();
-    }
-    // Update the mesh to the current state
-    renderContainerMesh();
-    showContainerControls(); // Show container controls by default
-    animate();
+        initPreviewScene();      // 初始化3D預覽
+    }   
+    renderContainerMesh();       // 更新容器
+    showContainerControls();     // 顯示形狀控制面板
+    animate();                   // 啟動動畫
 }
 
 function hideModal() {
     modal.style.display = 'none';
-    // Stop the animation loop when the modal is not visible
-    if (renderer) {
+    if (renderer) {              // 停止動畫
         cancelAnimationFrame(animate);
     }
 }
 
+// -------------------- 初始化預覽場景 --------------------
 function initPreviewScene() {
     console.log("initPreviewScene called. Setting up scene, camera, renderer.");
     scene = new THREE.Scene();
@@ -165,7 +222,7 @@ function initPreviewScene() {
     renderContainerMesh();
 }
 
-// 創建點陣網格背景紋理
+// -------------------- 點陣網格背景 --------------------
 function createDotGridTexture() {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -192,6 +249,7 @@ function createDotGridTexture() {
     return texture;
 }
 
+// -------------------- 渲染容器 --------------------
 function renderContainerMesh() {
     console.log("renderContainerMesh called");
     if (containerMesh) {
@@ -254,6 +312,7 @@ function renderContainerMesh() {
     controls.update();
 }
 
+// -------------------- 添加門視覺 --------------------
 function addDoorVisuals() {
     const { doors, dimensions, shape } = currentContainer;
 
@@ -375,6 +434,7 @@ const DOOR_FACES = {
     ]
 };
 
+// -------------------- 顯示控制面板 --------------------
 function showContainerControls() {
     const { shape } = currentContainer; // Moved to top
     console.log("showContainerControls called.");
@@ -711,5 +771,10 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+export function updateMainContainer(scene) {
+    // This function will be responsible for updating the container in the main scene.
+    // For now, it will just log a message.
+    console.log("Updating main container in the scene.");
+}
 
 

@@ -1,29 +1,51 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-
-// 滑鼠控制模組
+/**
+ * MouseControls
+ * 管理滑鼠對 Three.js 場景中物件的懸停、點擊與拖曳操作
+ * 支援：
+ * - Shift + 拖曳控制相機
+ * - 點擊選取物件
+ * - 拖曳物件（考慮物理剛體與邊界限制）
+ */
 export class MouseControls {
-  constructor(camera, renderer, objectManager, controls) {
+    /**
+   * @param {THREE.Camera} camera - 場景攝影機
+   * @param {THREE.Renderer} renderer - Three.js 渲染器
+   * @param {THREE.Scene} scene - 場景參考
+   * @param {ObjectManager} objectManager - 管理選取物件的物件管理器
+   * @param {THREE.OrbitControls} controls - 相機控制器
+   */
+
+  constructor(camera, renderer, scene, objectManager, controls) {
     this.camera = camera;
     this.renderer = renderer;
+    this.scene = scene; // 新增 scene 參考
     this.objectManager = objectManager;
     this.controls = controls;
     
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
-    this.isDragging = false;
-    this.dragPlane = new THREE.Plane();
-    this.dragOffset = new THREE.Vector3();
-    this.isShiftPressed = false;
-    this.boundary = new THREE.Box3(new THREE.Vector3(-60, 0, -60), new THREE.Vector3(60, 120, 60)); // 容器邊界
+    this.isDragging = false;                  // 是否正在拖曳物件
+    this.dragPlane = new THREE.Plane();       // 拖曳平面
+    this.dragOffset = new THREE.Vector3();    // 拖曳偏移量
+    this.isShiftPressed = false;              // shift 鍵狀態
+    this.boundary = new THREE.Box3(           // 拖曳邊界限制
+      new THREE.Vector3(-60, 0, -60),
+      new THREE.Vector3(60, 120, 60)
+    );
+
+    this.hoveredObject = null; // 追蹤懸停的物件
     
     this.setupEventListeners();
   }
 
-    // 初始化監聽
+  // 初始化監聽
   setupEventListeners() {
     const canvas = this.renderer.domElement;
   
+    this.controls.enabled = false;
+
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Shift') {
         this.isShiftPressed = true;
@@ -45,78 +67,93 @@ export class MouseControls {
       }
     });
   
+    // 將 pointermove 分為 hover 和 drag
     canvas.addEventListener('pointermove', (event) => {
-      if (this.isDragging && !this.isShiftPressed) {
-        this.onPointerMove(event);
+      if (this.isDragging) {
+        this.onPointerDrag(event);
+      } else {
+        this.onPointerHover(event);
       }
     });
   
     document.addEventListener('pointerup', (event) => this.onPointerUp(event));
     document.addEventListener('pointercancel', (event) => this.onPointerUp(event));
   }
+
+  onPointerHover(event) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+
+    // 尋找第一個可互動的物件 (有 userData.id)
+    const foundIntersect = intersects.find(i => i.object.userData.id);
+    const newHoveredObject = foundIntersect ? foundIntersect.object : null;
+
+    if (this.hoveredObject !== newHoveredObject) {
+      this.hoveredObject = newHoveredObject;
+      
+      // 發送自訂事件
+      const hoverEvent = new CustomEvent('objecthover', {
+        detail: { 
+          object: this.hoveredObject,
+          pointerEvent: event
+        }
+      });
+      this.renderer.domElement.dispatchEvent(hoverEvent);
+    }
+  }
   
+  onPointerDown(event) {
+    if (this.isShiftPressed) return; // If Shift is pressed, allow camera controls
+
+    this.raycaster.setFromCamera(this.pointer, this.camera); // Re-set raycaster for accurate click point
+
+    const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+    const foundIntersect = intersects.find(i => i.object.userData.id); // Find the clicked object
+
+    if (foundIntersect) {
+      this.isDragging = true;
+      this.objectManager.setSelectedObject(foundIntersect.object); // Set the selected object for dragging
+
+      // Calculate drag plane and offset
+      this.dragPlane.setFromNormalAndCoplanarPoint(
+        this.camera.getWorldDirection(this.dragPlane.normal),
+        foundIntersect.point
+      );
+      this.dragOffset.copy(foundIntersect.point).sub(foundIntersect.object.position);
+
+      // If the object has a physics body, make it kinematic during drag
+      if (foundIntersect.object.userData.body) {
+        foundIntersect.object.userData.body.type = CANNON.Body.KINEMATIC;
+        foundIntersect.object.userData.body.sleep(); // Put to sleep to prevent physics interference
+      }
+
+      // Dispatch click event if needed (keeping existing functionality)
+      const clickEvent = new CustomEvent('objectclick', {
+        detail: { object: foundIntersect.object }
+      });
+      this.renderer.domElement.dispatchEvent(clickEvent);
+    }
+  }
+
   onPointerUp(event) {
-    const canvas = this.renderer.domElement;
-    try { canvas.releasePointerCapture(event.pointerId); } catch (e) {}
-  
     if (this.isDragging) {
       const selectedObject = this.objectManager.getSelectedObject();
-      if (selectedObject?.body) {
-        selectedObject.body.type = CANNON.Body.DYNAMIC;
-        selectedObject.body.wakeUp();
+      if (selectedObject?.userData.body) {
+        const body = selectedObject.userData.body;
+        body.type = CANNON.Body.DYNAMIC;
+        body.velocity.set(0, -10, 0); // Give it a nudge to ensure it falls
+        body.wakeUp();
       }
       this.objectManager.setSelectedObject(null);
     }
-  
-    // 這行放到 if 外，保證一定會重置
     this.isDragging = false;
   }
     
-  onPointerDown(event) {
-    // 只接受左鍵
-    if (event.button !== 0) return;
-  
-    const canvas = this.renderer.domElement;
-    canvas.setPointerCapture(event.pointerId); // 保證收到後續 pointermove
-  
-    const rect = canvas.getBoundingClientRect();
-    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  
-    this.raycaster.setFromCamera(this.pointer, this.camera);
-    const objects = this.objectManager.getObjects();
-    const intersects = this.raycaster.intersectObjects(objects.map(obj => obj.mesh));
-  
-    if (intersects.length === 0) return;
-  
-    const selectedObject = objects.find(obj => obj.mesh === intersects[0].object);
-    this.objectManager.setSelectedObject(selectedObject);
-    this.isDragging = true;
-  
-    // 建立拖曳平面（使用相機方向，過滑鼠點）
-    const camDir = new THREE.Vector3();
-    this.camera.getWorldDirection(camDir);
-    this.dragPlane.setFromNormalAndCoplanarPoint(camDir, intersects[0].point.clone());
-
-    // 物件世界座標
-    const objWorldPos = selectedObject.mesh.getWorldPosition(new THREE.Vector3());
-
-    // 計算 "滑鼠交點在平面上的位置"
-    const intersectPoint = new THREE.Vector3();
-    this.raycaster.ray.intersectPlane(this.dragPlane, intersectPoint);
-
-    // offset = 滑鼠平面交點 - 物件中心
-    this.dragOffset.copy(intersectPoint).sub(objWorldPos);
-
-    // 改變物理 body 型態（若有）
-    if (selectedObject.body) {
-      selectedObject.body.type = CANNON.Body.KINEMATIC;
-      selectedObject.body.velocity.set(0,0,0);
-      selectedObject.body.angularVelocity.set(0,0,0);
-    }
-  }
-  
-  onPointerMove(event) {
+  onPointerDrag(event) {
     if (!this.isDragging) return;
   
     const selectedObject = this.objectManager.getSelectedObject();
@@ -130,12 +167,10 @@ export class MouseControls {
     const intersectPoint = new THREE.Vector3();
     if (!this.raycaster.ray.intersectPlane(this.dragPlane, intersectPoint)) return;
   
-    // 計算新的 world 位置（保持當初的 offset）
     const targetWorld = intersectPoint.clone().sub(this.dragOffset);
   
-    // 在 world 座標做邊界限制（Box3 的 min/max 要與 world 座標一致）
     const objectSize = new THREE.Vector3();
-    new THREE.Box3().setFromObject(selectedObject.mesh).getSize(objectSize);
+    new THREE.Box3().setFromObject(selectedObject).getSize(objectSize);
     const halfSize = objectSize.multiplyScalar(0.5);
 
     const clampedWorld = targetWorld.clone().clamp(
@@ -143,25 +178,22 @@ export class MouseControls {
         this.boundary.max.clone().sub(halfSize)
     );
   
-    // 轉回 local
     let localPos = clampedWorld.clone();
-    if (selectedObject.mesh.parent) {
-      localPos = selectedObject.mesh.parent.worldToLocal(clampedWorld.clone());
+    if (selectedObject.parent) {
+      localPos = selectedObject.parent.worldToLocal(clampedWorld.clone());
     }
 
-    selectedObject.mesh.position.copy(localPos);
+    selectedObject.position.copy(localPos);
 
-    // 同步 physics body
-    if (selectedObject.body) {
-      selectedObject.body.position.copy(clampedWorld);
+    if (selectedObject.userData.body) {
+      selectedObject.userData.body.position.copy(clampedWorld);
     }
   }
-  // 檢查是否正在拖曳
+
   isDraggingObject() {
     return this.isDragging;
   }
 
-  // 獲取選中的物件
   getSelectedObject() {
     return this.objectManager.getSelectedObject();
   }

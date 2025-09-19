@@ -1,11 +1,27 @@
+/**
+ * 本程式碼用途：
+ * - 提供 3D 場景物件(Object)的管理與顯示，並支援物理引擎 (cannon-es) 整合。
+ * - 功能包含：
+ *   1. 從 API 載入物品並渲染到 Three.js 場景。
+ *   2. 為物件新增/移除物理剛體，保持與場景同步。
+ *   3. 提供群組管理 (group) 與 UI 更新 (DOM 操作)。
+ *   4. 控制物件位置不超出預設容器範圍。
+ */
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import * as api from '../../utils/agentAPI.js';
 import { getGroupColor } from './groupColor.js';
-import * as physics from '../../utils/physics.js'; // ADDED PHYSICS IMPORT
+import * as physics from '../../utils/physics.js'; // 物理模組
 
+// 預設容器大小 (寬 / 高 / 深)，用來限制物件位置範圍
 const CONTAINER_SIZE = { width: 120, height: 150, depth: 120 };
 
+/**
+ * 副程式：clampToContainer
+ * 作用：
+ * - 限制 3D 物件的位置，使其不超出容器邊界。
+ * - 對 X / Y / Z 座標進行邊界檢查與修正。
+ */
 function clampToContainer(object) {
     const objectSize = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
     const halfContainer = { 
@@ -27,19 +43,27 @@ function clampToContainer(object) {
     );
 }
 
+/**
+ * 類別：ObjectManager
+ * 作用：
+ * - 管理 Three.js 場景中的物件
+ * - 與 API 串接，載入群組物品並顯示
+ * - 與 UI (DOM) 綁定互動，支援新增/確認物品
+ * - 與 physics.js 整合，保持物理剛體與 mesh 同步
+ */
 export class ObjectManager {
   constructor(scene, renderCallback) {
-    this.scene = scene;
-    this.render = renderCallback;
-    this.activeGroupId = null;
-    this.items = [];
-    this.allGroups = [];
-    this.selectedObject = null; // Add this line
+    this.scene = scene;               // Three.js 場景
+    this.render = renderCallback;     // 渲染回調函式
+    this.activeGroupId = null;        // 當前選取的群組 ID
+    this.items = [];                  // 當前群組的物品列表
+    this.allGroups = [];              // 所有群組列表
+    this.selectedObject = null;       // 當前選取的物件
 
-    this._setupEventListeners();
+    this._setupEventListeners();      // 設置事件監聽器
   }
 
-  // Add these two methods
+  // 設定, 取得 當前被選取的物件
   setSelectedObject(object) {
     this.selectedObject = object;
   }
@@ -48,10 +72,17 @@ export class ObjectManager {
     return this.selectedObject;
   }
 
+  // 取得由 ObjectManager 管理的場景物件
   getSceneObjects() {
     return this.scene.children.filter(child => child.userData.isManagedByObjectManager);
   }
 
+    /**
+   * 副程式：_setupEventListeners
+   * 作用：
+   * - 綁定 UI 與自訂事件，例如 groupSelected 與新增物件按鈕
+   * - 觸發群組切換或新增物品流程
+   */
   async _setupEventListeners() {
     document.addEventListener('groupSelected', async (e) => {
       const { groupId } = e.detail;
@@ -71,11 +102,15 @@ export class ObjectManager {
         addItemBtn.addEventListener('click', () => this.addNewCube()); // MODIFIED CALL
     }
   }
-
+  /**
+     * 副程式：loadItemsForGroup
+     * 作用：
+     * - 從 API 載入指定群組的物品清單
+     * - 渲染清單到 UI 與場景
+     */
   async loadItemsForGroup(groupId) {
     if (groupId === null || typeof groupId === 'undefined') {
-      this.clearItemsList();
-      // Do not clear the scene, allow multiple groups to be shown
+      this.clearItemsList(); // 清空UI清單
       return;
     }
     console.log(`🔄 Loading items for group ${groupId}...`);
@@ -83,10 +118,10 @@ export class ObjectManager {
       let itemsFromApi = await api.getGroupItems(groupId);
       console.log(`[DEBUG] API returned ${itemsFromApi.length} items.`);
 
-      this.items = itemsFromApi; // This might need adjustment if showing multiple groups
+      this.items = itemsFromApi; 
       this.renderItemsList();
 
-      // Instead of clearing, add new items if they don't exist
+      // 若場景中不存在此物品，就會新增
       this.items.forEach((item, index) => {
         const existingObject = this.scene.children.find(child => child.userData.id === item.id);
         if (!existingObject) {
@@ -99,11 +134,16 @@ export class ObjectManager {
     }
   }
 
+  /**
+   * 副程式：_clearSceneObjects
+   * 作用：
+   * - 移除場景中由 ObjectManager 管理的物件
+   * - 釋放幾何、材質資源並移除物理剛體
+   */
   _clearSceneObjects() {
     const objectsToRemove = this.scene.children.filter(child => child.userData.isManagedByObjectManager);
     objectsToRemove.forEach(obj => {
       this.scene.remove(obj);
-      // REMOVE PHYSICS BODY WHEN REMOVING MESH
       if (obj.userData.body) {
           physics.removePhysicsObject(obj.userData.id);
       }
@@ -119,6 +159,12 @@ export class ObjectManager {
     console.log(`🧹 Cleared ${objectsToRemove.length} objects from the scene.`);
   }
 
+    /**
+   * 副程式：renderItemsList
+   * 作用：
+   * - 渲染目前群組的物品清單到 UI
+   * - 若群組無物品，顯示提示文字
+   */
   renderItemsList() {
     const activeGroupElement = document.querySelector(`.group-item[data-id='${this.activeGroupId}']`);
     if (!activeGroupElement) return;
@@ -139,6 +185,7 @@ export class ObjectManager {
     });
   }
 
+  // 清空 UI 中所有群組物品清單
   clearItemsList() {
       document.querySelectorAll('.group-items-list').forEach(list => {
           list.innerHTML = '';
@@ -146,6 +193,11 @@ export class ObjectManager {
       });
   }
 
+  /**
+   * 副程式：_createItemElement
+   * 作用：
+   * - 建立物品 DOM 節點，並綁定確認按鈕事件
+   */
   _createItemElement(item) {
     const itemElement = document.createElement('div');
     itemElement.className = `object-item status-${item.status}`;
@@ -187,6 +239,12 @@ export class ObjectManager {
     return itemElement;
   }
 
+  /**
+   * 副程式：addNewCube
+   * 作用：
+   * - 向 API 新增一個立方體物品 (item_type_id = 3)
+   * - 新增完成後重新載入群組物品清單
+   */
   async addNewCube() { // RENAMED FROM promptForNewItem
     if (this.activeGroupId === null) {
       alert("請先選擇一個群組！");
@@ -208,6 +266,11 @@ export class ObjectManager {
     }
   }
 
+  /**
+   * 副程式：update
+   * 作用：
+   * - 更新場景中物件的 Mesh 與 Physics 同步
+   */
   update() {
     this.scene.children.forEach(mesh => {
       if (mesh.userData.isManagedByObjectManager && mesh.userData.body) {
@@ -218,9 +281,13 @@ export class ObjectManager {
   }
 }
 
+/**
+ * 副程式：addObject
+ * 作用：
+ * - 將一個新物品 (item) 加入場景
+ * - 建立對應的 Three.js Mesh 與 Physics 剛體
+ */
 export function addObject(scene, item, allGroups = [], itemIndex = 0) {
-    // All items are considered to be cubes, so we don't need to check the name.
-    // We will render any item that comes from the API.
 
     const dims = item.dimensions || {};
     const width = parseFloat(dims.width) || 15;
@@ -261,18 +328,24 @@ export function addObject(scene, item, allGroups = [], itemIndex = 0) {
         new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z),
         new CANNON.Quaternion(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, mesh.quaternion.w),
         physicsShape,
-        item.id // Use item.id as the unique ID for physics body
+        item.id 
     );
-    mesh.userData.body = physicsBody; // Store physics body in mesh userData
+    mesh.userData.body = physicsBody; 
 }
 
+/**
+ * 副程式：updateObject
+ * 作用：
+ * - 更新物件的 Mesh (幾何、材質)
+ * - 移除舊的 Physics 剛體並建立新的
+ * - 更新物件的 userData 與位置
+ */
 export function updateObject(object, data) {
     const { name, width, height, depth, status } = data;
 
-    // --- Update Visual Mesh ---
     object.name = name;
     if (object.geometry) {
-        object.geometry.dispose(); // Dispose old geometry to free memory
+        object.geometry.dispose();
     }
     object.geometry = new THREE.BoxGeometry(width, height, depth);
     object.material.transparent = (status === 'pending');
@@ -308,6 +381,11 @@ export function updateObject(object, data) {
     console.log(`🔄 Updated ${name} (visuals and physics).`);
 }
 
+/**
+ * 副程式：updateObjectOpacity
+ * 作用：
+ * - 根據物件狀態 (pending/confirmed)，更新材質透明度
+ */
 export function updateObjectOpacity(scene, itemId, status) {
     if (typeof itemId === 'undefined') {
         console.error('updateObjectOpacity called with undefined itemId');
