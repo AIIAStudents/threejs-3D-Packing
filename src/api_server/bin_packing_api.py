@@ -196,10 +196,8 @@ class BLF_SA_Algorithm:
             if 'dimensions' not in obj or not obj['dimensions']:
                  obj['dimensions'] = obj.get('size', {'x':1, 'y':1, 'z':1})
 
-        objects.sort(key=lambda o: (
-            o['dimensions']['x'] * o['dimensions']['y'] * o['dimensions']['z'],
-            max(o['dimensions'].values())
-        ), reverse=True)
+        # 根據高度升序排序，矮的先放
+        objects.sort(key=lambda o: o['dimensions']['y'])
 
         for obj in objects:
             position, rotation_dims = self._find_best_position_for_item(obj, packed_objects)
@@ -367,9 +365,8 @@ def create_bin_packing_routes(app: Flask):
             data = request.get_json()
             if not data:
                 return jsonify({"error": "No JSON data provided"}), 400
-            if 'objects' not in data:
-                return jsonify({"error": "Missing required field: objects"}), 400
 
+            # --- Get Container Size ---
             container_size = None
             config_path = 'container_config.json'
             if os.path.exists(config_path):
@@ -389,39 +386,95 @@ def create_bin_packing_routes(app: Flask):
                 container_size = data['container_size']
 
             initial_obstacles = data.get('initial_obstacles', [])
+            start_time = time.time()
 
-            pack_request = PackRequest(
-                objects=data['objects'],
-                container_size=container_size,
-                optimization_type=data.get('optimization_type', 'volume_utilization'),
-                algorithm=data.get('algorithm', 'blf_sa'),
-                async_mode=data.get('async_mode', False),
-                timeout=data.get('timeout', 30)
-            )
+            # --- Handle different request formats (groups vs flat objects) ---
+            if 'groups' in data and data['groups']:
+                # New format: Process by groups
+                groups = sorted(data['groups'], key=lambda g: g.get('priority', 0))
+                
+                if not groups:
+                     return jsonify({"error": "Groups field is empty"}), 400
 
-            object_count = len(pack_request.objects)
-            should_use_async = pack_request.async_mode or object_count > 10
+                final_packed_objects = []
+                total_item_volume = 0
+                
+                # Use the main container depth for slicing
+                main_container_depth = container_size.get('depth', 0)
+                if main_container_depth == 0:
+                    return jsonify({"error": "Container depth cannot be zero for group packing"}), 400
 
-            if should_use_async:
-                job_id = str(uuid.uuid4())
-                jobs[job_id] = {
-                    'request': pack_request,
-                    'initial_obstacles': initial_obstacles,
-                    'status': JobStatus.PENDING,
-                    'progress': 0.0,
-                    'created_at': time.time(),
-                    'last_update': time.time(),
-                    'result': None,
-                    'error': ''
-                }
-                job_queue.put(job_id)
-                return jsonify({"job_id": job_id, "status": "async",
-                                "message": f"任務已加入隊列，物件數量: {object_count}"})
-            else:
+                sub_container_depth = main_container_depth / len(groups)
+
+                for i, group in enumerate(groups):
+                    group_objects = group.get('objects', [])
+                    if not group_objects:
+                        continue
+
+                    sub_container_size = container_size.copy()
+                    sub_container_size['depth'] = sub_container_depth
+                    
+                    algorithm = BLF_SA_Algorithm(sub_container_size, initial_obstacles=[])
+                    
+                    # We call the internal packing method directly
+                    packed_solution, unpacked_from_sa = algorithm.simulated_annealing_optimization(group_objects)
+                    
+                    # Apply Z-offset and collect results
+                    z_offset = i * sub_container_depth
+                    for packed_obj in packed_solution:
+                        if not packed_obj.get('is_obstacle'):
+                            packed_obj['position']['z'] += z_offset
+                            final_packed_objects.append(packed_obj)
+                            total_item_volume += packed_obj['dimensions']['x'] * packed_obj['dimensions']['y'] * packed_obj['dimensions']['z']
+
+                total_container_volume = container_size['width'] * container_size['height'] * container_size['depth']
+                final_utilization = (total_item_volume / total_container_volume) * 100 if total_container_volume > 0 else 0
+                
+                # Reconstruct the final list of all objects with their packed status
+                all_input_objects = [obj for group in groups for obj in group.get('objects', [])]
+                packed_ids = {o['uuid'] for o in final_packed_objects}
+                final_objects_with_status = []
+
+                for obj in all_input_objects:
+                    obj_copy = obj.copy()
+                    if obj_copy['uuid'] in packed_ids:
+                        packed_version = next((p for p in final_packed_objects if p['uuid'] == obj_copy['uuid']), None)
+                        if packed_version:
+                            obj_copy['packed'] = True
+                            obj_copy['position'] = packed_version['position']
+                            obj_copy['dimensions'] = packed_version['dimensions']
+                    else:
+                        obj_copy['packed'] = False
+                    final_objects_with_status.append(obj_copy)
+
+                result = PackResult(
+                    job_id="sync_group_" + str(uuid.uuid4())[:8],
+                    success=True,
+                    packed_objects=final_objects_with_status,
+                    volume_utilization=final_utilization,
+                    execution_time=time.time() - start_time,
+                    algorithm_used="BLF_SA_V6_Groups",
+                    message=f"Successfully packed {len(final_packed_objects)} objects from {len(groups)} groups."
+                )
+                return jsonify(asdict(result))
+
+            elif 'objects' in data:
+                # Old format: Process a flat list of objects
+                pack_request = PackRequest(
+                    objects=data['objects'],
+                    container_size=container_size,
+                    optimization_type=data.get('optimization_type', 'volume_utilization'),
+                    algorithm=data.get('algorithm', 'blf_sa'),
+                    async_mode=data.get('async_mode', False),
+                    timeout=data.get('timeout', 30)
+                )
                 algorithm = BLF_SA_Algorithm(pack_request.container_size, initial_obstacles=initial_obstacles)
                 result = algorithm.pack_objects(pack_request.objects)
-                result.job_id = "sync_" + str(uuid.uuid4())[:8]
+                result.job_id = "sync_flat_" + str(uuid.uuid4())[:8]
                 return jsonify(asdict(result))
+            
+            else:
+                return jsonify({"error": "Missing required field: 'objects' or 'groups'"}), 400
 
         except Exception as e:
             return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
@@ -528,8 +581,3 @@ start_worker_thread()
 
 
 
-if __name__ == "__main__":
-    app = Flask(__name__)
-    CORS(app)
-    create_bin_packing_routes(app)
-    app.run(port=8889, debug=True)

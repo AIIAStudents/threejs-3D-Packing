@@ -3,34 +3,109 @@ import json
 import uuid
 import datetime
 import traceback
+import sys
+import sqlite3
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from gymnasium.utils.env_checker import check_env
 
-# 導入強化學習環境與場景管理器
-from rl_ppo_model.env.item_env import EnvClass
-from rl_ppo_model.env.custom_env import CustomEnv
-from rl_ppo_model.core.scene_manager import SceneManager
-from rl_ppo_model.ppo_agent.train_agent import run_training_step
+# Add the project's 'src' directory to the Python path
+# This allows us to use absolute imports from 'src'
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
 
-# 導入3D Bin packing功能
-from .bin_packing_api import create_bin_packing_routes, BLF_SA_Algorithm
+# 導入3D Bin packing功能 (using absolute imports)
+from api_server.bin_packing_api import create_bin_packing_routes, BLF_SA_Algorithm
+from api_server.group_api import create_group_routes
 
 # 初始化 Flask 應用與 CORS
 app = Flask(__name__)
-CORS(app)
+CORS(app) # 允許所有來源的跨域請求，適合開發環境
 
-# 初始化環境與場景管理器（只為 submit_scene）
-init_env = EnvClass()
-scene_mgr = SceneManager.get_instance()
-scene_mgr.attach_env(init_env)
 
 # 添加3D Bin packing路由
 create_bin_packing_routes(app)
+create_group_routes(app)
+
+def get_db_connection():
+    """Creates a database connection."""
+    base_dir = os.path.dirname(__file__)
+    db_path = os.path.abspath(os.path.join(base_dir, '..', '..', '..', 'database.db'))
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/api/get-scene', methods=['GET'])
+def get_scene():
+    """Fetches all items from the database and formats them for the frontend."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # This query joins the necessary tables to get the base information for each scene item.
+        # We are fetching the most recent status for each item type from inventory_items.
+        query = """
+            SELECT
+                si.id as scene_item_id,
+                si.x, si.y, si.z,
+                i.id as item_id,
+                i.name as item_name,
+                inv.status
+            FROM scene_items si
+            JOIN items i ON si.item_id = i.id
+            LEFT JOIN (
+                SELECT item_type_id, status, ROW_NUMBER() OVER(PARTITION BY item_type_id ORDER BY created_at DESC) as rn
+                FROM inventory_items
+            ) inv ON i.id = inv.item_type_id AND inv.rn = 1
+            WHERE si.scene_id = 1; -- Assuming a single scene with id=1
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        objects = []
+        for row in rows:
+            # For each item, get its specific properties (width, height, etc.)
+            prop_cursor = conn.cursor()
+            prop_cursor.execute("SELECT property_key, property_val FROM item_properties WHERE item_id = ?", (row['item_id'],))
+            properties = prop_cursor.fetchall()
+            
+            geometry_params = {prop['property_key']: prop['property_val'] for prop in properties}
+
+            # Map database schema to the frontend's expected JSON format
+            obj = {
+                "uuid": f"db-item-{row['scene_item_id']}", # Create a stable UUID
+                "name": row['item_name'],
+                "type": f"{row['item_name']}Geometry", # e.g., 'Cube' -> 'CubeGeometry'
+                "status": 'unconfirmed' if row['status'] == 'pending' else 'confirmed',
+                "position": {"x": row['x'], "y": row['y'], "z": row['z']},
+                "scale": {"x": 1, "y": 1, "z": 1}, # Default scale
+                "rotation": {"x": 0, "y": 0, "z": 0}, # Default rotation
+                "geometry": geometry_params,
+                "material": { # Default material, can be customized
+                    "color": 0xcceeff,
+                    "metalness": 0,
+                    "roughness": 1
+                },
+                "physics": { # Default physics
+                    "shape": row['item_name'].lower(),
+                    "mass": 1
+                }
+            }
+            objects.append(obj)
+
+        conn.close()
+        return jsonify({"objects": objects})
+
+    except Exception as e:
+        return jsonify({
+            "error_code": "DATABASE_ERROR",
+            "error": str(e),
+            "trace": traceback.format_exc()
+        }), 500
 
 @app.route('/')
 def home():
-    return "🎉 API 已成功啟動！請使用 /status, /submit_scene 或 /get_action"
+    return "🎉 API 已成功啟動！請使用 /status 或 /submit_scene"
 
 @app.route('/status')
 def status():
@@ -81,16 +156,14 @@ def submit_scene():
             }), 400
 
     try:
-        # 只用 init_env 驗證和載入
-        init_env.load_scene(data)
-
         # 儲存 JSON 檔案
         scene_id = data.get("scene_id", "unnamed")
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:6]
         filename = f"{scene_id}_{timestamp}_{unique_id}.json"
 
-        save_dir = os.path.join("rl_ppo_model", "tests", "json_testfile")
+        # Modified save_dir to not depend on rl_ppo_model
+        save_dir = os.path.join("src", "test_file", "json_testfile")
         os.makedirs(save_dir, exist_ok=True)
         save_path = os.path.join(save_dir, filename)
 
@@ -110,55 +183,6 @@ def submit_scene():
             "trace": traceback.format_exc()
         }), 500
 
-@app.route('/get_action', methods=['POST'])
-def get_action():
-    try:
-        state = request.get_json()
-
-        if not state or 'objects' not in state or not isinstance(state['objects'], list):
-            return jsonify({
-                "error": "場景資料錯誤：缺少 'objects' 欄位或格式不正確"
-            }), 400
-
-        for i, obj in enumerate(state['objects']):
-            missing_fields = []
-            if 'uuid' not in obj:
-                missing_fields.append('uuid')
-            if 'position' not in obj:
-                missing_fields.append('position')
-            if 'scale' not in obj:
-                missing_fields.append('scale')
-
-            if missing_fields:
-                return jsonify({
-                    "error": f"第 {i} 個物件缺少欄位：{', '.join(missing_fields)}",
-                    "object": obj
-                }), 400
-
-        # 初始化環境
-        train_env = CustomEnv(state)
-
-        try:
-            print("[API] calling check_env...")
-            check_env(train_env)
-            print("[API] check_env passed")
-        except Exception as e:
-            return jsonify({
-                "error": f"環境格式錯誤：{str(e)}"
-            }), 400
-
-        # 執行推論，拿到完整結果 dict
-        result = run_training_step(train_env)
-
-        # 直接回傳整包結果
-        return jsonify(result)
-
-    except Exception as e:
-        print("🔥 執行 get_action 發生例外：", str(e))
-        return jsonify({
-            "error": f"執行失敗：{str(e)}"
-        }), 400
-
 @app.route('/api/save_container', methods=['POST', 'OPTIONS'])
 def save_container():
     """
@@ -176,7 +200,6 @@ def save_container():
 
     print("收到容器設定資料：", json.dumps(data, indent=2, ensure_ascii=False))
 
-    # 基本的資料驗證
     if not isinstance(data, dict) or 'shape' not in data or 'dimensions' not in data or 'doors' not in data:
         return jsonify({
             "error_code": "INVALID_CONTAINER_CONFIG",
@@ -184,7 +207,7 @@ def save_container():
         }), 400
 
     try:
-        # 將設定儲存至專案根目錄下的 container_config.json 檔案
+        # This path is relative to the project root where the script is run from
         save_path = "container_config.json"
 
         with open(save_path, "w", encoding="utf-8") as f:
@@ -203,4 +226,4 @@ def save_container():
         }), 500
 
 if __name__ == "__main__":
-    app.run(port=8888)
+    app.run(port=8889, debug=True)
