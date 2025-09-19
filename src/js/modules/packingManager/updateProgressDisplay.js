@@ -1,3 +1,13 @@
+/**
+ * 這個模組主要用來更新打包過程中的進度顯示。
+ * 
+ * 功能包含：
+ * 1. 更新進度條寬度與百分比文字。
+ * 2. 根據狀態更新顯示文字（等待中、計算中、完成、失敗）。
+ * 3. 在完成狀態時，更新體積利用率與執行時間。
+ * 4. 提供一個安全格式化數值的小工具方法。
+ */
+
 import * as THREE from 'three';
 
 // 更新進度顯示
@@ -21,7 +31,7 @@ export function updateProgressDisplay(progress) {
       progressPercent = Math.min(100, Math.max(0, progress.percentage));
     }
       
-    // 更新進度條
+    // 更新進度條寬度
     progressFill.style.width = `${progressPercent}%`;
     progressText.textContent = `${progressPercent.toFixed(1)}%`;
       
@@ -50,11 +60,11 @@ export function updateProgressDisplay(progress) {
       
     progressStatus.textContent = statusText;
       
-    // 如果完成，顯示結果
+    // 如果狀態為完成，更新最終結果
     if (progress.status === 'completed') {
       console.log('✅ 打包完成，更新結果顯示');
       
-      // 處理體積利用率
+      // 更新體積利用率
       if (progress.utilization) {
         const utilizationElement = document.getElementById('utilization-text');
         if (utilizationElement) {
@@ -63,7 +73,7 @@ export function updateProgressDisplay(progress) {
         }
       }
       
-      // 處理執行時間
+      // 更新執行時間
       if (progress.execution_time) {
         const executionTimeElement = document.getElementById('execution-time-text');
         if (executionTimeElement) {

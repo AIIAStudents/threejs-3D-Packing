@@ -1,6 +1,17 @@
+/**
+ * 本模組提供多種「強制更新」功能，確保打包結果在網頁與 3D 場景中能即時反映：
+ * 
+ * 1. forceUpdateDOM：強制更新網頁 DOM 元素內容（體積利用率、執行時間），
+ *    並加上視覺回饋與多種更新機制 (即時更新、requestAnimationFrame、延遲更新)。
+ * 2. observeDOMChanges：監聽指定 DOM 節點的變化，若數值與預期不符，自動修正。
+ * 3. forceRepaint：透過重排、重繪與動畫手法，強制觸發瀏覽器重新渲染。
+ * 4. forceUpdateScene：強制 Three.js 場景重新渲染，確保物件顯示正確，並標記場景需要更新。
+ * 5. startContinuousRendering：啟動短時間高頻率的持續渲染機制，確保物件位置最終穩定呈現。
+ */
+
 import * as THREE from 'three';
 
-// 強制更新DOM元素 - 新增方法
+// 強制更新 DOM 元素
 export function forceUpdateDOM(utilizationText, executionTimeText) {
     console.log('--- forceUpdateDOM called with ---');
     console.log('Raw utilizationText:', utilizationText);
@@ -8,7 +19,7 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
     console.log('---------------------------------');
     console.log('🔄 強制更新DOM元素...');
       
-    // 方法1：直接更新DOM
+    // 方法1：直接更新 DOM
     const utilizationElement = document.getElementById('utilization-text');
     const executionTimeElement = document.getElementById('execution-time-text');
       
@@ -16,7 +27,7 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
       utilizationElement.textContent = utilizationText;
       console.log('✅ 體積利用率已更新:', utilizationText);
         
-      // 強制觸發DOM更新事件
+      // 強制觸發 DOM 更新事件
       utilizationElement.dispatchEvent(new Event('change', { bubbles: true }));
       utilizationElement.dispatchEvent(new Event('input', { bubbles: true }));
         
@@ -37,7 +48,7 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
       executionTimeElement.textContent = executionTimeText;
       console.log('✅ 執行時間已更新:', executionTimeText);
         
-      // 強制觸發DOM更新事件
+      // 強制觸發 DOM 更新事件
       executionTimeElement.dispatchEvent(new Event('change', { bubbles: true }));
       executionTimeElement.dispatchEvent(new Event('input', { bubbles: true }));
         
@@ -54,7 +65,7 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
       console.warn('⚠️ 找不到執行時間顯示元素');
     }
       
-    // 方法2：使用 requestAnimationFrame 確保DOM更新
+    // 方法2：使用 requestAnimationFrame 確保 DOM 更新
     requestAnimationFrame(() => {
       if (utilizationElement) {
         utilizationElement.textContent = utilizationText;
@@ -66,7 +77,7 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
       }
     });
       
-    // 方法3：延遲再次更新，確保DOM已渲染
+    // 方法3：延遲再次更新，確保 DOM 已渲染
     setTimeout(() => {
       if (utilizationElement) {
         utilizationElement.textContent = utilizationText;
@@ -81,14 +92,14 @@ export function forceUpdateDOM(utilizationText, executionTimeText) {
     console.log('✅ DOM元素強制更新完成');
 }
 
-// 監聽DOM變化 - 新增方法
+// 監聽 DOM 變化
 export function observeDOMChanges(utilizationText, executionTimeText) {
     try {
       const targetNode = document.getElementById('packing-results');
       if (!targetNode) return;
       
       const observer = new MutationObserver((mutations) => {
-        observer.disconnect(); // Disconnect before making changes
+        observer.disconnect(); // 修改前先停止監聽
         mutations.forEach((mutation) => {
           if (mutation.type === 'childList' || mutation.type === 'characterData') {
             console.log('🔄 DOM變化檢測到，重新驗證數據...');
@@ -111,7 +122,7 @@ export function observeDOMChanges(utilizationText, executionTimeText) {
             }
           }
         });
-        observer.observe(targetNode, { // Reconnect after making changes
+        observer.observe(targetNode, { // 修改後重新啟用監聽
           childList: true,
           characterData: true,
           subtree: true
@@ -124,7 +135,7 @@ export function observeDOMChanges(utilizationText, executionTimeText) {
         subtree: true
       });
       
-      // 5秒後停止監聽
+      // 5 秒後自動停止監聽
       setTimeout(() => {
         observer.disconnect();
         console.log('🔄 DOM變化監聽已停止');
@@ -135,7 +146,7 @@ export function observeDOMChanges(utilizationText, executionTimeText) {
     }
 }
 
-// 強制瀏覽器重繪 - 新增方法
+// 強制瀏覽器重繪
 export function forceRepaint() {
     try {
       // 方法1：觸發重排
@@ -172,7 +183,7 @@ export function forceRepaint() {
     }
 }
 
-// 強制更新3D場景 - 新增方法
+// 強制更新 3D 場景
 export function forceUpdateScene() {
     console.log('🎨 強制更新3D場景渲染');
       
@@ -219,7 +230,7 @@ export function forceUpdateScene() {
     }
 }
 
-// 啟動持續渲染機制 - 新增方法
+// 啟動持續渲染機制
 export function startContinuousRendering() {
     console.log('🔄 啟動持續渲染機制...');
       
@@ -244,5 +255,5 @@ export function startContinuousRendering() {
           console.log('🎯 最終強制渲染完成');
         }
       }
-    }, 30); // 減少間隔時間，提高更新頻率
+    }, 30); // 提高更新頻率
 }

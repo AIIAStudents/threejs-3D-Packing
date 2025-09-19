@@ -1,3 +1,13 @@
+/**
+ * 本程式模擬一個簡單的打包流程：
+ * 1. `simulatePacking`：模擬打包進度，並在完成時呼叫打包演算法。
+ * 2. `simulatePackingAlgorithm`：根據物件尺寸與容器大小，模擬物件如何依序擺放。
+ *    - 若超出寬度會換行。
+ *    - 若超出深度會換層。
+ *    - 每個物件都會記錄位置與旋轉資訊。
+ * 3. `calculateVolumeUtilization`：計算物件總體積與容器體積，求出體積利用率。
+ */
+
 import * as THREE from 'three';
 
 // 模擬打包功能
@@ -9,7 +19,7 @@ export function simulatePacking(objects, containerSize) {
     const progressInterval = setInterval(() => {
       progress += 10;
       this.updateProgressDisplay({ 
-        status: 'processing', 
+        status: '處理中', 
         progress: progress / 100 
       });
       
@@ -26,12 +36,12 @@ export function simulatePacking(objects, containerSize) {
         
         console.log('🎭 模擬打包完成:', result);
         
-        // 直接調用結果應用，確保顯示更新
+        // 直接呼叫結果應用，確保顯示更新
         this.applyPackingResult(result);
         
         // 強制更新進度顯示為完成狀態
         this.updateProgressDisplay({ 
-          status: 'completed', 
+          status: '完成', 
           progress: 1,
           utilization: `${result.volume_utilization.toFixed(2)}%`,
           execution_time: `${result.execution_time.toFixed(2)}s`
@@ -40,9 +50,9 @@ export function simulatePacking(objects, containerSize) {
     }, 200);
 }
 
-// 模擬打包算法
+// 模擬打包演算法
 export function simulatePackingAlgorithm(objects, containerSize) {
-    console.log('🎭 開始模擬打包算法...');
+    console.log('🎭 開始模擬打包演算法...');
     console.log('📦 輸入物件:', objects.map(obj => ({ uuid: obj.uuid, dimensions: obj.dimensions })));
       
     const packedObjects = [];
@@ -58,7 +68,7 @@ export function simulatePackingAlgorithm(objects, containerSize) {
         
       console.log(`📦 處理物件 ${index}:`, { uuid: obj.uuid, dimensions: dims });
         
-      // 檢查是否需要換行
+      // 檢查是否需要換行（若超出容器寬度）
       if (currentX + width > containerSize.width) {
         currentX = 0;
         currentZ += maxY;
@@ -66,7 +76,7 @@ export function simulatePackingAlgorithm(objects, containerSize) {
         console.log(`🔄 換行: currentX=${currentX}, currentZ=${currentZ}`);
       }
         
-      // 檢查是否需要換層
+      // 檢查是否需要換層（若超出容器深度）
       if (currentZ + depth > containerSize.depth) {
         currentX = 0;
         currentZ = 0;
@@ -74,9 +84,9 @@ export function simulatePackingAlgorithm(objects, containerSize) {
         console.log(`🔄 換層: currentX=${currentX}, currentZ=${currentZ}`);
       }
         
-      // 設置物件位置
+      // 設定物件位置
       const packedObj = {
-        uuid: obj.uuid, // 使用原始物件的UUID
+        uuid: obj.uuid, // 使用原始物件的 UUID
         position: {
           x: currentX,
           y: 0,
@@ -90,12 +100,12 @@ export function simulatePackingAlgorithm(objects, containerSize) {
         
       packedObjects.push(packedObj);
         
-      // 更新位置
+      // 更新下一個物件的起始位置
       currentX += width;
       maxY = Math.max(maxY, height);
     });
       
-    console.log('🎭 模擬打包算法完成，結果:', packedObjects);
+    console.log('🎭 模擬打包演算法完成，結果:', packedObjects);
     return packedObjects;
 }
 
