@@ -26,34 +26,32 @@ def create_group_routes(app):
         else:
             return jsonify(result), 500
 
-    @app.route('/groups', methods=['POST', 'OPTIONS'])
-    def create_group_api():
+    @app.route('/groups', methods=['GET', 'POST', 'OPTIONS'])
+    def groups_api():
         if request.method == 'OPTIONS':
             return '', 200
-        data = request.get_json()
-        if not data or 'name' not in data:
-            return jsonify({"error": "缺少群組名稱(name)"}), 400
         
-        group_id = dao.create_group(
-            name=data['name'],
-            packing_time=data.get('packingTime'),
-            reserve_for_delayed=data.get('reserveForDelayed', 0.1),
-            allow_repack=data.get('allowRepack', 1),
-            exit_priority=data.get('exitPriority', 0)
-        )
-        new_group = dao.get_group(group_id)
-        if new_group:
-            return jsonify(new_group), 201
-        else:
-            return jsonify({"error": "創建群組後無法檢索該群組"}), 500
-        
-    # 取得所有群組的 API
-    @app.route('/groups', methods=['GET', 'OPTIONS'])
-    def get_groups_api():
-        if request.method == 'OPTIONS':
-            return '', 200
-        groups = dao.get_all_groups()
-        return jsonify(groups)
+        if request.method == 'GET':
+            groups = dao.get_all_groups()
+            return jsonify(groups)
+
+        if request.method == 'POST':
+            data = request.get_json()
+            if not data or 'name' not in data:
+                return jsonify({"error": "缺少群組名稱(name)"}), 400
+            
+            group_id = dao.create_group(
+                name=data['name'],
+                packing_time=data.get('packingTime'),
+                reserve_for_delayed=data.get('reserveForDelayed', 0.1),
+                allow_repack=data.get('allowRepack', 1),
+                exit_priority=data.get('exitPriority', 0)
+            )
+            new_group = dao.get_group(group_id)
+            if new_group:
+                return jsonify(new_group), 201
+            else:
+                return jsonify({"error": "創建群組後無法檢索該群組"}), 500
 
     # 取得單一群組的 API
     @app.route('/groups/<int:group_id>', methods=['GET'])
@@ -96,9 +94,50 @@ def create_group_routes(app):
     # 取得特定群組的所有庫存物品
     @app.route('/groups/<int:group_id>/items', methods=['GET'])
     def get_group_items_api(group_id):
-        status_filter = request.args.get('status')
-        items = dao.get_inventory_items_by_group(group_id, status_filter=status_filter)
-        return jsonify(items)
+        try:
+            status_filter = request.args.get('status')
+            items = dao.get_inventory_items_by_group(group_id, status_filter=status_filter)
+            return jsonify(items)
+        except Exception as e:
+            print(f"🔥 Error fetching items for group {group_id}: {e}")
+            traceback.print_exc()
+            return jsonify({"error": f"伺服器內部錯誤: {e}"}), 500
+
+    @app.route('/item_types', methods=['GET'])
+    def get_item_types_api():
+        """取得所有可用的物品類型"""
+        try:
+            item_types = dao.get_all_item_types()
+            return jsonify(item_types)
+        except Exception as e:
+            print(f"🔥 Error fetching item types: {e}")
+            traceback.print_exc()
+            return jsonify({"error": f"伺服器內部錯誤: {e}"}), 500
+
+    @app.route('/inventory_items/batch', methods=['POST'])
+    def batch_add_inventory_items_api():
+        """批量新增帶有自訂尺寸的物品"""
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "缺少請求資料"}), 400
+
+        required_fields = ['group_id', 'item_type_id', 'quantity', 'dimensions']
+        if not all(field in data for field in required_fields):
+            return jsonify({"error": "缺少必要欄位 (group_id, item_type_id, quantity, dimensions)"}), 400
+
+        try:
+            new_items = dao.batch_add_items_with_dims(
+                group_id=data['group_id'],
+                item_type_id=data['item_type_id'],
+                quantity=data['quantity'],
+                dimensions=data['dimensions'],
+                status=data.get('status', 'pending')
+            )
+            return jsonify(new_items), 201
+        except Exception as e:
+            print(f"🔥 Error in batch add items: {e}")
+            traceback.print_exc()
+            return jsonify({"error": f"伺服器內部錯誤: {e}"}), 500
 
     
     # 新增庫存物品的 API
