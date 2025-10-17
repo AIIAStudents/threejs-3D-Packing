@@ -47,6 +47,15 @@ def get_group(group_id):
     conn.close()
     return dict(result) if result else None
 
+def get_item_type_by_name(name):
+    """根據名稱查找物品類型的ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM items WHERE name = ?", (name,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
 def create_group(name, packing_time=None, reserve_for_delayed=0.1, allow_repack=1, exit_priority=0):
     """建立一個新的物品群組"""
     conn = get_connection()
@@ -59,6 +68,40 @@ def create_group(name, packing_time=None, reserve_for_delayed=0.1, allow_repack=
     group_id = cursor.lastrowid
     conn.close()
     return group_id
+
+def update_group(group_id, data):
+    """更新一個群組的資料"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    fields = []
+    values = []
+    
+    # Only allow updating specific fields
+    for key in ['name', 'packingTime', 'reserveForDelayed', 'allowRepack', 'exitPriority']:
+        if key in data:
+            fields.append(f"{key} = ?")
+            values.append(data[key])
+            
+    if not fields:
+        return get_group(group_id) # No fields to update, just return current state
+
+    query = f"UPDATE item_groups SET {', '.join(fields)} WHERE id = ?"
+    values.append(group_id)
+    
+    try:
+        cursor.execute(query, tuple(values))
+        conn.commit()
+        if cursor.rowcount == 0:
+            return None # Group with group_id not found
+    except sqlite3.Error as e:
+        conn.rollback()
+        print(f"Database error in update_group: {e}")
+        raise e # Re-raise the exception to be caught by the API layer
+    finally:
+        conn.close()
+        
+    return get_group(group_id)
 
 def delete_group(group_id):
     """刪除一個群組"""
@@ -85,47 +128,140 @@ def get_all_groups():
     conn.close()
     return [dict(row) for row in results]
 
+def get_all_item_types():
+    """取得所有物品類型 (items table)"""
+    conn = get_connection()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name FROM items ORDER BY name ASC')
+    results = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in results]
+
+
+def batch_add_inventory_items(items_to_add):
+    """
+    將一批新物品批量添加到庫存中。
+    items_to_add 是一個列表，其中每個字典代表一個要插入的物品。
+    每個字典應包含 'item_type_id', 'group_id', 'status'。
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # 準備要插入的數據元組列表
+    sql = """
+        INSERT INTO inventory_items (item_type_id, group_id, status)
+        VALUES (?, ?, ?)
+    """
+    
+    # 從 item 字典列表中提取數據
+    data_to_insert = [
+        (item['item_type_id'], item['group_id'], item['status'])
+        for item in items_to_add
+    ]
+    
+    try:
+        cursor.executemany(sql, data_to_insert)
+        conn.commit()
+        inserted_count = cursor.rowcount
+    except sqlite3.Error as e:
+        conn.rollback()
+        print(f"Database error in batch_add_inventory_items: {e}")
+        # 返回錯誤而不是引發異常，這樣API層可以更好地控制響應
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()
+        
+    return {"status": "success", "inserted_count": inserted_count}
+
+def batch_add_items_with_dims(group_id, item_type_id, quantity, dimensions, status):
+    """批量新增物品，並為每個實例設定自訂尺寸"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    new_item_ids = []
+    
+    try:
+        # 取得基本物品類型名稱
+        cursor.execute("SELECT name FROM items WHERE id = ?", (item_type_id,))
+        result = cursor.fetchone()
+        if not result:
+            raise ValueError(f"Item type with id {item_type_id} not found.")
+        base_name = result[0]
+
+        # 計算該群組中已存在的同類型物品數量，以決定後綴數字的起始值
+        cursor.execute("SELECT COUNT(*) FROM inventory_items WHERE group_id = ? AND item_type_id = ?", (group_id, item_type_id))
+        count_start = cursor.fetchone()[0]
+
+        for i in range(quantity):
+            # 產生新名稱
+            new_name = f"{base_name} {count_start + i + 1}"
+
+            # 插入新物品到 inventory_items
+            cursor.execute('''
+                INSERT INTO inventory_items (name, item_type_id, group_id, status)
+                VALUES (?, ?, ?, ?)
+            ''', (new_name, item_type_id, group_id, status))
+            
+            new_item_id = cursor.lastrowid
+            new_item_ids.append(new_item_id)
+
+            # 為新物品插入尺寸屬性
+            for dim_key, dim_value in dimensions.items():
+                if dim_key in ['width', 'height', 'depth']:
+                    cursor.execute('''
+                        INSERT INTO item_properties (inventory_item_id, property_key, property_val)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(inventory_item_id, property_key) DO UPDATE SET property_val=excluded.property_val
+                    ''', (new_item_id, dim_key, dim_value))
+
+        conn.commit()
+
+    except sqlite3.Error as e:
+        conn.rollback()
+        print(f"Database error in batch_add_items_with_dims: {e}")
+        raise e
+    finally:
+        conn.close()
+
+    # 查詢並返回所有新建立的物品
+    new_items = [get_inventory_item(item_id) for item_id in new_item_ids]
+    return new_items
+
 
 def add_item_to_inventory(item_type_id, group_id, deadline=None):
     """
-    將一個新物品添加到庫存中。
-    如果物品類型不存在，會自動創建一個。
+    將一個新物品添加到庫存中，並自動產生唯一的名稱。
     """
     conn = get_connection()
     cursor = conn.cursor()
     
     try:
-        # 步驟 1: 確保 `items` 表中有對應的 item_type_id
-        # `OR IGNORE` 確保如果 ID 已存在，此命令不會引發錯誤
-        cursor.execute('''
-            INSERT OR IGNORE INTO items (id, name) 
-            VALUES (?, ?)
-        ''', (item_type_id, f'Cube-{item_type_id}'))
+        # 步驟 1: 取得基本物品類型名稱
+        cursor.execute("SELECT name FROM items WHERE id = ?", (item_type_id,))
+        result = cursor.fetchone()
+        if not result:
+            raise ValueError(f"Item type with id {item_type_id} not found.")
+        base_name = result[0]
 
-        # 步驟 2: 插入新物品到 inventory_items
+        # 步驟 2: 計算該群組中已存在的同類型物品數量，以決定後綴數字
+        cursor.execute("SELECT COUNT(*) FROM inventory_items WHERE group_id = ? AND item_type_id = ?", (group_id, item_type_id))
+        count = cursor.fetchone()[0]
+        
+        # 步驟 3: 產生新名稱
+        new_name = f"{base_name} {count + 1}" if count > 0 else base_name
+
+        # 步驟 4: 插入新物品到 inventory_items，包含新的 name
         cursor.execute('''
-            INSERT INTO inventory_items (item_type_id, group_id, deadline, status)
-            VALUES (?, ?, ?, 'pending')
-        ''', (item_type_id, group_id, deadline))
+            INSERT INTO inventory_items (name, item_type_id, group_id, deadline, status)
+            VALUES (?, ?, ?, ?, 'pending')
+        ''', (new_name, item_type_id, group_id, deadline))
         
         new_item_id = cursor.lastrowid
-        
-        # 步驟 3: 為新物品類型插入預設尺寸 (如果尚不存在)
-        # 這裡我們為 width, height, depth 插入預設值 15
-        default_dims = {'width': 15, 'height': 15, 'depth': 15}
-        for key, value in default_dims.items():
-            cursor.execute('''
-                INSERT INTO item_properties (item_id, property_key, property_val)
-                VALUES (?, ?, ?)
-                ON CONFLICT(item_id, property_key) DO UPDATE SET property_val=excluded.property_val
-            ''', (item_type_id, key, str(value)))
-
         conn.commit()
         
     except sqlite3.Error as e:
         conn.rollback()
         print(f"Database error in add_item_to_inventory: {e}")
-        # 根據您的錯誤處理策略，您可能希望重新引發異常或返回一個錯誤指示
         raise e
     finally:
         conn.close()
@@ -153,9 +289,9 @@ def update_inventory_item(item_id, data):
     for dim_key in ['width', 'height', 'depth', 'radius', 'radiusTop', 'radiusBottom']:
         if dim_key in data:
             cursor.execute('''
-                INSERT INTO item_properties (item_id, property_key, property_val)
+                INSERT INTO item_properties (inventory_item_id, property_key, property_val)
                 VALUES (?, ?, ?)
-                ON CONFLICT(item_id, property_key) DO UPDATE SET property_val=excluded.property_val
+                ON CONFLICT(inventory_item_id, property_key) DO UPDATE SET property_val=excluded.property_val
             ''', (item_id, dim_key, data[dim_key]))
 
     conn.commit()
@@ -189,7 +325,7 @@ def get_inventory_items_by_group(group_id, status_filter=None):
             i.name,
             (SELECT json_group_object(property_key, property_val) 
              FROM item_properties 
-             WHERE item_id = ii.item_type_id) as dimensions
+             WHERE inventory_item_id = ii.id) as dimensions
         FROM inventory_items ii
         JOIN items i ON ii.item_type_id = i.id
         WHERE ii.group_id = ?
@@ -230,7 +366,7 @@ def get_inventory_item(inventory_item_id):
             i.name,
             (SELECT json_group_object(property_key, property_val) 
              FROM item_properties 
-             WHERE item_id = ii.item_type_id) as dimensions
+             WHERE inventory_item_id = ii.id) as dimensions
         FROM inventory_items ii
         JOIN items i ON ii.item_type_id = i.id
         WHERE ii.id = ?

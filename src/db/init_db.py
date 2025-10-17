@@ -12,9 +12,15 @@ def initialize_database():
     db_path = os.path.abspath(os.path.join(base_dir, '..', '..', '..', 'database.db'))
     
     conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Drop the table to ensure schema is updated
+    cursor.execute("DROP TABLE IF EXISTS item_properties;")
+    print("  - 已刪除舊的 'item_properties' 表格 (若存在)。")
+
     with open(schema_path, 'r', encoding='utf-8') as f:
         sql = f.read()
-        conn.executescript(sql)
+        cursor.executescript(sql)
     conn.commit()
     conn.close()
     print("資料庫結構初始化/驗證完成。")
@@ -43,8 +49,8 @@ def reset_database():
 
     # 建立一個預設群組
     try:
-        c.execute("INSERT INTO item_groups (name) VALUES ('群組 1');")
-        print("  - 已建立預設 '群組 1'")
+        c.execute("INSERT INTO item_groups (name) VALUES ('Group 1');")
+        print("  - 已建立預設 'Group 1'")
     except Exception as e:
         print(f"  - 建立預設群組時發生錯誤: {e}")
 

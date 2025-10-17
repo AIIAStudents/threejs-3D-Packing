@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS item_groups (
 -- 建立庫存物品表 (用於追蹤打包前的每個物品)
 CREATE TABLE IF NOT EXISTS inventory_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT, -- Add name column for each item
     item_type_id INTEGER NOT NULL,
     group_id INTEGER,
     status TEXT NOT NULL DEFAULT 'pending',
@@ -49,11 +50,11 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 
 CREATE TABLE IF NOT EXISTS item_properties (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_id INTEGER,
-    property_key TEXT,
+    inventory_item_id INTEGER NOT NULL,
+    property_key TEXT NOT NULL,
     property_val REAL,
-    FOREIGN KEY (item_id) REFERENCES items(id),
-    UNIQUE(item_id, property_key) ON CONFLICT REPLACE
+    FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+    UNIQUE(inventory_item_id, property_key)
 );
 
 
@@ -79,55 +80,4 @@ INSERT INTO items (id, name)
 SELECT 4, 'Cylinder'
 WHERE NOT EXISTS (SELECT 1 FROM items WHERE id = 4);
 
--- Icosahedron 屬性
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 1, 'radius', 20
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 1 AND property_key = 'radius'
-);
 
--- Sphere 屬性
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 2, 'radius', 20
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 2 AND property_key = 'radius'
-);
-
--- Cube 屬性
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 3, 'width', 50
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 3 AND property_key = 'width'
-);
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 3, 'height', 50
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 3 AND property_key = 'height'
-);
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 3, 'depth', 50
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 3 AND property_key = 'depth'
-);
-
--- Cylinder 屬性
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 4, 'radiusTop', 30
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 4 AND property_key = 'radiusTop'
-);
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 4, 'radiusBottom', 30
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 4 AND property_key = 'radiusBottom'
-);
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 4, 'height', 50
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 4 AND property_key = 'height'
-);
-INSERT INTO item_properties (item_id, property_key, property_val)
-SELECT 4, 'radialSegments', 64
-WHERE NOT EXISTS (
-    SELECT 1 FROM item_properties WHERE item_id = 4 AND property_key = 'radialSegments'
-);
