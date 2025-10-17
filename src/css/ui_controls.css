@@ -224,3 +224,253 @@
   z-index: 100;
   pointer-events: none; /* So it doesn't interfere with mouse events on the canvas */
 }
+
+/* --- Dropdown Menu --- */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+
+
+.group-header:hover .kebab {
+  background-color: #e0e0e0;
+}
+
+/* --- 右上角視圖控制圖標 --- */
+#view-controls {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  flex-direction: row-reverse; /* 從右到左排列 */
+  gap: 10px;
+  z-index: 100;
+}
+
+.view-icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(255, 255, 255, 0.7); /* 設置一個淺色背景以便看清圖標 */
+  border: 2px solid #000; /* 黑色圓框 */
+  border-radius: 50%; /* 圓形 */
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.view-icon img {
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+}
+
+.view-icon:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 12px rgba(0, 150, 255, 0.9);
+}
+
+/* 點擊後顯示的紅色斜線 */
+
+.view-icon.toggled-off::after {
+
+  content: '';
+
+  position: absolute;
+
+  top: 50%;
+
+  left: 15%;
+
+  width: 70%;
+
+  height: 2px;
+
+  background-color: rgba(255, 50, 50, 0.8);
+
+  transform: rotate(-45deg);
+
+  transform-origin: center;
+
+  transition: all 0.2s;
+
+}
+
+
+
+/* 預設隱藏打包相關的圖標 */
+
+#toggle-floor-btn,
+
+#toggle-partitions-btn {
+
+  display: none;
+
+}
+
+/* --- New Control Weight Button Styles --- */
+
+.control-bar {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: row; /* 由左到右排列 */
+  gap: 12px;
+}
+
+/* 通用樣式 */
+.ctrl-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: all 0.2s ease-out;
+}
+
+.ctrl-btn img {
+  width: 24px;
+  height: 24px;
+  transition: filter 0.2s ease-out;
+}
+
+.ctrl-btn:hover {
+  transform: scale(1.05);
+}
+
+.ctrl-btn:hover img {
+  filter: brightness(0) invert(1); /* Icon to white */
+}
+
+.ctrl-btn:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+.ctrl-btn:focus-visible {
+  outline: 2px solid rgba(255,255,255,0.6);
+  outline-offset: 2px;
+}
+
+.ctrl-btn:disabled,
+.ctrl-btn[disabled] {
+  background: #fff;
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: scale(1);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.ctrl-btn:disabled:hover,
+.ctrl-btn[disabled]:hover {
+    background: #fff; /* Ensure background doesn't change on hover when disabled */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.ctrl-btn:disabled img,
+.ctrl-btn[disabled] img {
+    filter: none;
+    opacity: 0.5;
+}
+
+/* 各按鈕的 hover 顏色 */
+.ctrl-btn.planning:hover:not(:disabled) {
+  background: #FFA500; /* Orange */
+  box-shadow: 0 0 12px rgba(255, 165, 0, 0.7);
+}
+
+.ctrl-btn.arr:hover:not(:disabled) {
+  background: #FFD306; /* Bright Yellow */
+  box-shadow: 0 0 12px rgba(255, 211, 6, 0.7);
+}
+
+.ctrl-btn.history:hover:not(:disabled) {
+  background: #206DD6; /* Blue */
+  box-shadow: 0 0 12px rgba(32, 109, 214, 0.7);
+}
+
+.ctrl-btn.bin:hover:not(:disabled) {
+  background: #749551; /* Green */
+  box-shadow: 0 0 12px rgba(116, 149, 81, 0.7);
+}
+
+/* Active state shadow reduction */
+.ctrl-btn.planning:active { box-shadow: 0 0 10px rgba(255, 165, 0, 0.5); }
+.ctrl-btn.arr:active { box-shadow: 0 0 10px rgba(255, 211, 6, 0.5); }
+.ctrl-btn.history:active { box-shadow: 0 0 10px rgba(32, 109, 214, 0.5); }
+.ctrl-btn.bin:active { box-shadow: 0 0 10px rgba(116, 149, 81, 0.5); }
+
+/* --- Control Weight Editor List Styles (Grid Layout) --- */
+
+/* Container for the grid layout */
+#control-weight-canvas {
+  display: grid;
+  /* This creates 5 columns: Item, Arrow, Item, Arrow, Item */
+  grid-template-columns: 1fr auto 1fr auto 1fr; 
+  gap: 15px 25px; /* 15px row-gap, 25px column-gap */
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  height: calc(100% - 100px);
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #666 #222;
+}
+
+.arrow {
+  color: #999;
+  font-size: 24px;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* Base styles for items in the grid */
+.cube-item {
+  background: #2b2b34;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s ease-in-out;
+  cursor: grab;
+  text-align: center;
+}
+
+.cube-item:hover {
+  background: #3a3a45;
+  transform: translateY(-2px);
+}
+
+.cube-item:active {
+  cursor: grabbing;
+}
+
+/* Edit mode highlight */
+.edit-mode .cube-item {
+  border-color: #FFD306;
+  box-shadow: 0 0 8px rgba(255,211,6,0.4);
+}
+
+/* Sortable.js helper classes */
+.sortable-ghost {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.sortable-chosen {
+  transform: scale(1.05);
+  background: #3a3a45;
+  box-shadow: 0 0 12px rgba(0,0,0,0.5);
+}

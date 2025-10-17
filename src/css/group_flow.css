@@ -211,3 +211,29 @@
     background-color: #5bc0de;
     color: white;
 }
+
+/* --- Control Weight Editor --- */
+#control-weight-editor {
+    display: none; /* Initially hidden */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40vw;
+    min-width: 500px;
+    height: 70vh;
+    background-color: #2a2a33; /* Dark background */
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    overflow: hidden;
+}
+
+#control-weight-canvas {
+    background-color: transparent; /* Use parent background */
+    height: calc(100% - 100px); /* Adjust for header/footer */
+    padding: 20px;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+

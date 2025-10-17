@@ -197,3 +197,253 @@ button .ripple {
     background: #e4e4e4;
     z-index: 10;
 }
+
+/* Dropdown Content (Portal) */
+.dropdown-content {
+  display: none; /* Initially hidden */
+  position: fixed; /* Use fixed position for portal rendering */
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  z-index: 1001; /* High z-index to appear on top */
+  max-height: 220px; /* Max height before scrolling */
+  overflow-y: auto; /* Enable vertical scrolling */
+}
+
+.dropdown-content a {
+  display: block;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #333;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dropdown-content a:hover {
+  background: #f0f0f0;
+}
+
+/* --- 全新的群組列表 UI/UX 樣式 --- */
+
+/* #objects-list 是所有群組的容器 */
+#objects-list {
+  padding: 5px;
+}
+
+/* 單一群組容器 (.group-item) */
+.group-item {
+  border-bottom: 1px solid #e0e0e0; /* 群組之間的分隔線 */
+  margin-bottom: 10px; /* 群組之間的留白 */
+}
+
+/* 群組標題 */
+.group-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  user-select: none;
+}
+
+.group-header:hover {
+  background-color: #f5f5f5; /* Hover 時的背景色 */
+}
+
+/* 群組名稱 */
+.group-name {
+  flex-grow: 1; /* 讓名稱佔據主要空間 */
+  font-size: 15px;
+  font-weight: 600; /* 預設加粗 */
+  color: #333;
+}
+
+.group-header:hover .group-name {
+  color: #000; /* Hover 時字體顏色加深 */
+}
+
+/* 展開/收合圖示 (FontAwesome) */
+.expand-collapse-icon {
+  font-size: 14px;
+  margin-right: 10px;
+  width: 16px; /* 固定寬度以對齊 */
+  text-align: center;
+  transition: transform 0.3s ease; /* 旋轉動畫 */
+}
+
+/* 收合時的圖示狀態 (指向右) */
+.group-items-list.collapsed + .group-header .expand-collapse-icon {
+  transform: rotate(0deg);
+}
+
+/* 展開時的圖示狀態 (指向下) */
+.group-items-list:not(.collapsed) + .group-header .expand-collapse-icon {
+  transform: rotate(90deg);
+}
+
+/* 群組內的物件列表 */
+.group-items-list {
+  max-height: 500px; /* 設定一個足夠大的最大高度 */
+  overflow: hidden;
+  transition: max-height 0.35s ease-in-out, padding 0.35s ease-in-out; /* 動畫效果 */
+  padding: 5px 0 5px 25px; /* 展開時的內邊距 */
+}
+
+/* 收合狀態下的物件列表 */
+.group-items-list.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* 列表中的單一物件 */
+.object-item {
+  padding: 8px 5px;
+  font-size: 14px;
+  color: #555;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.object-item:hover {
+  background-color: #f0f0f0;
+}
+
+.object-name {
+  flex-grow: 1;
+}
+
+/* 針對 GroupManager 動態產生的 .kebab 按鈕微調 */
+.group-header .kebab {
+  margin-left: 10px;
+}
+
+
+/* --- 側邊欄切換功能 --- */
+#sidebar-toggle {
+  position: absolute;
+  top: 10px;
+  left: 325px; /* 初始位置在側邊欄內部靠右 */
+  width: 32px;
+  height: 32px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20; /* 確保在側邊欄之上 */
+  transition: left 0.4s ease, background-color 0.2s;
+}
+
+#sidebar-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+#sidebar-toggle img {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.4s ease;
+  transform: rotate(0deg); /* 初始是收起圖標 (指向左) */
+}
+
+/* 當側邊欄收起時的樣式 */
+#app.sidebar-collapsed #left-sidebar {
+  width: 0;
+  padding: 12px 0;
+  border-right-width: 0;
+  overflow: hidden;
+}
+
+#app.sidebar-collapsed #resizer {
+  display: none;
+}
+
+#app.sidebar-collapsed #sidebar-toggle {
+  left: 10px; /* 收起後，按鈕移動到左邊 */
+}
+
+#app.sidebar-collapsed #sidebar-toggle img {
+  transform: rotate(180deg); /* 圖標旋轉180度 (指向右) */
+}
+
+/* 確保左側邊欄有過渡效果 */
+#left-sidebar {
+  transition: width 0.4s ease, padding 0.4s ease;
+}
+
+/* --- 左側邊欄功能按鈕區樣式重構 --- */
+
+/* 按鈕容器 */
+.action-buttons {
+  display: flex;
+  flex-direction: column; /* 垂直排列 */
+  gap: 10px; /* 按鈕間的垂直間距 */
+  padding: 10px 0; /* 容器的上下內邊距 */
+}
+
+/* 通用按鈕樣式 (.action-btn) */
+.action-btn {
+  display: flex; /* 使用 flexbox 來對齊圖標和文字 */
+  align-items: center;
+  justify-content: center; /* 文字和圖標居中 */
+  width: 100%; /* 填滿容器寬度 */
+  padding: 12px 10px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px; /* 圓角 */
+  border: 1px solid transparent; /* 預留邊框位置 */
+  box-sizing: border-box; /* 確保 padding 不會撐爆寬度 */
+  text-decoration: none; /* 移除 a 標籤的下劃線 */
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+
+/* 按鈕內的圖標 */
+.action-btn i {
+  margin-right: 8px; /* 圖標與文字的間距 */
+}
+
+/* 主要按鈕 (Primary) */
+.action-btn.primary {
+  background-color: #4A90E2;
+  color: #fff;
+}
+
+.action-btn.primary:hover {
+  background-color: #357ABD;
+}
+
+/* 次要按鈕 (Secondary) */
+.action-btn.secondary {
+  background-color: #f0f2f5;
+  color: #333;
+  border-color: #dcdfe6;
+}
+
+.action-btn.secondary:hover {
+  background-color: #e4e6e9;
+  border-color: #c0c4cc;
+}
+
+/* 按鈕點擊狀態 */
+.action-btn:active {
+  transform: scale(0.98); /* 按壓回饋 */
+}
+
+/* 按鈕禁用狀態 */
+.action-btn:disabled {
+  background-color: #f5f5f5;
+  color: #a0a0a0;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 鍵盤聚焦狀態 (可及性) */
+.action-btn:focus-visible {
+  outline: 2px solid #4A90E2;
+  outline-offset: 2px;
+}

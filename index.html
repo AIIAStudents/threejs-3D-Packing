@@ -21,32 +21,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
     <link rel="stylesheet" href="./src/css/group_flow.css">
     <link rel="stylesheet" href="./src/css/ui_controls.css">
-    <style>
-      /* Styles for group collapse/expand */
-      .group-header {
-        cursor: pointer;
-        user-select: none; /* Prevent text selection on click */
-      }
-      .group-toggle {
-        margin-right: 8px;
-        transition: transform 0.2s ease-in-out;
-        width: 12px; /* Allocate space for the icon */
-        display: inline-block;
-        text-align: center;
-      }
-      .group-items {
-        padding-left: 20px;
-      }
-      .group.collapsed .group-items {
-        display: none;
-      }
-      .group:not(.collapsed) .group-toggle {
-        transform: rotate(90deg);
-      }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
   </head>
   <body>
     <div id="app">
+      <!-- 側邊欄開關按鈕 -->
+      <div id="sidebar-toggle">
+        <img src="./src/assets/webs/sidebar.png" alt="Toggle Sidebar" />
+      </div>
+
       <!-- 左側工具列 -->
       <div id="left-sidebar">
         <div class="sidebar-header">
@@ -63,6 +46,10 @@
             <i class="fas fa-folder-plus"></i>
              Add Group
           </button>
+          <button id="add-item-btn" class="action-btn primary">
+            <i class="fas fa-plus-square"></i>
+             Add Item
+          </button>
           
           <button id="execute-packing-btn" class="action-btn primary">
             <i class="fas fa-play"></i>
@@ -78,12 +65,7 @@
           </a>
         </div>
 
-        <!-- 物品類型選擇區域 -->
-        <div class="item-type-selection">
-          <button class="item-icon-button" data-item-type-id="3" title="Add Cube" draggable="true">
-            <img src="./src/assets/icons/cube.png" alt="Cube">
-          </button>
-        </div>
+
 
         <!-- 物件列表區域 -->
         <div class="objects-section">
@@ -92,11 +74,13 @@
               <div class="group-header">
                 <i class="fas fa-chevron-right group-toggle"></i>
                 <span class="group-name">Group 1</span>
-                <button class="kebab">⋮</button>
-                <!-- 群組功能表 -->
-                <div class="menu">
-                  <div class="menu-item">修改名稱</div>
-                  <div class="menu-item">刪除群組</div>
+                <div class="dropdown">
+                  <button class="kebab">⋮</button>
+                  <div class="dropdown-content">
+                    <a href="#" class="menu-item" data-action="rename-group">修改名稱</a>
+                    <a href="#" class="menu-item" data-action="delete-group">刪除群組</a>
+                    <a href="#" class="menu-item" data-action="control-weight">控制權重</a>
+                  </div>
                 </div>
               </div>
               <div class="group-items">
@@ -122,14 +106,6 @@
       <!-- 右側3D場景 -->
       <div id="container">
         <canvas id="canvas"></canvas>
-        
-        <!-- 物件屬性工具列 (已停用) -->
-        <div id="item-toolbar" class="toolbar-panel" style="display: none;">
-          <!-- The content of this toolbar is now handled by simpler prompts -->
-          <!-- and the new data-driven flow. -->
-        </div>
-
-        
 
         <!-- 打包進度面板 -->
         <div id="packing-panel" class="floating-panel" style="display: none;">
@@ -154,6 +130,19 @@
             <button id="cancel-packing-btn" class="cancel-btn">取消打包</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 右上角視圖控制圖標 -->
+    <div id="view-controls">
+      <div class="view-icon" id="toggle-partitions-btn" title="切換容器分割標籤">
+        <img src="./src/assets/webs/product-development.png" alt="Partitions">
+      </div>
+      <div class="view-icon" id="toggle-floor-btn" title="切換空間邊界">
+        <img src="./src/assets/webs/floor.png" alt="Floor">
+      </div>
+      <div class="view-icon" id="toggle-axis-btn" title="切換座標軸">
+        <img src="./src/assets/webs/axis.png" alt="Axis">
       </div>
     </div>
 
@@ -220,82 +209,184 @@
         </div>
       </div>
 
-      <div id="history-panel" class="history-panel">
-        <div class="history-header">
-          <h3>刪除紀錄</h3>
-          <button id="close-history-panel" class="close-btn">&times;</button>
-        </div>
-        <div id="history-content" class="history-content">
-          <p>目前沒有任何歷史紀錄</p>
-        </div>
-      </div>
-    </div>
-  <!-- Kebab menu icon -->
-      <div id="kebab-menu-icon" class="kebab-icon" style="display: none;">
-        <i class="fas fa-ellipsis-v"></i>
-      </div>
-      <!-- Item Edit Modal -->
-      <div id="item-edit-modal" class="edit-modal" style="display: none;">
-        <div class="modal-content">
-            <h3>修改物件屬性</h3>
-            
-            <!-- Item Name -->
-            <div class="input-group">
-                <label for="item-name-input">物件名稱</label>
-                <input type="text" id="item-name-input" class="text-input">
-            </div>
-
-            <!-- Dimensions -->
-            <div class="input-group">
-                <label for="item-width-input">寬度 (Width): <span id="item-width-value"></span></label>
-                <input type="range" id="item-width-input" min="1" max="30" step="1">
-            </div>
-            <div class="input-group">
-                <label for="item-height-input">高度 (Height): <span id="item-height-value"></span></label>
-                <input type="range" id="item-height-input" min="1" max="30" step="1">
-            </div>
-            <div class="input-group">
-                <label for="item-depth-input">深度 (Depth): <span id="item-depth-value"></span></label>
-                <input type="range" id="item-depth-input" min="1" max="30" step="1">
-            </div>
-
-            <!-- Status Selection -->
-            <div class="input-group">
-              <label>狀態</label>
-              <div class="status-btn-group">
-                <button class="status-btn" data-status="pending">尚未確認</button>
-                <button class="status-btn" data-status="confirmed">已確認</button>
-                <button class="status-btn" data-status="reconfirmed">補確認</button>
+            <div id="history-panel" class="history-panel">
+              <div class="history-header">
+                <h3>刪除紀錄</h3>
+                <button id="close-history-panel" class="close-btn">&times;</button>
+              </div>
+              <div id="history-content" class="history-content">
+                <p>目前沒有任何歷史紀錄</p>
               </div>
             </div>
-
-            <!-- Action Buttons -->
-            <div class="btn-group">
-                <button id="save-item-btn" class="confirm-yes">儲存</button>
-                <button id="cancel-edit-item-btn" class="confirm-no">取消</button>
+          </div>
+      
+          <!-- Control Weight Editor UI -->
+          <div id="control-weight-editor" style="display: none;">
+            <button id="close-control-weight-editor-btn" class="modal-close-btn">&times;</button>
+            <div id="sorting-controls" class="sorting-controls-container">
+              <div class="control-group">
+                  <label for="sort-order-select">排序模式</label>
+                  <select id="sort-order-select" class="styled-select">
+                      <option value="x>y>z" selected>X > Y > Z</option>
+                      <option value="y>x>z">Y > X > Z</option>
+                  </select>
+              </div>
+              <div class="control-group">
+                  <label for="door-direction-select">正門方向</label>
+                  <select id="door-direction-select" class="styled-select">
+                      <option value="front" selected>前 (+Z)</option>
+                      <option value="back">後 (-Z)</option>
+                      <option value="left">左 (-X)</option>
+                      <option value="right">右 (+X)</option>
+                  </select>
+              </div>
+              <div class="control-group">
+                  <label for="lifo-toggle">LIFO 模式</label>
+                  <label class="switch">
+                      <input type="checkbox" id="lifo-toggle">
+                      <span class="slider round"></span>
+                  </label>
+              </div>
             </div>
-        </div>
-    </div>
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const objectsList = document.getElementById('objects-list');
-
-        objectsList.addEventListener('click', (event) => {
-          const header = event.target.closest('.group-header');
+            <div id="control-weight-canvas"></div> <!-- This will hold the list of items to reorder -->
+      
+            <div id="control-weight-controls" class="control-bar">
+              <button id="cw-planning-btn" class="ctrl-btn planning" title="Edit Order"><img src="./src/assets/group weight/planning.png"></button>
+              <button id="cw-arrow-btn" class="ctrl-btn arr" title="Confirm Order"><img src="./src/assets/group weight/arrow.png"></button>
+              <button id="cw-history-btn" class="ctrl-btn history" title="History"><img src="./src/assets/group weight/history.png"></button>
+              <button id="cw-bin-btn" class="ctrl-btn bin" title="Delete Item"><img src="./src/assets/group weight/bin.png"></button>
+            </div>
+      
+            <!-- Confirmation Dialog for order change -->
+            <div id="cw-confirm-order-dialog" class="confirmation-dialog">
+              <p>是否決定更改順序?</p>
+              <div class="btn-group">
+                <button id="cw-confirm-order-yes" class="confirm-yes">是</button>
+                <button id="cw-confirm-order-no" class="confirm-no">否</button>
+              </div>
+            </div>
+      
+            <!-- History Panel for deleted items -->
+            <div id="cw-history-panel" class="history-panel">
+              <div class="history-header">
+                <h3>刪除紀錄</h3>
+                <button id="cw-close-history-panel" class="close-btn">&times;</button>
+              </div>
+              <div id="cw-history-content" class="history-content">
+                <p>目前沒有任何歷史紀錄</p>
+              </div>
+            </div>
+          </div>
+      
+          <!-- Kebab menu icon -->
+          <div id="kebab-menu-icon" class="kebab-icon" style="display: none;">
+            <i class="fas fa-ellipsis-v"></i>
+          </div>
           
-          if (!header || event.target.closest('button') || event.target.closest('.menu')) {
-            return;
-          }
+          <!-- Item Edit Modal -->
+          <div id="item-edit-modal" class="edit-modal" style="display: none;">
+            <div class="modal-content">
+                <h3>修改物件屬性</h3>
+                
+                <!-- Item Name -->
+                <div class="input-group">
+                    <label for="item-name-input">物件名稱</label>
+                    <input type="text" id="item-name-input" class="text-input">
+                </div>
+      
+                <!-- Dimensions -->
+                <div class="input-group">
+                    <label for="item-width-input">寬度 (Width): <span id="item-width-value"></span></label>
+                    <input type="range" id="item-width-input" min="1" max="30" step="1">
+                </div>
+                <div class="input-group">
+                    <label for="item-height-input">高度 (Height): <span id="item-height-value"></span></label>
+                    <input type="range" id="item-height-input" min="1" max="30" step="1">
+                </div>
+                <div class="input-group">
+                    <label for="item-depth-input">深度 (Depth): <span id="item-depth-value"></span></label>
+                    <input type="range" id="item-depth-input" min="1" max="30" step="1">
+                </div>
+      
+                <!-- Status Selection -->
+                <div class="input-group">
+                  <label>狀態</label>
+                  <div class="status-btn-group">
+                    <button class="status-btn" data-status="pending">尚未確認</button>
+                    <button class="status-btn" data-status="confirmed">已確認</button>
+                    <button class="status-btn" data-status="reconfirmed">補確認</button>
+                  </div>
+                </div>
+      
+                <!-- Action Buttons -->
+                <div class="btn-group">
+                    <button id="save-item-btn" class="confirm-yes">儲存</button>
+                    <button id="cancel-edit-item-btn" class="confirm-no">取消</button>
+                </div>
+            </div>
+          </div>
+          
+          <!-- Add Item Modal -->
+          <div id="add-item-modal" class="edit-modal" style="display: none;">
+            <div class="modal-content">
+                <h3>批量新增物件 (Batch Add Items)</h3>
+                
+                <!-- Group Selection -->
+                <div class="input-group">
+                    <label for="item-group-select">選擇或建立群組 (Select or Create Group)</label>
+                    <div style="display: flex; gap: 8px;">
+                      <select id="item-group-select" class="text-input" style="flex-grow: 1;"></select>
+                      <button id="create-new-group-btn" class="action-btn secondary" style="flex-shrink: 0;">New</button>
+                    </div>
+                    <div id="new-group-input-container" style="display: none; margin-top: 8px;">
+                      <input type="text" id="new-group-name-input" class="text-input" placeholder="Enter new group name...">
+                      <button id="confirm-new-group-btn" class="action-btn primary">Create</button>
+                    </div>
+                </div>
+      
+                <!-- Dimensions -->
+                <div class="input-group dimensions-group" style="display: flex; gap: 10px;">
+                    <div>
+                        <label for="batch-add-width-input">寬度 (Width)</label>
+                        <input type="number" id="batch-add-width-input" class="text-input" min="1" value="15">
+                    </div>
+                    <div>
+                        <label for="batch-add-height-input">高度 (Height)</label>
+                        <input type="number" id="batch-add-height-input" class="text-input" min="1" value="15">
+                    </div>
+                    <div>
+                        <label for="batch-add-depth-input">深度 (Depth)</label>
+                        <input type="number" id="batch-add-depth-input" class="text-input" min="1" value="15">
+                    </div>
+                </div>
 
-          const group = header.parentElement;
-          group.classList.toggle('collapsed');
-        });
-
-        // Initialize existing groups to be collapsed
-        document.querySelectorAll('.group').forEach(group => {
-          group.classList.add('collapsed');
-        });
-      });
+                <!-- Quantity -->
+                <div class="input-group">
+                    <label for="item-quantity-input">數量 (Quantity)</label>
+                    <input type="number" id="item-quantity-input" class="text-input" min="1" value="1">
+                </div>
+      
+                <!-- Status Selection -->
+                <div class="input-group">
+                  <label for="item-status-select">設定狀態 (Set Status)</label>
+                  <select id="item-status-select" class="text-input">
+                    <option value="尚未確認">尚未確認 (Not Yet Confirmed)</option>
+                    <option value="已確認">已確認 (Confirmed)</option>
+                    <option value="補確認">補確認 (To Be Re-confirmed)</option>
+                  </select>
+                </div>
+      
+                <!-- Action Buttons -->
+                <div class="btn-group">
+                    <button id="submit-batch-add-btn" class="confirm-yes">新增 (Add)</button>
+                    <button id="cancel-batch-add-btn" class="confirm-no">取消 (Cancel)</button>
+                </div>
+            </div>
+          </div>
+    <script>
+      // This script block is now empty.
+      // The UI logic has been centralized in the project's JavaScript modules
+      // to prevent event handling conflicts.
     </script>
   </body>
 </html>
