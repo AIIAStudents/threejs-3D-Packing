@@ -1,0 +1,162 @@
+/* space_planning.css */
+
+#space-planning-view {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80vw;
+  height: 80vh;
+  /* Apply dot grid to the main container */
+  background-color: #FFFFFF;
+  background-image: radial-gradient(#E6E6E6 1.5px, transparent 1.5px);
+  background-size: 12px 12px;
+  border: 1px solid #ccc;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  border-radius: 10px;
+  display: none; /* Initially hidden */
+  z-index: 1000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Close button for the full-screen planning view */
+#close-space-planning-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    font-size: 3rem;
+    color: #888;
+    cursor: pointer;
+    z-index: 1010;
+    line-height: 1;
+}
+
+#close-space-planning-btn:hover {
+    color: #000;
+}
+
+.edit-mode-controls {
+  position: absolute;
+  top: 50%;
+  right: 30px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 1001; /* Ensure it's above other controls */
+}
+
+#top-down-canvas {
+  background-color: transparent; /* Make canvas transparent */
+  border: none; /* Remove border as the container has it */
+}
+
+.planning-controls {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.planning-button {
+  width: 40px; /* Per spec */
+  height: 40px; /* Per spec */
+  background-color: #fff; /* Per spec */
+  border: 1px solid #ccc;
+  border-radius: 50%; /* Per spec: circle shape */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15); /* Per spec: shadow */
+}
+
+.planning-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
+}
+
+.planning-button:disabled {
+  opacity: 0.5; /* Per spec */
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.planning-button img {
+  width: 20px; /* Adjust icon size for new button size */
+  height: 20px;
+}
+
+#btn-edit.active {
+  background-color: #FFD306;
+  box-shadow: 0 5px 15px rgba(255, 211, 6, 0.5);
+}
+
+#btn-edit:hover { background-color: #FFD306; }
+#btn-check:hover { background-color: #a5f056; }
+#btn-close:hover { background-color: #f75c57; }
+#btn-next:hover { background-color: #FFA500; }
+#btn-planning:hover { background-color: #007bff; color: white; }
+
+
+#assignment-view-container {
+    display: none; /* Initially hidden */
+    width: 100%;
+    height: 100%;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.assignment-column {
+    width: 45%;
+    height: 90%;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow-y: auto;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+}
+
+.assignment-column h3 {
+    text-align: center;
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.list-item {
+    padding: 10px 15px;
+    margin: 8px 0;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+    cursor: grab;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.zone-list-item {
+    /* Custom styles for droppable zones */
+}
+
+.group-list-item {
+    /* Custom styles for draggable groups */
+}
+
+.drop-target-hover {
+    background-color: #e9f5ff;
+    border-color: #007bff;
+}
