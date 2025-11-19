@@ -1,0 +1,287 @@
+/* =========================
+   基本設定
+   ========================= */
+* {
+  box-sizing: border-box;
+}
+
+/* =========================
+   主題色系（來自圖片）
+   ========================= */
+:root {
+  /* Elements */
+  --color-bg: #f8f5f2;          /* Background */
+  --color-main: #fffffe;        /* Illustration Main / 主內容偏白色 */
+  --color-heading: #232323;     /* Headline */
+  --color-text: #222525;        /* Paragraph */
+  --color-button: #078080;      /* Button */
+  --color-button-text: #232323; /* Button text */
+
+  /* Illustration / 裝飾 */
+  --color-stroke: #232323;      /* 線條、邊框 */
+  --color-highlight: #078080;   /* Highlight */
+  --color-secondary: #f45d48;   /* Secondary */
+  --color-tertiary: #f8f5f2;    /* Tertiary */
+
+  /* 抽成你版面用的變數 */
+  --color-divider: var(--color-stroke);
+
+  --sidebar-bg: var(--color-bg);      /* Sidebar 背景 */
+  --sidebar-text: var(--color-heading);
+  --sidebar-border: var(--color-stroke);
+  --sidebar-default-bg:var(--color-bg);
+  --sidebar-hover-bg: #e2e2e2; /* 滑鼠停在上面灰色 */
+  --sidebar-active-bg: #078080; /* 點擊後亮色 */
+
+  --btn-bg: var(--color-button);
+  --btn-border: var(--color-stroke);
+  --btn-text: var(--color-button-text);
+  --btn-hover-bg: #059196;            /* Button 的 hover，比 #078080 再亮一點 */
+
+  --icon-color: var(--color-stroke);
+}
+
+/* =========================
+   全站文字 & 背景
+   ========================= */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+
+  background: var(--color-bg);   /* 整體背景 = 圖片 Background */
+  color: var(--color-text);      /* 預設文字 = Paragraph 顏色 */
+}
+
+/* =========================
+   標題 + icon 區 (左側邊工作區域)
+   ========================= */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;                                     /* 文字跟圖像的間距 */
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-divider); /* 用 Stroke 畫分隔線 */
+}
+.sidebar-icon {
+  width: 30px;
+  height: 30px;
+  /* 如果改成 <i> icon，就可以這樣：
+     color: var(--icon-color);
+  */
+}
+.sidebar-title{
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 20px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.sidebar-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+
+  background: transparent; 
+  color: var(--sidebar-text);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+/* hover：背景變色 */
+.sidebar-section:hover {
+  background: var(--sidebar-hover-bg);
+}
+
+/* Sidebar active 點擊後亮色 */
+.sidebar-section-active {
+  background: var(--sidebar-active-bg);
+  color: white; /* 背景要變白 */
+}
+
+/* active 時避免 hover 把顏色變淡 */
+.sidebar-section-active:hover {
+  background: var(--sidebar-active-bg);
+}
+
+.sidebar-section-active .sidebar-section-title,
+.sidebar-section-active .sidebar-section-icon {
+  filter: brightness(0) invert(1); /* 讓 icon 變白 */
+}
+
+.sidebar-section-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.sidebar-section-title {
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  transform: translateY(8px);
+  color: var(--sidebar-text);
+}
+
+.sidebar-header h2 {
+  font-size: 25px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1;
+  transform: translateY(8px);
+  color: var(--sidebar-text); /* 用 Headline 顏色 */
+}
+
+
+/* sidebar 內其他 h2 共用樣式（不碰字體大小） */
+.sidebar h2 {
+  margin: 0 0 16px 0;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+/* =========================
+   左側側欄
+   ========================= */
+.sidebar {
+  width: 240px;
+  background: var(--sidebar-bg);                  /* 用主題 sidebar 背景 */
+  color: var(--sidebar-text);
+  border-right: 1px solid var(--sidebar-border);  /* Stroke 當邊框 */
+  padding: 16px;
+  transition: width 0.25s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 收合後 */
+.sidebar.collapsed {
+  width: 60px;
+}
+
+/* 收合後標題淡出 */
+.sidebar.collapsed h2 {
+  opacity: 0;
+}
+
+/* =========================
+   收合按鈕
+   ========================= */
+#toggle-btn {
+  position: absolute;
+  top: 20px;
+  right: 10px;
+
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--btn-bg);          /* 用 Button 顏色 */
+  border: 2px solid var(--btn-border);
+  color: var(--btn-text);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.25s ease;
+}
+
+/* hover：按鈕稍微變亮 */
+#toggle-btn:hover {
+  background: var(--btn-hover-bg);
+}
+
+/* 按鈕裡的圖片大小（目前你用 img） */
+#toggle-btn img {
+  width: 24px;
+  height: 24px;
+  transform: translateX(1px);
+}
+
+/* 收合時箭頭方向翻轉 */
+.sidebar.collapsed #toggle-btn {
+  transform: rotate(180deg);
+}
+
+/* 收合狀態下：只顯示文字 */
+.sidebar.collapsed .sidebar-section-title {
+  display: none;
+}
+
+/* section 必須是 relative，讓 ::before 成為它的背景 */
+.sidebar-section {
+  position: relative;
+}
+
+/* 收合狀態下：只留 icon */
+.sidebar.collapsed .sidebar-section {
+  justify-content: center;
+  padding: 12px 0;
+  background: transparent;
+}
+
+/* 收合狀態：active 不要膠囊底 */
+.sidebar.collapsed .sidebar-section-active {
+  background: transparent;
+}
+
+/*  收合狀態：為 active 建立圓形背景 */
+.sidebar.collapsed .sidebar-section-active::before {
+  content: "";
+  position: absolute;
+
+  width: 36px;     /* ← 想變大改這裡 */
+  height: 36px;    /* ← 想變大改這裡 */
+
+  border-radius: 50%;
+  background: var(--sidebar-active-bg); /* #078080 */
+  border: 2px solid #000;               /* 黑色外框，可調整粗細 */
+
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  z-index: 0; /* 圓形在底層 */
+}
+
+/* ⭐ icon 必須放在圓形上方 */
+.sidebar.collapsed .sidebar-section-icon {
+  position: relative;  /* 讓 z-index 生效 */
+  z-index: 1;          /* icon 在圓背景上 */
+}
+
+
+
+/* =========================
+   主內容區
+   ========================= */
+#main {
+  flex: 1;
+  background: var(--color-main);  /* 用 Main (#fffffe) 當主內容背景 */
+  color: var(--color-text);
+  padding: 20px;
+}
+/* =========================
+   主內容區 - 設定隱藏層 ( 所有內容區預設不顯示)
+   ========================= */
+.main-view {
+  display: none;
+}
+
+/* 有 active 的那個才顯示 */
+.main-view-active {
+  display: block;
+}
