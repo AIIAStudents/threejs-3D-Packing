@@ -1,6 +1,10 @@
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 import { formatMetric } from './updateProgressDisplay.js';
-import {forceUpdateDOM} from './updateDOM.js';
+import { forceUpdateDOM } from './updateDOM.js';
+import { getContainer } from '../container/containerManager.js';
+
+let isProcessing = false;
 
 export function processPackedObjects(
   packedObjects,
@@ -10,90 +14,122 @@ export function processPackedObjects(
   objectManager,
   updateProgressDisplay
 ) {
-    const sceneItems = objectManager.getSceneObjects();
-
-    console.log('🎯 場景中的概念物件:', sceneItems.map(item => ({ uuid: item.mesh?.uuid, type: item.type })));
-
-    // 暫時將所有物理剛體設為靜態
-    sceneItems.forEach(item => {
-        if (item.body) {
-            item.body.type = CANNON.Body.STATIC;
-            item.body.updateMassProperties();
-        }
-    });
-    
-    packedObjects.forEach(packedObj => {
-      const sceneItem = sceneItems.find(item => item.userData.id === packedObj.uuid); // 假設 userData.id 存儲了物件的唯一 ID
-      if (!sceneItem) {
-        console.warn(`⚠️ 找不到 ID 為 ${packedObj.uuid} 的場景物件`);
+    if (isProcessing) {
+        console.warn('🔄 Aborting packing process: another process is already running.');
         return;
-      }
-
-      const mesh = sceneItem; // sceneItem is the mesh itself
-      const body = sceneItem.userData.body; // The body is stored in userData
-      const containerSize = { x: 120, y: 120, z: 120 };
-
-      const halfOffset = { x: containerSize.x / 2, y: 0, z: containerSize.z / 2 };
-      const size = packedObj.dimensions || { x: 0, y: 0, z: 0 };
-      const halfSize = { x: size.x / 2, y: size.y / 2, z: size.z / 2 };
-      const margin = 0.1;
-
-      const targetPosition = new THREE.Vector3(
-        (packedObj.position?.x || 0) + halfSize.x - halfOffset.x + margin,
-        (packedObj.position?.y || 0) + halfSize.y + margin,
-        (packedObj.position?.z || 0) + halfSize.z - halfOffset.z + margin
-      );
-
-      const targetQuaternion = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(
-            packedObj.rotation?.x || 0,
-            packedObj.rotation?.y || 0,
-            packedObj.rotation?.z || 0
-        )
-      );
-
-      if (mesh) {
-          mesh.position.copy(targetPosition);
-          mesh.quaternion.copy(targetQuaternion);
-          mesh.updateMatrixWorld(true); // 強制更新物件的世界矩陣
-      }
-      if (body) {
-        body.position.copy(targetPosition);
-        body.quaternion.copy(targetQuaternion);
-        body.velocity.set(0, 0, 0);
-        body.angularVelocity.set(0, 0, 0);
-      }
-  
-      console.log(`✅ 物件 ${packedObj.uuid} 更新完成`);
-    });
-
-    // 恢復物理
-    sceneItems.forEach(item => {
-        if (item.body) {
-            item.body.type = CANNON.Body.DYNAMIC;
-            item.body.mass = item.userData.mass ?? item.body.mass; 
-            item.body.updateMassProperties();
-            item.body.sleep();
-        }
-    });
-    console.log("🔄 所有物理剛體已重新啟用並設為睡眠狀態!");
-
-    // 更新 UI
-    const utilizationText = formatMetric(utilization, '%');
-    const executionTimeText = formatMetric(executionTime, 's');
-    console.log('📊 格式化後的顯示數據:', { utilization: utilizationText, executionTime: executionTimeText });
-
-    if (typeof forceUpdateScene === 'function') {
-        forceUpdateScene();
     }
-    forceUpdateDOM(utilizationText, executionTimeText);
+    isProcessing = true;
 
-    if (typeof updateProgressDisplay === 'function') {
-        updateProgressDisplay({
-          status: 'completed',
-          progress: 100,
-          utilization: utilizationText,
-          execution_time: executionTimeText
+    try {
+        const containerMesh = getContainer();
+        if (!containerMesh) {
+            throw new Error('Container mesh not found! Packing process cannot continue.');
+        }
+
+        const sceneItems = objectManager.getSceneObjects();
+        
+        // Create a map for quick lookup of scene items by their ID
+        const sceneItemsMap = new Map();
+        sceneItems.forEach(item => {
+            const itemId = item.userData?.id ? String(item.userData.id) : null;
+            if (itemId) {
+                sceneItemsMap.set(itemId, item);
+            }
         });
+
+        // --- Main loop to process each packed object ---
+        packedObjects.forEach(packedObj => {
+            const packedId = String(packedObj.uuid);
+            const sceneItem = sceneItemsMap.get(packedId);
+
+            if (!sceneItem) {
+                console.warn(`⚠️ Scene object with ID ${packedId} not found. Skipping.`);
+                return;
+            }
+
+            const mesh = sceneItem;
+            const body = mesh.userData.body;
+
+            // The backend returns a 'pose' with world coordinates. We need to find the center.
+            const pose = packedObj.pose;
+            if (!pose || !pose.min || !pose.max) {
+                console.error(`❌ Object ${packedId} has an invalid pose from the backend. Skipping.`, packedObj);
+                return;
+            }
+
+            // --- Coordinate System Correction ---
+            // The backend calculates positions from (0,0,0) in the positive octant.
+            // The frontend places the container centered at (0,y,0). We must offset.
+            const containerSize = new THREE.Vector3();
+            new THREE.Box3().setFromObject(containerMesh).getSize(containerSize);
+            const offset = new THREE.Vector3(containerSize.x / 2, 0, containerSize.z / 2);
+
+            const correctedMin = new THREE.Vector3(pose.min.x, pose.min.y, pose.min.z).sub(offset);
+            const correctedMax = new THREE.Vector3(pose.max.x, pose.max.y, pose.max.z).sub(offset);
+            
+            const targetPosition = new THREE.Vector3().addVectors(correctedMin, correctedMax).multiplyScalar(0.5);
+            const targetQuaternion = new THREE.Quaternion(); // Assuming no rotation from backend for now.
+
+            // --- Update Visibility and Material ---
+            mesh.visible = true;
+            if (mesh.material) {
+                mesh.material.transparent = false;
+                mesh.material.opacity = 1;
+            }
+
+            // --- ATOMIC MESH AND PHYSICS UPDATE ---
+            // Update the visual mesh first
+            mesh.position.copy(targetPosition);
+            mesh.quaternion.copy(targetQuaternion);
+            mesh.updateMatrixWorld(true);
+
+            // Now, update the physics body and lock it in one go
+            if (body) {
+                body.type = CANNON.Body.STATIC; // 1. Set as STATIC
+                body.mass = 0;                  // 2. Mass of a static body is 0
+                body.updateMassProperties();      // 3. Apply mass change
+
+                body.position.copy(targetPosition);   // 4. Set final position
+                body.quaternion.copy(targetQuaternion); // 5. Set final rotation
+                
+                body.velocity.set(0, 0, 0);       // 6. Nullify any residual forces
+                body.angularVelocity.set(0, 0, 0);
+
+                body.sleep(); // 7. Force the body to sleep, freezing it in place
+            }
+        });
+
+        console.log("✅ All packed objects have been positioned and set to STATIC.");
+
+        // --- Final UI Update ---
+        let utilizationForDisplay = utilization;
+        if (utilization > 0 && utilization <= 1) {
+            utilizationForDisplay = utilization * 100;
+        }
+        const utilizationText = formatMetric(utilizationForDisplay, '%');
+        const executionTimeText = formatMetric(executionTime, 's');
+        
+        forceUpdateDOM(utilizationText, executionTimeText);
+
+        if (typeof updateProgressDisplay === 'function') {
+            updateProgressDisplay({
+                status: 'completed',
+                progress: 100,
+                utilization: utilizationText,
+                execution_time: executionTimeText
+            });
+        }
+
+    } catch (error) {
+        console.error("❌ An error occurred during processPackedObjects:", error);
+        if (typeof updateProgressDisplay === 'function') {
+            updateProgressDisplay({
+                status: 'failed',
+                progress: 0,
+                text: error.message
+            });
+        }
+    } finally {
+        isProcessing = false;
     }
 }

@@ -16,9 +16,7 @@ import * as api from '../utils/agentAPI.js';
  */
 
 // --- DOM Elements --- //
-let kebabIcon, itemEditModal, itemNameInput, itemWidthInput, itemHeightInput, itemDepthInput;
-let itemWidthValue, itemHeightValue, itemDepthValue;
-let statusButtons, saveItemBtn, cancelItemBtn;
+let kebabIcon;
 
 // --- State --- //
 let currentlyEditingObject = null;
@@ -26,29 +24,6 @@ let currentlyEditingObject = null;
 export function initUI(sceneRefs) {
     // Query for DOM elements
     kebabIcon = document.getElementById('kebab-menu-icon');
-    itemEditModal = document.getElementById('item-edit-modal');
-    itemNameInput = document.getElementById('item-name-input');
-    itemWidthInput = document.getElementById('item-width-input');
-    itemHeightInput = document.getElementById('item-height-input');
-    itemDepthInput = document.getElementById('item-depth-input');
-    itemWidthValue = document.getElementById('item-width-value');
-    itemHeightValue = document.getElementById('item-height-value');
-    itemDepthValue = document.getElementById('item-depth-value');
-    statusButtons = document.querySelectorAll('.status-btn');
-    saveItemBtn = document.getElementById('save-item-btn');
-    cancelItemBtn = document.getElementById('cancel-edit-item-btn');
-
-    // --- Configure Sliders ---
-    const setupSlider = (slider, min, max, step) => {
-        if (slider) {
-            slider.min = min;
-            slider.max = max;
-            slider.step = step;
-        }
-    };
-    setupSlider(itemWidthInput, 1, 30, 1);
-    setupSlider(itemHeightInput, 1, 30, 1);
-    setupSlider(itemDepthInput, 1, 30, 1);
 
     setupEventListeners(sceneRefs);
     initResizer();
@@ -58,12 +33,12 @@ export function initUI(sceneRefs) {
 function setupEventListeners(sceneRefs) {
     const canvas = sceneRefs.renderer.domElement;
 
-    // --- Drag and Drop --- //
-    const draggableItem = document.querySelector('.item-icon-button');
-    draggableItem.addEventListener('dragstart', (e) => {
-        const itemTypeId = e.target.closest('.item-icon-button').dataset.itemTypeId;
-        e.dataTransfer.setData('text/plain', itemTypeId);
-    });
+    // --- Drag and Drop (功能已移除) --- //
+    // const draggableItem = document.querySelector('.item-icon-button');
+    // draggableItem.addEventListener('dragstart', (e) => {
+    //     const itemTypeId = e.target.closest('.item-icon-button').dataset.itemTypeId;
+    //     e.dataTransfer.setData('text/plain', itemTypeId);
+    // });
 
     canvas.addEventListener('dragover', (e) => e.preventDefault());
 
@@ -84,26 +59,6 @@ function setupEventListeners(sceneRefs) {
 
     // --- Hover and Click Events from MouseControls --- //
     canvas.addEventListener('objecthover', updateKebabMenu);
-    canvas.addEventListener('objectclick', (e) => {
-        showItemEditModal(e.detail.object);
-    });
-
-    // --- Modal Buttons --- //
-    saveItemBtn.addEventListener('click', saveItemChanges);
-    cancelItemBtn.addEventListener('click', hideItemEditModal);
-
-    // --- Modal Sliders --- //
-    itemWidthInput.addEventListener('input', () => itemWidthValue.textContent = itemWidthInput.value);
-    itemHeightInput.addEventListener('input', () => itemHeightValue.textContent = itemHeightInput.value);
-    itemDepthInput.addEventListener('input', () => itemDepthValue.textContent = itemDepthInput.value);
-
-    // --- Status Buttons --- //
-    statusButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            statusButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-        });
-    });
 }
 
 function updateKebabMenu(event) {
@@ -114,72 +69,6 @@ function updateKebabMenu(event) {
         kebabIcon.style.top = `${pointerEvent.clientY - 15}px`;
     } else {
         kebabIcon.style.display = 'none';
-    }
-}
-
-function showItemEditModal(object) {
-    currentlyEditingObject = object;
-    const data = object.userData;
-
-    // Populate fields
-    itemNameInput.value = data.name;
-    itemWidthInput.value = data.width;
-    itemHeightInput.value = data.height;
-    itemDepthInput.value = data.depth;
-    itemWidthValue.textContent = data.width;
-    itemHeightValue.textContent = data.height;
-    itemDepthValue.textContent = data.depth;
-
-    // Set status button
-    statusButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.status === data.status);
-    });
-
-    itemEditModal.style.display = 'block';
-}
-
-function hideItemEditModal() {
-    itemEditModal.style.display = 'none';
-    currentlyEditingObject = null;
-}
-
-async function saveItemChanges() { // Make function async
-    if (!currentlyEditingObject) return;
-
-    const newStatus = document.querySelector('.status-btn.active').dataset.status;
-    const itemId = currentlyEditingObject.userData.id;
-
-    const updatedData = {
-        id: itemId, // Pass ID for backend update
-        name: itemNameInput.value,
-        width: parseFloat(itemWidthInput.value),
-        height: parseFloat(itemHeightInput.value),
-        depth: parseFloat(itemDepthInput.value),
-        status: newStatus
-    };
-
-    try {
-        // --- API Call to save changes to the backend ---
-        await api.updateInventoryItem(itemId, updatedData);
-        console.log(`✅ Item ${itemId} successfully updated in the backend.`);
-
-        // Update the 3D object in the scene
-        updateObject(currentlyEditingObject, updatedData);
-
-        // Update the item name in the sidebar list
-        const itemElement = document.querySelector(`.object-item[data-id='${itemId}']`);
-        if (itemElement) {
-            const nameSpan = itemElement.querySelector('.object-name');
-            if (nameSpan) {
-                nameSpan.textContent = `${updatedData.name} (ID: ${currentlyEditingObject.userData.item_type_id})`;
-            }
-        }
-
-        hideItemEditModal();
-
-    } catch (error) {
-        console.error(`❌ Failed to save item ${itemId}:`, error);
-        alert(`儲存物品失敗: ${error.message}`);
     }
 }
 
@@ -211,4 +100,86 @@ function initResizer() {
         document.addEventListener('mousemove', mouseMoveHandler);
         document.addEventListener('mouseup', mouseUpHandler);
     });
+}
+
+const OVERLAY_IDS = [
+  'item-edit-modal',
+  'add-item-modal',
+  'control-weight-editor',
+  'group-flow-editor',
+  'container-modal',
+  'space-planning-view' // Register the new UI panel
+];
+
+let activeModalTrigger = null;
+
+/**
+ * Manages the display of exclusive UI panels (modals, editors).
+ * Handles focus trapping, aria-hidden attributes, and inertness of background content.
+ * @param {string | null} targetId - The ID of the panel to show, or null to hide all.
+ * @param {{ trigger?: HTMLElement }} [options] - Optional parameters.
+ */
+export function showExclusiveUI(targetId, options = {}) {
+  console.log(`DEBUG: showExclusiveUI called with targetId: '${targetId}'`); // DEBUG LOG
+  const appContainer = document.getElementById('app');
+  
+  // --- Hide all overlays first ---
+  OVERLAY_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && id !== targetId) {
+      el.style.display = 'none';
+      el.inert = true;
+    }
+  });
+
+  // --- Show the target overlay ---
+  if (targetId) {
+    const target = document.getElementById(targetId);
+    if (target) {
+      console.log(`DEBUG: Target element #${targetId} found, setting display to flex.`); // DEBUG LOG
+      // Make background inert
+      if (appContainer) appContainer.inert = true;
+
+      // Store the trigger element
+      activeModalTrigger = options.trigger || document.activeElement;
+
+      // Show the modal
+      target.style.display = 'flex'; // Use flex for centering
+      target.inert = false;
+      
+      // Focus the first focusable element inside the modal
+      const firstFocusable = target.querySelector(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (firstFocusable) {
+        firstFocusable.focus();
+      }
+      
+      // Add Escape key listener (remove first to prevent duplicates)
+      document.removeEventListener('keydown', handleEscapeKey);
+      document.addEventListener('keydown', handleEscapeKey);
+
+    } else {
+      console.warn(`[showExclusiveUI] target #${targetId} not found`);
+    }
+  } 
+  // --- Or hide all (when targetId is null) ---
+  else {
+    // Make background interactive again
+    if (appContainer) appContainer.inert = false;
+
+    // Return focus to the original trigger
+    if (activeModalTrigger && typeof activeModalTrigger.focus === 'function') {
+      activeModalTrigger.focus();
+    }
+    activeModalTrigger = null;
+    
+    document.removeEventListener('keydown', handleEscapeKey);
+  }
+}
+
+function handleEscapeKey(event) {
+    if (event.key === 'Escape') {
+        showExclusiveUI(null);
+    }
 }

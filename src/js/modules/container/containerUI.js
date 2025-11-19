@@ -6,6 +6,31 @@ import { initPreviewScene, renderContainerMesh, animate, stopAnimate, getRendere
 let modal, previewCanvas, containerControlsContent, submitConfirmation, discardConfirmation;
 
 /**
+ * 正規化 config 物件，確保所有欄位存在且型別正確
+ */
+function normalizeConfig(cfg) {
+    if (!cfg) return null;
+    const shape = cfg.shape ?? 'cube';
+    const d = cfg.dimensions ?? {};
+    const width  = Number(d.width  ?? d.outerWidth  ?? 160);
+    const depth  = Number(d.depth  ?? d.outerDepth  ?? 160);
+    const height = Number(d.height ?? 120);
+    const outerWidth  = Number(d.outerWidth  ?? width);
+    const outerDepth  = Number(d.outerDepth  ?? depth);
+    const notchWidth  = shape === 'l-shape'
+        ? (Number(d.notchWidth) || 60)   // 0、NaN 都會 fallback 到 60
+        : 0;
+    const notchDepth  = shape === 'l-shape'
+        ? (Number(d.notchWidth) || 60)   // 0、NaN 都會 fallback 到 60
+        : 0;
+    return {
+        shape,
+        dimensions: { width, depth, height, outerWidth, outerDepth, notchWidth, notchDepth },
+        doors: cfg.doors ?? []
+    };
+}
+
+/**
  * 初始化 UI 模組，獲取必要的 DOM 元素引用。
  */
 function initDOMElements() {
@@ -23,12 +48,16 @@ export function showModal() {
     if (!modal) initDOMElements();
     modal.style.display = 'flex';
     
+    const safeConfig = normalizeConfig(currentContainer);
+    updateCurrentContainer(safeConfig);
+    console.log('[UI-CONFIG] showModal init config:', safeConfig);
+
     if (!getRenderer()) {
-        initPreviewScene(previewCanvas); // 初始化3D預覽
+        initPreviewScene(previewCanvas);
     }
-    renderContainerMesh();       // 更新容器
-    showContainerControls();     // 顯示形狀控制面板
-    animate();                   // 啟動動畫
+    renderContainerMesh(safeConfig);
+    showContainerControls();
+    animate();
 }
 
 /**
@@ -37,7 +66,7 @@ export function showModal() {
 export function hideModal() {
     if (!modal) return;
     modal.style.display = 'none';
-    stopAnimate(); // 停止動畫
+    stopAnimate();
 }
 
 /**
@@ -45,52 +74,27 @@ export function hideModal() {
  */
 export function showContainerControls() {
     if (!containerControlsContent) return;
-    document.getElementById('container-controls').style.display = 'flex'; // 確保面板可見
+    document.getElementById('container-controls').style.display = 'flex';
     const { shape } = currentContainer;
     containerControlsContent.innerHTML = `
         <h3>Container Shape</h3>
         <div class="form-check">
-            <input type="radio" name="container-shape" value="cube" ${shape === 'cube' ? 'checked' : ''}> <label>Cube</label>
+            <input type="radio" id="shape-cube" name="container-shape" value="cube" ${shape === 'cube' ? 'checked' : ''}> <label for="shape-cube">Cube</label>
         </div>
         <div class="form-check">
-            <input type="radio" name="container-shape" value="l-shape" ${shape === 'l-shape' ? 'checked' : ''}> <label>L-Shape</label>
+            <input type="radio" id="shape-lshape" name="container-shape" value="l-shape" ${shape === 'l-shape' ? 'checked' : ''}> <label for="shape-lshape">L-Shape</label>
         </div>
     `;
 
-    containerControlsContent.querySelectorAll('input[name="container-shape"]').forEach(radio => {
+    document.querySelectorAll('input[name="container-shape"]').forEach(radio => {
         radio.addEventListener('change', e => {
-            const newShape = e.target.value;
-            let newDimensions;
-            if (newShape === 'cube') {
-                newDimensions = { width: 120, height: 120, depth: 120 };
-            } else if (newShape === 'l-shape') {
-                newDimensions = { mainWidth: 80, mainHeight: 120, mainDepth: 80, extWidth: 40, extHeight: 120, extDepth: 40 };
-            }
-            updateCurrentContainer({ shape: newShape, dimensions: newDimensions, doors: [] }); // Reset doors on shape change
-            renderContainerMesh();
+            if (!e.target.checked) return;
+            const newConfig = normalizeConfig({ ...currentContainer, shape: e.target.value, doors: [] }); // Reset doors on shape change
+            updateCurrentContainer(newConfig);
+            console.log(`[UI-CONFIG] shape -> ${e.target.value}:`, newConfig);
+            renderContainerMesh(newConfig);
         });
     });
-}
-
-/**
- * 更新並顯示底部面積
- */
-function updateAreaDisplay() {
-    const { shape, dimensions } = currentContainer;
-    let area = 0;
-    if (shape === 'cube') {
-        const { width, depth } = dimensions;
-        area = (width || 0) * (depth || 0);
-    } else if (shape === 'l-shape') {
-        const { mainWidth, mainDepth, extWidth, extDepth } = dimensions;
-        area = ((mainWidth || 0) * (mainDepth || 0)) + ((extWidth || 0) * (extDepth || 0));
-    }
-    
-    const areaDisplay = document.getElementById('container-base-area');
-    if (areaDisplay) {
-        // 假設 1 單位 = 1 公分，面積單位為平方公分，轉換為平方公尺 (1 m² = 10000 cm²)
-        areaDisplay.textContent = `${(area / 10000).toFixed(2)} m²`;
-    }
 }
 
 /**
@@ -98,76 +102,49 @@ function updateAreaDisplay() {
  */
 export function showSizeControls() {
     if (!containerControlsContent) return;
-    document.getElementById('container-controls').style.display = 'flex'; // 確保面板可見
+    document.getElementById('container-controls').style.display = 'flex';
     const { shape, dimensions } = currentContainer;
 
     let htmlContent = `<h3>Container Dimensions</h3>`;
 
     if (shape === 'cube') {
-        const { width, height, depth } = dimensions;
         htmlContent += `
-            <div class="input-group">
-                <label>寬度 (Width):</label>
-                <input type="number" id="container-width" value="${width}" min="1">
-            </div>
-            <div class="input-group">
-                <label>高度 (Height):</label>
-                <input type="number" id="container-height" value="${height}" min="1">
-            </div>
-            <div class="input-group">
-                <label>深度 (Depth):</label>
-                <input type="number" id="container-depth" value="${depth}" min="1">
-            </div>
+            <div class="input-group"><label for="dim-width">Width:</label><input type="number" id="dim-width" value="${dimensions.width}"></div>
+            <div class="input-group"><label for="dim-height">Height:</label><input type="number" id="dim-height" value="${dimensions.height}"></div>
+            <div class="input-group"><label for="dim-depth">Depth:</label><input type="number" id="dim-depth" value="${dimensions.depth}"></div>
         `;
     } else if (shape === 'l-shape') {
-        const { mainWidth, mainHeight, mainDepth, extWidth, extHeight, extDepth } = dimensions;
         htmlContent += `
-            <h4>Main Part</h4>
-            <div class="input-group"><label>主寬度:</label><input type="number" id="container-main-width" value="${mainWidth}" min="1"></div>
-            <div class="input-group"><label>主高度:</label><input type="number" id="container-main-height" value="${mainHeight}" min="1"></div>
-            <div class="input-group"><label>主深度:</label><input type="number" id="container-main-depth" value="${mainDepth}" min="1"></div>
-            <h4>Extension Part</h4>
-            <div class="input-group"><label>延伸寬度:</label><input type="number" id="container-ext-width" value="${extWidth}" min="1"></div>
-            <div class="input-group"><label>延伸高度:</label><input type="number" id="container-ext-height" value="${extHeight}" min="1"></div>
-            <div class="input-group"><label>延伸深度:</label><input type="number" id="container-ext-depth" value="${extDepth}" min="1"></div>
+            <h4>Outer Dimensions</h4>
+            <div class="input-group"><label for="dim-outerWidth">Outer Width:</label><input type="number" id="dim-outerWidth" value="${dimensions.outerWidth}"></div>
+            <div class="input-group"><label for="dim-outerDepth">Outer Depth:</label><input type="number" id="dim-outerDepth" value="${dimensions.outerDepth}"></div>
+            <div class="input-group"><label for="dim-height">Height:</label><input type="number" id="dim-height" value="${dimensions.height}"></div>
+            <h4>Notch Dimensions</h4>
+            <div class="input-group"><label for="dim-notchWidth">Notch Width:</label><input type="number" id="dim-notchWidth" value="${dimensions.notchWidth}"></div>
+            <div class="input-group"><label for="dim-notchDepth">Notch Depth:</label><input type="number" id="dim-notchDepth" value="${dimensions.notchDepth}"></div>
         `;
     }
 
-    htmlContent += `
-        <div class="info-group" style="margin-top: 20px;">
-            <h4>底部面積 (Base Area):</h4>
-            <p id="container-base-area"></p> 
-        </div>
-    `;
-
     containerControlsContent.innerHTML = htmlContent;
-    updateAreaDisplay(); // 初始計算
-    addSizeInputListeners(shape);
+    addSizeInputListeners();
 }
 
 /**
- * 為尺寸輸入框添加事件監聽
- * @param {string} shape - 當前容器形狀
+ * 為所有尺寸輸入框添加事件監聽
  */
-function addSizeInputListeners(shape) {
-    const updateAll = (newDims) => {
-        updateCurrentContainer({ dimensions: { ...currentContainer.dimensions, ...newDims } });
-        renderContainerMesh();
-        updateAreaDisplay();
-    };
-
-    if (shape === 'cube') {
-        document.getElementById('container-width').addEventListener('input', e => { updateAll({ width: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-height').addEventListener('input', e => { updateAll({ height: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-depth').addEventListener('input', e => { updateAll({ depth: parseFloat(e.target.value) || 1 }) });
-    } else if (shape === 'l-shape') {
-        document.getElementById('container-main-width').addEventListener('input', e => { updateAll({ mainWidth: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-main-height').addEventListener('input', e => { updateAll({ mainHeight: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-main-depth').addEventListener('input', e => { updateAll({ mainDepth: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-ext-width').addEventListener('input', e => { updateAll({ extWidth: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-ext-height').addEventListener('input', e => { updateAll({ extHeight: parseFloat(e.target.value) || 1 }) });
-        document.getElementById('container-ext-depth').addEventListener('input', e => { updateAll({ extDepth: parseFloat(e.target.value) || 1 }) });
-    }
+function addSizeInputListeners() {
+    const dimIds = ['width', 'depth', 'height', 'outerWidth', 'outerDepth', 'notchWidth', 'notchDepth'];
+    dimIds.forEach(id => {
+        const el = document.getElementById(`dim-${id}`);
+        if (!el) return;
+        el.addEventListener('input', () => {
+            const newDimensions = { ...currentContainer.dimensions, [id]: Number(el.value) };
+            const newConfig = normalizeConfig({ ...currentContainer, dimensions: newDimensions });
+            updateCurrentContainer(newConfig);
+            console.log(`[UI-CONFIG] dim ${id} ->`, el.value);
+            renderContainerMesh(newConfig);
+        });
+    });
 }
 
 /**
@@ -175,7 +152,7 @@ function addSizeInputListeners(shape) {
  */
 export function showDoorControls() {
     if (!containerControlsContent) return;
-    document.getElementById('container-controls').style.display = 'flex'; // 確保面板可見
+    document.getElementById('container-controls').style.display = 'flex';
     const { doors, shape } = currentContainer;
 
     let doorsHtml = doors.map((door, index) => {
@@ -192,38 +169,33 @@ export function showDoorControls() {
             <div class="door-item" data-index="${index}">
                 <hr>
                 <h4>門 ${index + 1} <button class="remove-door-btn" data-index="${index}">移除</button></h4>
-                <div class="form-switch"><label>啟用</label><input type="checkbox" class="door-enabled" data-index="${index}" ${door.enabled ? 'checked' : ''}></div>
-                <div class="input-group"><label>表面:</label><select class="door-face" data-index="${index}">${faceOptions}</select></div>
-                <div class="input-group"><label>類型:</label><select class="door-type" data-index="${index}">${doorTypeOptions}</select></div>
-                <div class="input-group"><label>位置:</label><input type="range" class="door-pos" data-index="${index}" value="${door.position.x}" min="-100" max="100" step="1"></div>
+                <div class="form-switch"><label>啟用</label><input type="checkbox" class="door-enabled" ${door.enabled ? 'checked' : ''}></div>
+                <div class="input-group"><label>表面:</label><select class="door-face">${faceOptions}</select></div>
+                <div class="input-group"><label>類型:</label><select class="door-type">${doorTypeOptions}</select></div>
+                <div class="input-group"><label>位置:</label><input type="range" class="door-pos" value="${door.position.x}" min="-100" max="100" step="1"></div>
             </div>
         `;
     }).join('');
 
-    containerControlsContent.innerHTML = `
-        <h3>門設定 (Door Settings)</h3>
-        <div id="doors-list">${doorsHtml}</div>
-        <button id="add-door-btn">新增門 (Add Door)</button>
-    `;
-
+    containerControlsContent.innerHTML = `<h3>門設定</h3><div id="doors-list">${doorsHtml}</div><button id="add-door-btn">新增門</button>`;
     addDoorControlListeners();
 }
 
 /**
- * 為門設定面板的控制項添加事件監聽
+ * 為門設定面板的控制項添加事件監聽 (RESTORED)
  */
 function addDoorControlListeners() {
     document.getElementById('add-door-btn').addEventListener('click', () => {
         const newDoor = {
             id: THREE.MathUtils.generateUUID(),
-            face: DOOR_FACES[currentContainer.shape][0].value,
+            face: (DOOR_FACES[currentContainer.shape] || [{}])[0].value,
             type: 'human',
             enabled: true,
-            position: { x: 0, y: 0, z: 0 } // Add y position
+            position: { x: 0, y: 0, z: 0 }
         };
         updateCurrentContainer({ doors: [...currentContainer.doors, newDoor] });
-        showDoorControls(); // Re-render controls to show new door
-        renderContainerMesh(); // Update 3D preview
+        showDoorControls();
+        renderContainerMesh(currentContainer);
     });
 
     document.querySelectorAll('.remove-door-btn').forEach(btn => {
@@ -231,86 +203,43 @@ function addDoorControlListeners() {
             const index = parseInt(e.target.dataset.index);
             const updatedDoors = currentContainer.doors.filter((_, i) => i !== index);
             updateCurrentContainer({ doors: updatedDoors });
-            showDoorControls(); // Re-render controls
-            renderContainerMesh(); // Update 3D preview
+            showDoorControls();
+            renderContainerMesh(currentContainer);
         });
     });
 
     document.querySelectorAll('.door-item').forEach(item => {
         const index = parseInt(item.dataset.index);
-        item.querySelector('.door-enabled').addEventListener('change', (e) => {
+        const door = currentContainer.doors[index];
+        if (!door) return;
+
+        const updateDoor = (props) => {
             const updatedDoors = [...currentContainer.doors];
-            updatedDoors[index].enabled = e.target.checked;
+            updatedDoors[index] = { ...updatedDoors[index], ...props };
             updateCurrentContainer({ doors: updatedDoors });
-            renderContainerMesh();
-        });
-        item.querySelector('.door-face').addEventListener('change', (e) => {
-            const updatedDoors = [...currentContainer.doors];
-            updatedDoors[index].face = e.target.value;
-            updateCurrentContainer({ doors: updatedDoors });
-            renderContainerMesh();
-        });
-        item.querySelector('.door-type').addEventListener('change', (e) => {
-            const updatedDoors = [...currentContainer.doors];
-            updatedDoors[index].type = e.target.value;
-            updateCurrentContainer({ doors: updatedDoors });
-            renderContainerMesh();
-        });
-        item.querySelector('.door-pos').addEventListener('input', (e) => {
-            const updatedDoors = [...currentContainer.doors];
-            updatedDoors[index].position.x = parseFloat(e.target.value);
-            updateCurrentContainer({ doors: updatedDoors });
-            renderContainerMesh();
-        });
+            renderContainerMesh(currentContainer);
+        };
+
+        item.querySelector('.door-enabled').addEventListener('change', (e) => updateDoor({ enabled: e.target.checked }));
+        item.querySelector('.door-face').addEventListener('change', (e) => updateDoor({ face: e.target.value }));
+        item.querySelector('.door-type').addEventListener('change', (e) => updateDoor({ type: e.target.value }));
+        item.querySelector('.door-pos').addEventListener('input', (e) => updateDoor({ position: { ...door.position, x: parseFloat(e.target.value) } }));
     });
 }
 
-/**
- * 處理提交容器設定的邏輯
- */
-export async function handleSubmit() {
-    console.log('Submitting container configuration:', currentContainer);
-    try {
-        const response = await fetch('http://127.0.0.1:8889/save_container_config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(currentContainer),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Invalid JSON response' }));
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('Container configuration successfully saved:', data.message);
-        alert('容器設定已成功儲存！');
-
-        // 通知其他模組更新容器
-        window.dispatchEvent(new CustomEvent('containerChanged', { detail: currentContainer }));
-
-        if (submitConfirmation) submitConfirmation.style.display = 'none';
-        hideModal();
-
-    } catch (error) {
-        console.error('Error saving container configuration:', error);
-        alert(`儲存容器設定時發生錯誤: ${error.message}`);
-    }
+export function getContainerConfigAndHideModal() {
+    const finalConfig = normalizeConfig(currentContainer);
+    console.log('[UI-CONFIG] apply config:', finalConfig);
+    window.dispatchEvent(new CustomEvent('containerChanged', { detail: finalConfig }));
+    if (submitConfirmation) submitConfirmation.style.display = 'none';
+    hideModal();
+    return finalConfig;
 }
 
-/**
- * 處理捨棄編輯的邏輯
- */
 export function handleDiscard() {
     console.log('Edits discarded');
-    // 恢復預設容器
-    const defaultContainerState = {
-        shape: 'cube',
-        dimensions: { width: 120, height: 120, depth: 120 },
-        doors: [] 
-    };
+    const defaultContainerState = { shape: 'cube', dimensions: { width: 120, height: 120, depth: 120 }, doors: [] };
     updateCurrentContainer(defaultContainerState);
-    alert('編輯已捨棄，恢復預設容器。');
     if (discardConfirmation) discardConfirmation.style.display = 'none';
     hideModal();
 }

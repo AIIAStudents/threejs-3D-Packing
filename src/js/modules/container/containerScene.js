@@ -1,26 +1,21 @@
 /**
  * containerScene.js
  * 
- * 這個模組專門處理所有與 Three.js 相關的 3D 預覽場景邏輯。
- * 主要功能包括：
- * - 初始化 3D 預覽場景 (相機、燈光、渲染器、控制器)。
- * - 根據 currentContainer 狀態渲染容器的 3D 模型 (renderContainerMesh)。
- * - 創建背景的點陣網格紋理。
- * - 管理渲染迴圈 (animate)。
- * 這個模組只專注於渲染，不直接操作 UI DOM 元素。
+ * This module handles all Three.js logic related to the 3D preview scene.
  */
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { currentContainer } from './containerState.js';
-import { createDoorMeshVisuals } from './containerPhysics.js'; // Import the shared door visual creation function
+import { buildContainerMeshWithOutline } from '../../utils/geometryUtils.js';
+import { createDoorMeshVisuals } from './containerPhysics.js'; // RESTORED IMPORT
 
-// 預覽場景的變數
-let scene, camera, renderer, controls, containerMesh;
+// Preview scene variables
+let scene, camera, renderer, controls, previewContainerGroup;
 
 /**
- * 初始化 3D 預覽場景
- * @param {HTMLCanvasElement} previewCanvas - 用於渲染的 Canvas 元素
+ * Initializes the 3D preview scene.
+ * @param {HTMLCanvasElement} previewCanvas - The canvas element for rendering.
  */
 export function initPreviewScene(previewCanvas) {
     console.log("initPreviewScene called. Setting up scene, camera, renderer.");
@@ -28,7 +23,7 @@ export function initPreviewScene(previewCanvas) {
     scene.background = createDotGridTexture();
 
     // Camera
-    camera = new THREE.PerspectiveCamera(50, previewCanvas.clientWidth / previewCanvas.clientHeight, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(50, previewCanvas.clientWidth / previewCanvas.clientHeight, 0.1, 2000);
     camera.position.set(150, 180, 250);
     camera.lookAt(0, 0, 0);
 
@@ -50,105 +45,88 @@ export function initPreviewScene(previewCanvas) {
     controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
     controls.minDistance = 100;
-    controls.maxDistance = 500;
+    controls.maxDistance = 800;
     controls.maxPolarAngle = Math.PI / 2;
 
-    // Initial container
-    renderContainerMesh();
+    // Initial container render
+    renderContainerMesh(currentContainer);
 }
 
 /**
- * 根據 currentContainer 狀態渲染容器網格模型
+ * Renders the container mesh based on the provided configuration.
+ * @param {object} config - The container configuration.
  */
-export function renderContainerMesh() {
+export function renderContainerMesh(config) {
     if (!scene) return;
-    console.log("renderContainerMesh called");
+    console.log('[PREVIEW-SCENE] renderContainerMesh called');
 
-    if (containerMesh) {
-        scene.remove(containerMesh);
-        console.log("Existing containerMesh removed.");
+    if (previewContainerGroup) {
+        previewContainerGroup.traverse(object => {
+            if (object.geometry) {
+                object.geometry.dispose();
+            }
+            if (object.material) {
+                if (Array.isArray(object.material)) {
+                    object.material.forEach(material => material.dispose());
+                } else {
+                    object.material.dispose();
+                }
+            }
+        });
+        scene.remove(previewContainerGroup);
     }
 
-    containerMesh = new THREE.Group();
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xAAAAAA,
-        transparent: true,
-        opacity: 0.5,
-        roughness: 0.3,
-        metalness: 0.2
-    });
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x333333 });
-
-    const { shape, dimensions } = currentContainer;
-
-    if (shape === 'l-shape') {
-        const { mainWidth, mainHeight, mainDepth, extWidth, extHeight, extDepth } = dimensions;
-
-        // Main box
-        const mainGeom = new THREE.BoxGeometry(mainWidth, mainHeight, mainDepth);
-        const mainMesh = new THREE.Mesh(mainGeom, material);
-        const mainEdges = new THREE.LineSegments(new THREE.EdgesGeometry(mainGeom), lineMaterial);
-        containerMesh.add(mainMesh, mainEdges);
-
-        // Extension box
-        const extGeom = new THREE.BoxGeometry(extWidth, extHeight, extDepth);
-        const extMesh = new THREE.Mesh(extGeom, material);
-        extMesh.position.set(
-            mainWidth / 2 - extWidth / 2,
-            0,
-            -mainDepth / 2 - extDepth / 2
-        );
-        const extEdges = new THREE.LineSegments(new THREE.EdgesGeometry(extGeom), lineMaterial);
-        extEdges.position.copy(extMesh.position);
-        containerMesh.add(extMesh, extEdges);
-
-    } else {
-        const { width, height, depth } = dimensions;
-        const geometry = new THREE.BoxGeometry(width, height, depth);
-        const mesh = new THREE.Mesh(geometry, material);
-        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), lineMaterial);
-        containerMesh.add(mesh, edges);
+    // Defensive check for config
+    if (!config || !config.shape) {
+        console.warn('[PREVIEW-SCENE] config missing; using fallback cube.');
+        config = { shape: 'cube', dimensions: { width:160, depth:160, height:120 }, doors: [] };
     }
 
-    // ----- after body meshes added (but BEFORE doors) -----
-    const bodyBox = new THREE.Box3().setFromObject(containerMesh);
-    // 把本體底部移到 y=0（只根據 bodyBox）
-    containerMesh.position.y -= bodyBox.min.y;
+    const { shape, dimensions } = config;
 
-    // 現在加入門（door 的座標要以 container 原點或 body 中心計算）
-    addDoorVisuals();
+    try {
+        const { group } = buildContainerMeshWithOutline(shape, dimensions, { opacity: 0.2 });
+        previewContainerGroup = group;
+        
+        // Add door visuals to the container group
+        addDoorVisuals(previewContainerGroup, config);
 
-    // ----- 完成後，如果要水平置中（XZ），重新計算 full box 並只修正 X,Z -----
-    const fullBox = new THREE.Box3().setFromObject(containerMesh);
-    const center = fullBox.getCenter(new THREE.Vector3());
-    // 只移動 X 和 Z，保留 Y（避免再次改變貼地）
-    containerMesh.position.x -= center.x;
-    containerMesh.position.z -= center.z;
+        // Center the group and align its bottom to y=0
+        const box = new THREE.Box3().setFromObject(previewContainerGroup);
+        const center = box.getCenter(new THREE.Vector3());
+        previewContainerGroup.position.x -= center.x;
+        previewContainerGroup.position.y -= box.min.y;
+        previewContainerGroup.position.z -= center.z;
 
-    scene.add(containerMesh);
-    console.log("New containerMesh added to scene:", containerMesh);
+        scene.add(previewContainerGroup);
+        console.log('[PREVIEW-SCENE] New preview container added to scene:', group.type);
+    } catch (e) {
+        console.error('[PREVIEW-SCENE] Failed to build preview container:', e);
+    }
 
     if (controls) controls.update();
 }
 
 /**
- * 在容器模型上添加門的視覺標記
+ * Adds door visuals to the container model.
+ * @param {THREE.Group} containerGroup The container group to add doors to.
+ * @param {object} containerConfig The configuration for the container.
  */
-function addDoorVisuals() {
-    const { doors, dimensions, shape } = currentContainer;
-    console.log("Doors from state in addDoorVisuals (preview):", doors);
+function addDoorVisuals(containerGroup, containerConfig) {
+    const { doors, dimensions, shape } = containerConfig;
+    if (!doors) return;
 
     doors.forEach(doorConfig => {
         const doorMesh = createDoorMeshVisuals(doorConfig, dimensions, shape);
         if (doorMesh) {
-            containerMesh.add(doorMesh);
+            containerGroup.add(doorMesh);
         }
     });
 }
 
 /**
- * 創建點陣網格背景紋理
- * @returns {THREE.CanvasTexture} 紋理對象
+ * Creates a dot grid background texture.
+ * @returns {THREE.CanvasTexture}
  */
 function createDotGridTexture() {
     const canvas = document.createElement('canvas');
@@ -179,7 +157,7 @@ function createDotGridTexture() {
 let animationFrameId = null;
 
 /**
- * 啟動渲染迴圈
+ * Starts the rendering loop.
  */
 export function animate() {
     animationFrameId = requestAnimationFrame(animate);
@@ -188,7 +166,7 @@ export function animate() {
 }
 
 /**
- * 停止渲染迴圈
+ * Stops the rendering loop.
  */
 export function stopAnimate() {
     if (animationFrameId) {
@@ -198,7 +176,7 @@ export function stopAnimate() {
 }
 
 /**
- * 返回渲染器實例
+ * Returns the renderer instance.
  */
 export function getRenderer() {
     return renderer;

@@ -1,19 +1,110 @@
-const BASE_URL = "http://localhost:8889";
+import { log, LOG_VERBOSE } from './logger.js';
+
+export const PACK_BASE_URL = "http://localhost:8888"; // 容器、打包服務
+export const GROUPS_AND_RL_BASE_URL = "http://localhost:8888"; // 群組、庫存、RL
+
+async function parseResponseSafe(response) {
+  const ct = response.headers.get('content-type') || '';
+  if (response.status === 204) return null;
+  if (ct.includes('application/json')) return await response.json();
+  return await response.text();
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Accept': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  const data = await parseResponseSafe(res);
+  if (!res.ok) {
+    const msg = typeof data === 'string' && data.trim() ? data : JSON.stringify(data);
+    throw new Error(`HTTP ${res.status} - ${msg}`);
+  }
+  return data;
+}
+
+/**
+ * 執行一個 POST 請求並處理回應，整合了結構化日誌
+ * @param {string} url - The URL to fetch
+ * @param {Object} data - The data to send in the body
+ * @param {string} trace_id - The trace ID for this request
+ * @param {Object} options - Optional fetch options
+ * @returns {Promise<any>}
+ */
+export async function postJSON(url, data, trace_id, options = {}) {
+  const t_start = performance.now();
+  const body = JSON.stringify({ ...data, trace_id });
+  
+  if (LOG_VERBOSE) {
+    log('INFO', 'agentAPI', trace_id, '發送POST請求', { url, payload_size: body.length });
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Trace-Id': trace_id,
+        ...options.headers
+      },
+      body: body,
+      ...options,
+    });
+
+    const duration_ms = performance.now() - t_start;
+    const response_trace_id = res.headers.get('X-Trace-Id');
+
+    if (response_trace_id && response_trace_id !== trace_id) {
+      log('WARN', 'agentAPI', trace_id, 'Trace ID 不匹配', { sent: trace_id, received: response_trace_id });
+    }
+
+    const response_payload = await parseResponseSafe(res);
+
+    if (!res.ok) {
+      const error_message = typeof response_payload === 'string' ? response_payload : JSON.stringify(response_payload);
+      log('ERROR', 'agentAPI', trace_id, '請求失敗', {
+        url,
+        status: res.status,
+        duration_ms: duration_ms.toFixed(2),
+        error: error_message
+      });
+      throw new Error(`HTTP ${res.status} - ${error_message}`);
+    }
+
+    log('INFO', 'agentAPI', trace_id, '收到成功回應', {
+        url,
+        status: res.status,
+        duration_ms: duration_ms.toFixed(2)
+    });
+
+    return response_payload;
+
+  } catch (err) {
+    const duration_ms = performance.now() - t_start;
+    const error_info = {
+        url,
+        duration_ms: duration_ms.toFixed(2),
+        error_type: err.name,
+        message: err.message,
+    };
+    if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+        error_info.message = `無法連線到後端服務 (${url})。請檢查服務是否已啟動、網路位址與 Port 是否正確。`;
+    }
+    log('ERROR', 'agentAPI', trace_id, '請求時發生例外', error_info);
+    throw new Error(error_info.message);
+  }
+}
 
 // --- 新增：群組與庫存管理 API ---
 
 export async function updateGroupOrder(groupIds) {
   try {
-    const response = await fetch(`${BASE_URL}/groups/update-order`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/groups/update-order`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(groupIds),
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error("❌ [updateGroupOrder] 更新群組順序失敗:", error);
     throw error;
@@ -26,11 +117,7 @@ export async function updateGroupOrder(groupIds) {
  */
 export async function getGroups() {
   try {
-    const response = await fetch(`${BASE_URL}/groups`);
-    if (!response.ok) {
-      throw new Error(`伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/groups`);
   } catch (error) {
     console.error("❌ [getGroups] 獲取群組失敗:", error);
     throw error;
@@ -44,16 +131,11 @@ export async function getGroups() {
  */
 export async function createGroup(groupData) {
   try {
-    const response = await fetch(`${BASE_URL}/groups`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/groups`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(groupData),
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error("❌ [createGroup] 建立群組失敗:", error);
     throw error;
@@ -68,15 +150,11 @@ export async function createGroup(groupData) {
  */
 export async function getGroupItems(groupId, status = null) {
   try {
-    const url = new URL(`${BASE_URL}/groups/${groupId}/items`);
+    const url = new URL(`${GROUPS_AND_RL_BASE_URL}/groups/${groupId}/items`);
     if (status) {
       url.searchParams.append('status', status);
     }
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
+    return await fetchJSON(url);
   } catch (error) {
     console.error(`❌ [getGroupItems] 獲取群組 ${groupId} 的物品失敗:`, error);
     throw error;
@@ -90,18 +168,35 @@ export async function getGroupItems(groupId, status = null) {
  */
 export async function addInventoryItem(itemData) {
   try {
-    const response = await fetch(`${BASE_URL}/inventory_items`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/inventory_items`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(itemData),
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error("❌ [addInventoryItem] 新增物品到庫存失敗:", error);
+    throw error;
+  }
+}
+
+export async function getItemTypes() {
+  try {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/item_types`);
+  } catch (error) {
+    console.error("❌ [getItemTypes] 獲取物品類型失敗:", error);
+    throw error;
+  }
+}
+
+export async function addBatchItems(payload) {
+  try {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/inventory_items/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.error("❌ [addBatchItems] 批量新增物品失敗:", error);
     throw error;
   }
 }
@@ -113,14 +208,9 @@ export async function addInventoryItem(itemData) {
  */
 export async function confirmItem(itemId) {
   try {
-    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}/confirm`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/inventory_items/${itemId}/confirm`, {
       method: "PUT",
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error(`❌ [confirmItem] 確認物品 ${itemId} 失敗:`, error);
     throw error;
@@ -135,16 +225,11 @@ export async function confirmItem(itemId) {
  */
 export async function updateInventoryItem(itemId, itemData) {
   try {
-    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/inventory_items/${itemId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(itemData),
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error(`❌ [updateInventoryItem] 更新物品 ${itemId} 失敗:`, error);
     throw error;
@@ -159,19 +244,14 @@ export async function updateInventoryItem(itemId, itemData) {
  */
 export async function updateGroup(groupId, groupData) {
   try {
-    const response = await fetch(`${BASE_URL}/groups/${groupId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/groups/${groupId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(groupData),
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(`❌ [updateGroup] 更新群組 ${groupId} 失敗:`, error);
-    throw error;
+  } catch (e) {
+    console.error(`❌ [updateGroup] 更新群組 ${groupId} 失敗:`, e);
+    throw e;
   }
 }
 
@@ -182,14 +262,9 @@ export async function updateGroup(groupId, groupData) {
  */
 export async function deleteGroup(groupId) {
   try {
-    const response = await fetch(`${BASE_URL}/groups/${groupId}`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/groups/${groupId}`, {
       method: "DELETE",
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error(`❌ [deleteGroup] 刪除群組 ${groupId} 失敗:`, error);
     throw error;
@@ -203,14 +278,9 @@ export async function deleteGroup(groupId) {
  */
 export async function deleteItem(itemId) {
   try {
-    const response = await fetch(`${BASE_URL}/inventory_items/${itemId}`, {
+    return await fetchJSON(`${GROUPS_AND_RL_BASE_URL}/inventory_items/${itemId}`, {
       method: "DELETE",
     });
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || `伺服器錯誤: ${response.status}`);
-    }
-    return await response.json();
   } catch (error) {
     console.error(`❌ [deleteItem] 刪除物品 ${itemId} 失敗:`, error);
     throw error;
@@ -227,7 +297,7 @@ export async function deleteItem(itemId) {
  */
 export async function sendSceneConfig(sceneConfig) {
   try {
-    const response = await fetch(`${BASE_URL}/submit_scene`, {
+    const response = await fetch(`${GROUPS_AND_RL_BASE_URL}/submit_scene`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -270,7 +340,7 @@ export async function requestAgentAction(state) {
   }
 
   try {
-    const response = await fetch(`${BASE_URL}/get_action`, {
+    const response = await fetch(`${GROUPS_AND_RL_BASE_URL}/get_action`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state)

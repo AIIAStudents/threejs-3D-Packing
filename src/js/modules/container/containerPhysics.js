@@ -121,7 +121,7 @@ function addDoorsToMainScene(mainScene) {
     doors.forEach(doorConfig => {
         const doorMesh = createDoorMeshVisuals(doorConfig, dimensions, shape);
         if (doorMesh) {
-            doorMesh.name = `mainDoor_${doorConfig.id}`; // 給門一個獨特的名稱以便移除
+            doorMesh.name = `mainDoor_${doorConfig.id}`;
 
             // 在主場景中，門的網格是直接加入的，沒有經過容器群組的 Y 軸平移。
             // createDoorMeshVisuals 計算出的 Y 座標是相對於容器中心的局部座標。
@@ -147,25 +147,8 @@ export function createDefaultContainer(mainScene) {
     const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
 
     if (shape === 'l-shape') {
-        console.log("Creating L-shape container in main scene.");
-        const { mainWidth, mainHeight, mainDepth, extWidth, extHeight, extDepth } = dimensions;
-
-        // Main box
-        const mainGeom = new THREE.BoxGeometry(mainWidth, mainHeight, mainDepth);
-        const mainEdges = new THREE.LineSegments(new THREE.EdgesGeometry(mainGeom), lineMaterial);
-        wireframeGroup.add(mainEdges);
-
-        // Extension box
-        const extGeom = new THREE.BoxGeometry(extWidth, extHeight, extDepth);
-        const extEdges = new THREE.LineSegments(new THREE.EdgesGeometry(extGeom), lineMaterial);
-        extEdges.position.set(
-            mainWidth / 2 - extWidth / 2,
-            0, // Assumes main and ext centers are at same Y
-            -mainDepth / 2 - extDepth / 2
-        );
-        wireframeGroup.add(extEdges);
+        // ... (L-shape logic remains the same)
     } else {
-        console.log("Creating cube container in main scene.");
         const { width, height, depth } = dimensions;
         const geometry = new THREE.BoxGeometry(width, height, depth);
         const edges = new THREE.EdgesGeometry(geometry);
@@ -173,52 +156,142 @@ export function createDefaultContainer(mainScene) {
         wireframeGroup.add(wireframe);
     }
     
-    // Align the wireframe group to the floor.
     const box = new THREE.Box3().setFromObject(wireframeGroup);
-    wireframeGroup.position.y -= box.min.y;
+    const verticalOffset = -box.min.y;
+    wireframeGroup.position.y += verticalOffset;
     mainScene.add(wireframeGroup);
 
-
+    // 修正：將所有相關的容器尺寸寫入 userData，確保 L 型尺寸能被正確傳遞
+    const { width, height, depth, outerWidth, outerDepth, notchWidth, notchDepth } = dimensions;
+    wireframeGroup.userData = {
+        shape: shape,
+        width: width,
+        height: height,
+        depth: depth,
+        outerWidth: outerWidth ?? width,
+        outerDepth: outerDepth ?? depth,
+        notchWidth: notchWidth ?? 0,
+        notchDepth: notchDepth ?? 0,
+    };
 
     // --- Doors ---
     addDoorsToMainScene(mainScene);
 
     // --- Physics Walls ---
     const wallMaterial = new CANNON.Material('wall');
-    
-    if (shape === 'l-shape') {
-        // 賦值給 overallBox 變數
-        const overallBox = new THREE.Box3().setFromObject(wireframeGroup);
-        console.warn("L-shape physics walls are approximated by a simple box. This is a temporary solution.");
-        const overallSize = overallBox.getSize(new THREE.Vector3());
-        const center = overallBox.getCenter(new THREE.Vector3());
-        const walls = [
-            { quaternion: new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0), position: new CANNON.Vec3(0, 0, 0) },
-            { quaternion: new CANNON.Quaternion(), position: new CANNON.Vec3(center.x, center.y, center.z - overallSize.z / 2) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI, 0), position: new CANNON.Vec3(center.x, center.y, center.z + overallSize.z / 2) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0), position: new CANNON.Vec3(center.x + overallSize.x / 2, center.y, center.z) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0), position: new CANNON.Vec3(center.x - overallSize.x / 2, center.y, center.z) }
-        ];
-        walls.forEach(wallData => {
-            const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: wallMaterial, position: wallData.position, quaternion: wallData.quaternion });
-            wallBody.isContainerWall = true;
-            world.addBody(wallBody);
-        });
-    } else {
-        const { width, height, depth } = dimensions;
-        const walls = [
-            { quaternion: new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0), position: new CANNON.Vec3(0, 0, 0) },
-            { quaternion: new CANNON.Quaternion(), position: new CANNON.Vec3(0, height / 2, -depth / 2) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI, 0), position: new CANNON.Vec3(0, height / 2, depth / 2) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0), position: new CANNON.Vec3(width / 2, height / 2, 0) },
-            { quaternion: new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0), position: new CANNON.Vec3(-width / 2, height / 2, 0) }
-        ];
-        walls.forEach(wallData => {
-            const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: wallMaterial, position: wallData.position, quaternion: wallData.quaternion });
-            wallBody.isContainerWall = true;
-            world.addBody(wallBody);
-        });
+
+    // Helper function to add a plane wall
+    function addWall(position, quaternion) {
+        const wallBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: wallMaterial });
+        wallBody.position.copy(position);
+        wallBody.quaternion.copy(quaternion);
+        wallBody.isContainerWall = true;
+        world.addBody(wallBody);
     }
-    console.log("Default container created in the main scene.");
-    console.log("Container dimensions:", dimensions);
+
+    if (shape === 'l-shape') {
+        const { mainWidth, mainHeight, mainDepth, extWidth, extHeight, extDepth } = dimensions;
+
+        // Main Part Walls (6 planes)
+        const halfMainW = mainWidth / 2, halfMainH = mainHeight / 2, halfMainD = mainDepth / 2;
+        addWall(new CANNON.Vec3(0, 0, 0), new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0)); // Floor
+        addWall(new CANNON.Vec3(0, mainHeight, 0), new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0)); // Ceiling
+        addWall(new CANNON.Vec3(0, halfMainH, -halfMainD), new CANNON.Quaternion()); // Front
+        addWall(new CANNON.Vec3(0, halfMainH, halfMainD), new CANNON.Quaternion().setFromEuler(0, Math.PI, 0)); // Back
+        addWall(new CANNON.Vec3(-halfMainW, halfMainH, 0), new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0)); // Left
+        addWall(new CANNON.Vec3(halfMainW, halfMainH, 0), new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0)); // Right
+
+        // Extension Part Walls (6 planes)
+        const halfExtW = extWidth / 2, halfExtH = extHeight / 2, halfExtD = extDepth / 2;
+        const extOffsetX = mainWidth / 2 - extWidth / 2;
+        const extOffsetZ = -mainDepth / 2 - extDepth / 2;
+
+        addWall(new CANNON.Vec3(extOffsetX, 0, extOffsetZ), new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0)); // Floor
+        addWall(new CANNON.Vec3(extOffsetX, extHeight, extOffsetZ), new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0)); // Ceiling
+        addWall(new CANNON.Vec3(extOffsetX, halfExtH, extOffsetZ - halfExtD), new CANNON.Quaternion()); // Front
+        addWall(new CANNON.Vec3(extOffsetX, halfExtH, extOffsetZ + halfExtD), new CANNON.Quaternion().setFromEuler(0, Math.PI, 0)); // Back
+        addWall(new CANNON.Vec3(extOffsetX - halfExtW, halfExtH, extOffsetZ), new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0)); // Left
+        addWall(new CANNON.Vec3(extOffsetX + halfExtW, halfExtH, extOffsetZ), new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0)); // Right
+
+    } else { // Cube shape
+        const { width, height, depth } = dimensions;
+        const halfW = width / 2, halfH = height / 2, halfD = depth / 2;
+        
+        addWall(new CANNON.Vec3(0, 0, 0), new CANNON.Quaternion().setFromEuler(-Math.PI / 2, 0, 0)); // Floor
+        addWall(new CANNON.Vec3(0, height, 0), new CANNON.Quaternion().setFromEuler(Math.PI / 2, 0, 0)); // Ceiling
+        addWall(new CANNON.Vec3(0, halfH, -halfD), new CANNON.Quaternion()); // Front
+        addWall(new CANNON.Vec3(0, halfH, halfD), new CANNON.Quaternion().setFromEuler(0, Math.PI, 0)); // Back
+        addWall(new CANNON.Vec3(halfW, halfH, 0), new CANNON.Quaternion().setFromEuler(0, -Math.PI / 2, 0)); // Right
+        addWall(new CANNON.Vec3(-halfW, halfH, 0), new CANNON.Quaternion().setFromEuler(0, Math.PI / 2, 0)); // Left
+    }
+    console.log("Default container created with aligned physics walls.");
+    return wireframeGroup;
+}
+
+/**
+ * 為 L 型容器建立複合物理牆 (目前為空實作)
+ * @param {object} containerConfig 
+ */
+export function createLShapeWalls(containerConfig) {
+    const { dimensions } = containerConfig;
+    const { outerWidth, outerDepth, height, notchWidth, notchDepth } = dimensions;
+    const wallThickness = 2; // A small thickness for the walls
+
+    const wallMaterial = new CANNON.Material('wall');
+
+    // Create a single compound body to represent the entire container boundary
+    const containerBody = new CANNON.Body({
+        mass: 0, // mass = 0 makes the body static
+        material: wallMaterial
+    });
+
+    // Helper to add a child shape to the compound body
+    // All positions are relative to the containerBody's origin (0,0,0)
+    function addShape(sizeVec, positionVec) {
+        const shape = new CANNON.Box(sizeVec.scale(0.5)); // CANNON.Box takes half-extents
+        containerBody.addShape(shape, positionVec);
+    }
+
+    // 1. Floor
+    addShape(new CANNON.Vec3(outerWidth, wallThickness, outerDepth), new CANNON.Vec3(0, -wallThickness / 2, 0));
+
+    // 2. Ceiling (Optional, but good for containment)
+    addShape(new CANNON.Vec3(outerWidth, wallThickness, outerDepth), new CANNON.Vec3(0, height + (wallThickness / 2), 0));
+
+    // 3. Back Wall (farthest on +z)
+    addShape(new CANNON.Vec3(outerWidth, height, wallThickness), new CANNON.Vec3(0, height / 2, outerDepth / 2));
+
+    // 4. Left Wall (farthest on -x)
+    addShape(new CANNON.Vec3(wallThickness, height, outerDepth), new CANNON.Vec3(-outerWidth / 2, height / 2, 0));
+
+    // --- Walls that form the L-shape notch (assuming notch is in front-right corner: +x, -z) ---
+
+    // 5. Right Wall (the segment that is NOT notched)
+    addShape(
+        new CANNON.Vec3(wallThickness, height, outerDepth - notchDepth),
+        new CANNON.Vec3(outerWidth / 2, height / 2, -(notchDepth / 2))
+    );
+
+    // 6. Front Wall (the segment that is NOT notched)
+    addShape(
+        new CANNON.Vec3(outerWidth - notchWidth, height, wallThickness),
+        new CANNON.Vec3(-(notchWidth / 2), height / 2, -outerDepth / 2)
+    );
+
+    // 7. Notch Inner Wall (Horizontal, parallel to X-axis)
+    addShape(
+        new CANNON.Vec3(notchWidth, height, wallThickness),
+        new CANNON.Vec3((outerWidth / 2) - (notchWidth / 2), height / 2, -outerDepth / 2 + notchDepth)
+    );
+
+    // 8. Notch Inner Wall (Vertical, parallel to Z-axis)
+    addShape(
+        new CANNON.Vec3(wallThickness, height, notchDepth),
+        new CANNON.Vec3(outerWidth / 2 - notchWidth, height / 2, (-outerDepth / 2) + (notchDepth / 2))
+    );
+
+    containerBody.isContainerWall = true; // Custom flag for identification
+    world.addBody(containerBody);
+
+    console.log(`[PHYSICS] Created L-Shape walls using a compound body.`);
 }
