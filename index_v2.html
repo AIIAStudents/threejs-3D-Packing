@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>test</title>
+
+  <link rel="stylesheet" href="./src/css/test_version/style.css">
+</head> 
+
+<body>
+  <!-- 左側側欄 -->
+  <aside id="sidebar" class="sidebar">
+      
+    <!-- 標題文字 --> 
+      <div class = "sidebar-header">
+        <img src = "./src/assets/container/container.png" 
+             alt="sidebar icon"
+             class="sidebar-icon" >  
+        <h2 class = "sidebar-title">物件打包</h2>
+      </div>  
+
+      <!-- 展開/收合按鈕 -->
+      <div>
+        <button id="toggle-btn" class="sidebar-toggle">
+          <img src = "./src/assets/webs/sidebar.png" 
+               alt="Toggle Sidebar" >
+        </button>
+      </div> 
+      
+      <!-- 次標題文字 - 群組&物件 -->
+      <div class="sidebar-section"
+           data-target="view-groups-items">  
+        <img src = "./src/assets/temp_element/layer.png" 
+             alt="sidebar_Groups_Items icon" 
+             class="sidebar-section-icon" >  
+        <h2 class="sidebar-section-title">群組&物件</h2>
+      </div>
+
+      <!-- 次標題文字 - 空間配置--> 
+      <div class="sidebar-section"
+           data-target="view-space">
+        <img src = "./src/assets/webs/floor.png" 
+             alt="sidebar_space" 
+             class="sidebar-section-icon" >  
+        <h2 class="sidebar-section-title">空間配置</h2>
+      </div>
+  </aside>
+
+   <!-- 主內容 -->
+  <main id="main" class="main">
+    
+    <!-- 群組&物件 -->
+    <section id="view-groups-items" class="main-view main-view-active">
+      <h1>群組 & 物件設定</h1>
+      <p>這裡未來放：群組列表、物件列表、批量新增、修改尺寸…</p>
+    </section>
+    
+    <!-- 空間配置 -->
+    <section id="view-space" class="main-view">
+      <h1>空間配置 (Space Planning)</h1>
+      <p>這裡未來放：平面圖、區域設定、拖拉群組到區塊的 UI…</p>
+    </section>
+
+  </main>
+
+  <!-- JavaScript -->
+  <script src = "./src/test_js/sidebar.js"></script>
+
+</body>
+
+</html>
