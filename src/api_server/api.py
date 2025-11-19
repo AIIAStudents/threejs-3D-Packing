@@ -5,13 +5,18 @@ import datetime
 import traceback
 import sys
 import sqlite3
-from flask import Flask, request, jsonify, g
+import time
+import traceback
+from flask import Flask, request, jsonify, g, make_response
 from flask_cors import CORS
 
 # Add the project's 'src' directory to the Python path
 src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
+
+# 導入自訂日誌模組
+from api_server.logger import log, LOG_VERBOSE
 
 # 導入需要的 API 模組
 from api_server.group_api import create_group_routes
@@ -20,8 +25,8 @@ from api_server.packer_service import run_packing_from_request # <-- 匯入新�
 
 # 初始化 Flask 應用與 CORS
 app = Flask(__name__)
-# FIX: Allow all origins for easier local development
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+# FIX: Allow all origins for easier local development, and expose custom headers
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "expose_headers": "X-Trace-Id"}})
 
 # 註冊路由
 create_group_routes(app)
@@ -45,65 +50,108 @@ def close_db(error):
     db = g.pop('db', None)
     if db is not None:
         db.close()
-@app.route('/api/pack_objects', methods=['POST', 'OPTIONS'])
-def pack_objects():
-    """處理 3D Bin Packing 請求"""
+def convert_frontend_payload(data):
+    """Converts the old frontend payload format to the one expected by the packer_service."""
+    if 'container_size' in data and 'objects' in data:
+        return data  # Already in the new format
+
+    new_data = {}
+    # Convert container -> container_size
+    if 'container' in data:
+        new_data['container_size'] = {
+            'width': data['container'].get('width'),
+            'height': data['container'].get('height'),
+            'depth': data['container'].get('depth')
+        }
     
-    # 處理 CORS preflight
+    # Convert items_to_pack -> objects
+    if 'items_to_pack' in data:
+        new_data['objects'] = data['items_to_pack']
+        
+    return new_data
+
+@app.route('/pack', methods=['POST', 'OPTIONS'])
+def pack_alias():
+    """Alias for /api/pack_objects for backward compatibility."""
     if request.method == 'OPTIONS':
         return '', 200
     
-    # 記錄請求資訊（除錯用）
-    print("=" * 60)
-    print("📥 收到 pack_objects 請求")
-    print(f"Content-Type: {request.content_type}")
-    print(f"Request data length: {len(request.data) if request.data else 0}")
-    print("=" * 60)
-    
-    # 嘗試解析 JSON
-    try:
-        data = request.get_json(force=True)
-        
-        # 檢查是否成功解析
-        if data is None:
-            print("❌ JSON 解析結果為 None")
-            return jsonify({
-                "success": False,
-                "error": "未收到有效的 JSON 資料",
-                "message": "Request body 是空的或格式不正確"
-            }), 400
-        
-        print(f"✅ 成功解析 JSON，包含 {len(data.get('objects', []))} 個物件")
-        print(f"容器類型: {data.get('container_type', 'unknown')}")
-        
-        # === FIX: 呼叫新的 py_packer 演算法服務 ===
-        result = run_packing_from_request(data)
-        
-        # 檢查 packer_service 內部是否發生錯誤
-        if 'error' in result:
-            print(f"❌ 演算法服務回傳錯誤: {result.get('error')}")
-            return jsonify(result), 500
+    # 呼叫主打包函式
+    return pack_objects()
 
-        print(f"✅ 打包完成，回傳 {len(result.get('packed_objects', []))} 個物件")
-        return jsonify(result), 200
+
+@app.route('/api/pack_objects', methods=['POST', 'OPTIONS'])
+def pack_objects():
+    """處理 3D Bin Packing 請求，並整合結構化日誌"""
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    t_start = time.time()
+    data = request.get_json(force=True, silent=True) or {}
+    
+    # 1. 獲取或生成 trace_id
+    trace_id = request.headers.get('X-Trace-Id') or data.get('trace_id') or f"be-gen-{uuid.uuid4().hex[:8]}"
+
+    log('INFO', 'FlaskAPI', trace_id, '收到打包請求',
+        path=request.path,
+        method=request.method,
+        content_length=request.content_length or 0
+    )
+
+    result = {}
+    status_code = 500
+
+    try:
+        if not data:
+            raise ValueError("請求內容為空或非有效 JSON")
+
+        if LOG_VERBOSE:
+            log('INFO', 'FlaskAPI', trace_id, '請求內容預覽',
+                object_count=len(data.get('objects', [])),
+                zone_count=len(data.get('zones', [])),
+                container_size=data.get('container_size')
+            )
+
+        # 2. 呼叫核心打包服務，傳入 trace_id
+        result = run_packing_from_request(data, trace_id)
         
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON 解析失敗: {e}")
-        return jsonify({
-            "success": False,
-            "error": f"JSON 格式錯誤: {str(e)}",
-            "message": "請確認發送的資料是有效的 JSON 格式"
-        }), 400
-        
+        if result.get('success'):
+            status_code = 200
+        else:
+            # 如果服務內部回傳錯誤，但不是 Exception
+            status_code = 400
+            log('ERROR', 'FlaskAPI', trace_id, '打包服務回報錯誤', error=result.get('error'))
+
     except Exception as e:
-        print(f"❌ 伺服器錯誤: {e}")
-        print(traceback.format_exc())
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "message": "伺服器處理請求時發生錯誤",
-            "trace": traceback.format_exc()
-        }), 500
+        status_code = 500
+        error_info = {
+            "error_type": type(e).__name__,
+            "message": str(e),
+            "trace": traceback.format_exc().splitlines()[-3:]
+        }
+        result = {"success": False, "error": "伺服器處理時發生未預期錯誤", "details": error_info}
+        log('ERROR', 'FlaskAPI', trace_id, '請求處理時發生例外', **error_info)
+
+    finally:
+        duration_ms = (time.time() - t_start) * 1000
+        
+        if status_code == 200:
+            stats = result.get('statistics', {})
+            log('INFO', 'FlaskAPI', trace_id, '請求成功完成',
+                duration_ms=round(duration_ms, 2),
+                packed_count=stats.get('packed_objects', 0),
+                unpacked_count=stats.get('unpacked_objects', 0),
+                volume_utilization=round(stats.get('volume_utilization', 0), 4)
+            )
+        else:
+            log('INFO', 'FlaskAPI', trace_id, '請求處理結束(失敗)',
+                duration_ms=round(duration_ms, 2),
+                status_code=status_code
+            )
+
+        response = make_response(jsonify(result), status_code)
+        response.headers['X-Trace-Id'] = trace_id
+        return response
 
 # --- Routes ---
 @app.route('/api/get-scene', methods=['GET'])
@@ -197,8 +245,11 @@ def submit_scene():
     except Exception as e:
         return jsonify({"error_code": "SERVER_ERROR", "error": str(e), "trace": traceback.format_exc()}), 500
 
-@app.route('/save_container_config', methods=['POST'])
+@app.route('/save_container_config', methods=['POST', 'OPTIONS'])
 def save_container_config():
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error_code": "NO_JSON", "error": "未收到容器設定的 JSON 資料。"}), 400
