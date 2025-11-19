@@ -3,28 +3,13 @@
     "dimensions": {
         "width": 120,
         "height": 120,
-        "depth": 120
+        "depth": 120,
+        "mainWidth": 80,
+        "mainHeight": 120,
+        "mainDepth": 80,
+        "extWidth": 40,
+        "extHeight": 120,
+        "extDepth": 40
     },
-    "doors": [
-        {
-            "id": "83e7a8db-db7e-4be0-9f1b-e9cb25fe5a39",
-            "face": "front",
-            "type": "human",
-            "enabled": true,
-            "position": {
-                "x": 0,
-                "z": 0
-            }
-        },
-        {
-            "id": "e623c951-5b50-4a58-888b-26ed8860edf1",
-            "face": "back",
-            "type": "human",
-            "enabled": true,
-            "position": {
-                "x": 0,
-                "z": 0
-            }
-        }
-    ]
+    "doors": []
 }

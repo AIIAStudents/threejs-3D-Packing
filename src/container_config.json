@@ -2,8 +2,12 @@
     "shape": "cube",
     "dimensions": {
         "width": 120,
+        "depth": 120,
         "height": 120,
-        "depth": 120
+        "outerWidth": 120,
+        "outerDepth": 120,
+        "notchWidth": 0,
+        "notchDepth": 0
     },
     "doors": []
 }

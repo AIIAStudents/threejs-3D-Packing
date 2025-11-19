@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <title>3D Bin Packing System</title>
-    <link rel="stylesheet" href="./src/css/style.css">
-    <link rel="stylesheet" href="./src/css/container.css">
+    <link rel="stylesheet" href="./src/css/old_version/style.css">
+    <link rel="stylesheet" href="./src/css/old_version/container.css">
     <style>
       body {
         margin: 0;
@@ -19,9 +19,10 @@
       crossorigin="anonymous" 
       referrerpolicy="no-referrer" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
-    <link rel="stylesheet" href="./src/css/group_flow.css">
-    <link rel="stylesheet" href="./src/css/ui_controls.css">
+    <link rel="stylesheet" href="./src/css/old_version/group_flow.css">
+    <link rel="stylesheet" href="./src/css/old_version/ui_controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <link rel="stylesheet" href="./src/css/old_version/space_planning.css">
   </head>
   <body>
     <div id="app">
@@ -146,6 +147,40 @@
       </div>
     </div>
 
+    <!-- Space Planning UI -->
+    <div id="space-planning-view">
+      <button id="close-space-planning-btn" class="modal-close-btn">&times;</button>
+      <canvas id="top-down-canvas"></canvas>
+
+      <div id="assignment-view-container">
+        <div id="zone-list" class="assignment-column">
+          <h3>空間區域 (Zones)</h3>
+        </div>
+        <div id="group-list" class="assignment-column">
+          <h3>群組 (Groups)</h3>
+        </div>
+      </div>
+
+      <div class="edit-mode-controls">
+        <button id="btn-check" class="planning-button" title="Confirm Zone" style="display: none;" aria-label="Confirm Zone"><img src="./src/assets/group_space_edit/check.png"></button>
+        <button id="btn-close" class="planning-button" title="Cancel Edit" style="display: none;" aria-label="Cancel Edit"><img src="./src/assets/group_space_edit/close.png"></button>
+      </div>
+
+      <div class="planning-controls">
+        <button id="btn-next" class="planning-button" title="Next Step" disabled aria-label="Next Step"><img src="./src/assets/group_space_edit/next.png"></button>
+        <button id="btn-edit" class="planning-button" title="Edit Zones" aria-label="Edit Zones"><img src="./src/assets/group_space_edit/edit.png"></button>
+        <button id="btn-planning-main" class="planning-button" title="Execute Packing" style="display: none;" aria-label="Execute Packing"><img src="./src/assets/3D packing/play-button-arrowhead.png"></button>
+      </div>
+
+      <!-- Controls from the old flow editor, to be shown in the assignment phase -->
+      <div id="group-flow-controls" class="flow-controls" style="display: none;">
+        <button id="bin-btn" class="control-button" title="Delete Group"><img src="./src/assets/3D packing/bin.png"></button>
+        <button id="history-btn" class="control-button" title="History"><img src="./src/assets/3D packing/history.png"></button>
+        <button id="play-btn" class="control-button" title="Execute Packing"><img src="./src/assets/3D packing/play-button-arrowhead.png"></button>
+        <button id="planning-btn" class="control-button" title="Edit Order"><img src="./src/assets/3D packing/planning.png"></button>
+      </div>
+    </div>
+
     <script type="module" src="./src/js/main.js"></script>
 
     <script src="./src/js/ripple.js" defer></script>
@@ -194,12 +229,7 @@
       <button id="close-flow-editor-btn" class="modal-close-btn">&times;</button>
       <div id="group-flow-canvas"></div>
 
-      <div id="group-flow-controls" class="flow-controls">
-        <button id="bin-btn" class="control-button" title="Delete Group"><img src="./src/assets/3D packing/bin.png"></button>
-        <button id="history-btn" class="control-button" title="History"><img src="./src/assets/3D packing/history.png"></button>
-        <button id="play-btn" class="control-button" title="Execute Packing"><img src="./src/assets/3D packing/play-button-arrowhead.png"></button>
-        <button id="planning-btn" class="control-button" title="Edit Order"><img src="./src/assets/3D packing/planning.png"></button>
-      </div>
+    </div>
 
       <div id="delete-group-dialog" class="confirmation-dialog">
         <p>確定要刪除群組?</p>
