@@ -5,102 +5,83 @@ from typing import List, Dict, Optional
 from ..types import Warehouse, Group, Item, Aisle, Lane, Slot, Box3, Vec3, BSPNode
 from .bsp_tree import BSPTree
 from ..utils import vec3, box3, get_box_volume, get_box_dims
+from api_server.logger import log, LOG_VERBOSE
 
 EPS = 1e-6
 MIN_THICKNESS = 0.05  # 5cm
 
-# Define a constant for the deferred group ID to prevent typos
 DEFERRED_GROUP_ID = "DEFERRED_PLACEMENT"
 
-# Define a color palette for visualization
 LANE_COLOR_PALETTE = {
-    DEFERRED_GROUP_ID: "#E74C3C",  # Red
-    "DEFAULT": "#3498DB",             # Blue
-    "G1": "#F1C40F",                  # Yellow
-    "G2": "#2ECC71",                  # Green
-    "G3": "#9B59B6",                  # Purple
-    "G4": "#E67E22",                  # Orange
+    DEFERRED_GROUP_ID: "#E74C3C",
+    "DEFAULT": "#3498DB",
+    "G1": "#F1C40F", "G2": "#2ECC71", "G3": "#9B59B6", "G4": "#E67E22",
 }
 
 class LaneManager:
     def __init__(self, warehouse: Warehouse, aisles: List[Aisle]):
         self.warehouse_bounds = warehouse.bounds
         self.lanes: Dict[str, Lane] = {}
-        print("✅ LaneManager (v6, Enriched Meta) initialized.")
+        # Initialization should be silent.
 
-    def plan_lanes(self, groups: List[Group], items: List[Item]):
+    def plan_lanes(self, groups: List[Group], items: List[Item], trace_id: str):
         """
-        Plans and allocates lanes, enriching them with metadata for frontend visualization.
+        規劃並分配 lanes，同時為前端視覺化豐富元數據。
         """
-        print("🚀 Starting lane planning (v6, Enriched Meta).")
+        log('INFO', 'LaneManager', trace_id, '開始規劃Lane')
 
-        # 1. Calculate volume demands
         vol_demand = self._calculate_volume_demands(groups, items)
         total_demand_vol = vol_demand['total_confirmed'] + vol_demand['total_unconfirmed']
 
         if total_demand_vol < EPS:
-            print("⚠️ No items with volume found. Skipping lane planning.")
+            log('WARN', 'LaneManager', trace_id, '總需求體積為零，跳過Lane規劃')
             return
 
-        # 2. Determine allocation ratios
         confirmed_ratio = vol_demand['total_confirmed'] / total_demand_vol
         unconfirmed_ratio = vol_demand['total_unconfirmed'] / total_demand_vol
 
-        print(f"📊 Volume Ratios: Confirmed={confirmed_ratio:.2%}, Unconfirmed={unconfirmed_ratio:.2%}")
+        log('INFO', 'LaneManager', trace_id, '體積需求計算完成',
+            total_volume=round(total_demand_vol, 2),
+            confirmed_ratio=round(confirmed_ratio, 4),
+            unconfirmed_ratio=round(unconfirmed_ratio, 4)
+        )
 
-        # 3. Partition the main warehouse space
         warehouse_dims = get_box_dims(self.warehouse_bounds)
         split_axis = 'x'
         total_width = getattr(warehouse_dims, split_axis)
 
         if total_width < EPS:
-            print("⚠️ Warehouse has zero width. Skipping lane planning.")
+            log('WARN', 'LaneManager', trace_id, '倉庫寬度為零，跳過Lane規劃')
             return
 
         confirmed_width = total_width * confirmed_ratio
         unconfirmed_width = total_width * unconfirmed_ratio
-
         current_x = self.warehouse_bounds.min.x
 
-        # 4. Create the 'unconfirmed' (deferred) lane if needed
         if unconfirmed_width > MIN_THICKNESS:
             unconfirmed_max_x = current_x + unconfirmed_width
             self._create_lane(
-                lane_id="LANE_DEFERRED",
-                group_id=DEFERRED_GROUP_ID,
+                lane_id="LANE_DEFERRED", group_id=DEFERRED_GROUP_ID,
                 bounds=box3(
                     min_vec=vec3(current_x, self.warehouse_bounds.min.y, self.warehouse_bounds.min.z),
                     max_vec=vec3(unconfirmed_max_x, self.warehouse_bounds.max.y, self.warehouse_bounds.max.z)
                 ),
-                access_cost=100.0,
-                mode='overflow-lane',
-                total_warehouse_width=total_width,
-                label_override="Deferred"
+                access_cost=100.0, mode='overflow-lane', total_warehouse_width=total_width,
+                trace_id=trace_id, label_override="延遲"
             )
             current_x = unconfirmed_max_x
 
-        # 5. Partition the 'confirmed' space for each group
         if confirmed_width > MIN_THICKNESS:
             confirmed_space_bounds = box3(
                 min_vec=vec3(current_x, self.warehouse_bounds.min.y, self.warehouse_bounds.min.z),
                 max_vec=vec3(self.warehouse_bounds.max.x, self.warehouse_bounds.max.y, self.warehouse_bounds.max.z)
             )
-            self._partition_confirmed_space(confirmed_space_bounds, vol_demand['groups'], total_width)
+            self._partition_confirmed_space(confirmed_space_bounds, vol_demand['groups'], total_width, trace_id)
 
-        print("✅ Lane planning finished.")
+        log('INFO', 'LaneManager', trace_id, 'Lane規劃結束', created_lanes=list(self.lanes.keys()))
 
     def _calculate_volume_demands(self, groups: List[Group], items: List[Item]) -> Dict:
-        """Calculates the required volume for each group and for all unconfirmed items."""
-        volume_demands = {
-            'total_confirmed': 0.0,
-            'total_unconfirmed': 0.0,
-            'groups': {}
-        }
-        
-        # Initialize group demands
-        for group in groups:
-            volume_demands['groups'][group.id] = 0.0
-
+        volume_demands = {'total_confirmed': 0.0, 'total_unconfirmed': 0.0, 'groups': {g.id: 0.0 for g in groups}}
         for item in items:
             item_vol = get_box_volume(Box3(min=Vec3(0,0,0), max=item.dims))
             if item.confirmed:
@@ -109,85 +90,61 @@ class LaneManager:
                     volume_demands['total_confirmed'] += item_vol
             else:
                 volume_demands['total_unconfirmed'] += item_vol
-        
         return volume_demands
 
-    def _partition_confirmed_space(self, space_bounds: Box3, group_demands: Dict[str, float], total_warehouse_width: float):
-        """Divides the confirmed space and creates lanes with rich metadata."""
+    def _partition_confirmed_space(self, space_bounds: Box3, group_demands: Dict[str, float], total_warehouse_width: float, trace_id: str):
         total_confirmed_vol = sum(group_demands.values())
-        if total_confirmed_vol < EPS:
-            return
+        if total_confirmed_vol < EPS: return
 
         space_dims = get_box_dims(space_bounds)
         total_confirmed_width = space_dims.x
         current_x = space_bounds.min.x
-
         groups_to_plan = {gid: vol for gid, vol in group_demands.items() if vol > EPS}
         
-        print(f"📦 Partitioning confirmed space of width {total_confirmed_width:.2f} for {len(groups_to_plan)} groups.")
+        log('INFO', 'LaneManager', trace_id, '開始分割已確認空間',
+            space_width=round(total_confirmed_width, 2),
+            group_count=len(groups_to_plan)
+        )
 
         for i, (group_id, demand_vol) in enumerate(groups_to_plan.items()):
-            ratio_of_confirmed_space = demand_vol / total_confirmed_vol
-            lane_width = total_confirmed_width * ratio_of_confirmed_space
-            
+            ratio = demand_vol / total_confirmed_vol
+            lane_width = total_confirmed_width * ratio
             lane_max_x = current_x + lane_width
-            # Ensure the last lane extends to the end to prevent floating point gaps
-            if i == len(groups_to_plan) - 1:
-                lane_max_x = space_bounds.max.x
+            if i == len(groups_to_plan) - 1: lane_max_x = space_bounds.max.x
 
             if lane_width > MIN_THICKNESS:
                 self._create_lane(
-                    lane_id=f"LANE_{group_id}",
-                    group_id=group_id,
+                    lane_id=f"LANE_{group_id}", group_id=group_id,
                     bounds=box3(
                         min_vec=vec3(current_x, space_bounds.min.y, space_bounds.min.z),
                         max_vec=vec3(lane_max_x, space_bounds.max.y, space_bounds.max.z)
                     ),
-                    access_cost=10.0,
-                    mode='pallet-lane',
-                    total_warehouse_width=total_warehouse_width
+                    access_cost=10.0, mode='pallet-lane', total_warehouse_width=total_warehouse_width, trace_id=trace_id
                 )
             current_x = lane_max_x
 
-    def _create_lane(self, lane_id: str, group_id: str, bounds: Box3, access_cost: float, mode: str, total_warehouse_width: float, label_override: Optional[str] = None):
-        """Helper to create and register a new lane with rich metadata."""
+    def _create_lane(self, lane_id: str, group_id: str, bounds: Box3, access_cost: float, mode: str, total_warehouse_width: float, trace_id: str, label_override: Optional[str] = None):
         lane_dims = get_box_dims(bounds)
         lane_vol = get_box_volume(bounds)
 
         if lane_vol < EPS:
-            print(f"⚠️ Skipping creation of lane {lane_id} due to zero volume.")
+            log('WARN', 'LaneManager', trace_id, 'Lane體積為零，跳過建立', lane_id=lane_id)
             return
 
-        # Calculate ratio based on width
         ratio = lane_dims.x / total_warehouse_width if total_warehouse_width > EPS else 0
+        label = f"{label_override} ({ratio:.1%})" if label_override else f"{group_id} ({ratio:.1%})"
 
-        # Create label
-        if label_override:
-            label = f"{label_override} ({ratio:.1%})"
-        else:
-            label = f"{group_id} ({ratio:.1%})"
-
-        # Create meta dictionary
         meta = {
-            "volume": round(lane_vol, 2),
-            "ratio": round(ratio, 4),
-            "width": round(lane_dims.x, 2),
-            "height": round(lane_dims.y, 2),
-            "depth": round(lane_dims.z, 2),
-            "label": label,
-            "color": LANE_COLOR_PALETTE.get(group_id, LANE_COLOR_PALETTE["DEFAULT"])
+            "volume": round(lane_vol, 2), "ratio": round(ratio, 4),
+            "width": round(lane_dims.x, 2), "height": round(lane_dims.y, 2), "depth": round(lane_dims.z, 2),
+            "label": label, "color": LANE_COLOR_PALETTE.get(group_id, LANE_COLOR_PALETTE["DEFAULT"])
         }
 
-        lane = Lane(
-            id=lane_id,
-            group_id=group_id,
-            frontage_axis='x',
-            bounds=bounds,
-            capacity_slots=1000,
-            access_cost=access_cost,
-            last_used_ts=0,
-            mode=mode,
-            meta=meta  # Add the metadata here
+        self.lanes[lane_id] = Lane(
+            id=lane_id, group_id=group_id, frontage_axis='x', bounds=bounds,
+            capacity_slots=1000, access_cost=access_cost, last_used_ts=0, mode=mode, meta=meta
         )
-        self.lanes[lane_id] = lane
-        print(f"  -> Created Lane '{lane_id}' for Group '{group_id}' (Width: {lane_dims.x:.2f}, Ratio: {ratio:.2%})")
+        if LOG_VERBOSE:
+            log('INFO', 'LaneManager', trace_id, '成功建立Lane',
+                lane_id=lane_id, group_id=group_id, width=meta['width'], ratio=meta['ratio']
+            )
