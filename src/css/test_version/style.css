@@ -42,6 +42,31 @@
 }
 
 /* =========================
+   說明文件
+   ========================= */
+.doc-content {
+  max-width: 900px;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+.doc-content h1 {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+.doc-content h2 {
+  font-size: 20px;
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+
+.doc-content ul {
+  padding-left: 1.5rem;
+}
+
+
+/* =========================
    全站文字 & 背景
    ========================= */
 body {
@@ -257,7 +282,7 @@ body {
   z-index: 0; /* 圓形在底層 */
 }
 
-/* ⭐ icon 必須放在圓形上方 */
+/*  icon 必須放在圓形上方 */
 .sidebar.collapsed .sidebar-section-icon {
   position: relative;  /* 讓 z-index 生效 */
   z-index: 1;          /* icon 在圓背景上 */
@@ -270,10 +295,14 @@ body {
    ========================= */
 #main {
   flex: 1;
-  background: var(--color-main);  /* 用 Main (#fffffe) 當主內容背景 */
+  background: var(--color-main);
   color: var(--color-text);
-  padding: 20px;
+  padding: 40px 60px;  /* 留白更美觀 */
+  overflow-y: auto;   /* ← 讓右側內容可以滾動 */
+  height: 100vh;      /* 讓 main 區塊高度固定，才能滾動 */
 }
+
+
 /* =========================
    主內容區 - 設定隱藏層 ( 所有內容區預設不顯示)
    ========================= */
@@ -284,4 +313,71 @@ body {
 /* 有 active 的那個才顯示 */
 .main-view-active {
   display: block;
+}
+/* ===== Sidebar 次標題（群組＆物件 - 群組 / 物件） ===== */
+
+/* 共用 sidebar-section 樣式你已經有了，這裡只改字體大小 */
+.sidebar-section-title--small {
+  font-size: 14px;     /* 比原本 18px 小 */
+  font-weight: 500;
+}
+
+/* 讓次項目稍微縮排，看起來像子選單 */
+.sidebar-section--child {
+  padding-left: 24px;  /* 讓 icon & 文字向右縮一點 */
+}
+
+/* ===== Breadcrumb（上方顯示：群組＆物件 > 群組） ===== */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--color-text-light);
+  margin-bottom: 12px;
+}
+
+.breadcrumb__sep {
+  opacity: 0.7;
+}
+
+.breadcrumb__current {
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+/* 可點擊的 Breadcrumb 連結（群組＆物件、空間配置） */
+.breadcrumb__link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-heading);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.breadcrumb__link:hover {
+  color: var(--color-button); /* hover 時略帶主色 */
+}
+/* �B�~���B�ʫ��s�W�[���˦� */
+#build-items-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 1rem 1.5rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    display: none; /* �w�]���áA������ɤ~��� */
+}
+#build-items-btn:hover {
+    background-color: #0056b3;
 }

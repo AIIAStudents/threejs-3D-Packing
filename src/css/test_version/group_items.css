@@ -1,0 +1,201 @@
+/* group_items.css */
+
+/* 
+  移除了先前針對 .main-container, .views-container, .view 的佈局樣式，
+  現在由 style.css 的 main 元素負責整體佈局。
+  只保留元件本身的樣式。
+*/
+
+/* ===== 步驟條 ===== */
+.steps-indicator {
+  width: 100%;
+  padding: 16px 0;
+  margin-bottom: 24px;
+  background: #f8f9fa;
+  border-radius: 999px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6c757d;
+  font-size: 14px;
+  font-weight: 500;
+}
+.step-arrow {
+  color: #adb5bd;
+  margin: 0 24px;
+}
+.step .step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ced4da;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  background: #fff;
+  transition: all 0.3s ease;
+}
+.step.active {
+  color: #007bff;
+}
+.step.active .step-number {
+  border-color: #007bff;
+  background-color: #007bff;
+  color: #fff;
+}
+
+/* ===== 視圖標頭 ===== */
+.view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dee2e6;
+}
+.view-header h2 {
+  font-size: 24px;
+  margin: 0;
+  color: #343a40;
+}
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.select-wrapper label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+}
+#current-group-select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #ced4da;
+  min-width: 180px;
+}
+
+/* ===== 按鈕 ===== */
+.add-btn, .next-btn, .prev-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.add-btn {
+  background-color: #007bff;
+  color: white;
+}
+.add-btn:hover { background-color: #0056b3; }
+.add-btn:disabled {
+  background-color: #ced4da;
+  cursor: not-allowed;
+}
+.next-btn { background-color: #28a745; color: white; }
+.next-btn:hover { background-color: #218838; }
+.prev-btn { background-color: #6c757d; color: white; }
+.prev-btn:hover { background-color: #5a6268; }
+
+/* ===== 空狀態卡片 ===== */
+.empty-state-card {
+  text-align: center;
+  background-color: #f8f9fa;
+  padding: 48px 24px;
+  border-radius: 8px;
+  border: 1px dashed #ced4da;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.empty-state-card .empty-state-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+.empty-state-card h3 {
+  font-size: 20px;
+  color: #495057;
+  margin: 0 0 8px;
+}
+.empty-state-card p {
+  color: #6c757d;
+  margin: 0 0 24px;
+  max-width: 300px;
+}
+.empty-state-card .add-btn.large {
+  padding: 12px 24px;
+  font-size: 16px;
+}
+
+/* ===== 表格 ===== */
+.table-container {
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 12px;
+  overflow-x: auto;
+}
+#groups-table, #items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#groups-table th, #groups-table td,
+#items-table th, #items-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+#groups-table thead, #items-table thead {
+  background-color: #f8f9fa;
+}
+#groups-table th, #items-table th {
+  font-weight: 600;
+  color: #495057;
+}
+input[type="text"], input[type="number"] {
+  padding: 6px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.short-input {
+  max-width: 70px;
+}
+.delete-btn, .more-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #6c757d;
+}
+.delete-btn:hover { color: #dc3545; }
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+}
+
+/* ===== 頁尾 ===== */
+.view-footer {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
