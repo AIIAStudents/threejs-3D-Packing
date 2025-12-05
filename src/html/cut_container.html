@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>切割容器</title>
+    <!-- 引用 define_container 的 CSS，並覆寫部分樣式 -->
+    <link rel="stylesheet" href="./src/css/test_version/define_container.css">
+    <link rel="stylesheet" href="./src/css/test_version/cut_container.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <div class="container-page container-page--cut">
+        <header class="dc-header">
+            <h1 class="dc-title">切割容器 - 定義區域</h1>
+            <p class="dc-subtitle">在 2D 俯視圖上定義、編輯與刪除容器內的區域 (Zone)。</p>
+        </header>
+
+        <!-- Step Bar -->
+        <div class="steps-indicator steps-indicator--container">
+            <div class="step " data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">選擇容器</div>
+            </div>
+            <div class="step-arrow"></div>
+            <div class="step active " data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">切割容器</div>
+            </div>
+            <div class="step-arrow"></div>
+            <div class="step " data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">分配物件</div>
+            </div>
+            <div class="step-arrow"></div>
+            <div class="step" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">打包物件</div>
+            </div>
+        </div>
+
+        <!-- Main Layout (Canvas + Table) -->
+        <div class="container-layout">
+            <!-- Left: Canvas -->
+            <div class="container-layout__left--cut">
+                <div class="canvas-wrapper">
+                    <div class="edit-tools">
+                        <button id="edit-toggle-btn" class="tool-btn" title="編輯模式">
+                            <img src="./src/assets/temp_element/edit.png" alt="Edit">
+                        </button>
+                    </div>
+                    <canvas id="cut-canvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: Zone Table -->
+            <div class="container-layout__right--cut">
+                <div class="zone-table-container">
+                    <h2>區域列表</h2>
+                    <table id="zone-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>中心 X</th>
+                                <th>中心 Y</th>
+                                <th>寬度</th>
+                                <th>高度</th>
+                                <th>旋轉</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="container-actions">
+            <button id="btn-prev-step" class="btn btn-secondary">上一步</button>
+            <button id="btn-finish" class="btn">完成切割</button>
+        </div>
+    </div>
+
+    <script type="module" src="./src/js_v2/container/cut_container.js"></script>
+</body>
+</html>

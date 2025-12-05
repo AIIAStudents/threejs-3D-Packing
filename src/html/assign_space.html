@@ -1,0 +1,60 @@
+<div class="assignment-page">
+    <header class="dc-header">
+        <h1 class="dc-title">空間配置 - 分配物件</h1>
+        <p class="dc-subtitle">請將右側的群組拖曳至左側的空間中進行分配。</p>
+    </header>
+
+    <!-- Step Bar -->
+    <div class="steps-indicator steps-indicator--container">
+        <div class="step" data-step="1">
+            <div class="step-number">1</div>
+            <div class="step-label">選擇容器</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step" data-step="2">
+            <div class="step-number">2</div>
+            <div class="step-label">切割容器</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step active" data-step="3">
+            <div class="step-number">3</div>
+            <div class="step-label">分配物件</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step" data-step="4">
+            <div class="step-number">4</div>
+            <div class="step-label">打包物件</div>
+        </div>
+    </div>
+
+    <!-- Main Layout (Zones + Groups) -->
+    <div class="assignment-layout">
+        <!-- Left: Zones Column -->
+        <div class="assignment-column" id="zones-column">
+            <h2 class="column-title">切割區域</h2>
+            <div class="zones-list" id="zones-list">
+                <!-- Zone cards will be dynamically inserted here by JS -->
+                <div class="zone-card-placeholder">
+                    <p>正在從資料庫載入空間...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Groups Column -->
+        <div class="assignment-column" id="groups-column">
+            <h2 class="column-title">群組列表</h2>
+            <div class="groups-list" id="groups-list">
+                <!-- Group cards will be dynamically inserted here by JS -->
+                <div class="group-card-placeholder">
+                    <p>正在從資料庫載入群組...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="assignment-actions">
+        <button id="assign-prev-step-btn" class="btn btn-secondary">上一步</button>
+        <button id="assign-next-step-btn" class="btn">下一步</button>
+    </div>
+</div>

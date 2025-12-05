@@ -1,0 +1,244 @@
+<div class="container-page container-page--size">
+    <header class="dc-header">
+        <h1 class="dc-title">空間配置 - 空間大小</h1>
+        <p class="dc-subtitle">在這裡選擇倉庫容器的形狀與尺寸，並於下一步切割區域。</p>
+    </header>
+
+    <!-- Step Bar -->
+    <div class="steps-indicator steps-indicator--container">
+        <div class="step active" data-step="1">
+            <div class="step-number">1</div>
+            <div class="step-label">選擇容器</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step " data-step="2">
+            <div class="step-number">2</div>
+            <div class="step-label">切割容器</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step " data-step="3">
+            <div class="step-number">3</div>
+            <div class="step-label">分配物件</div>
+        </div>
+        <div class="step-arrow"></div>
+        <div class="step" data-step="4">
+            <div class="step-number">4</div>
+            <div class="step-label">打包物件</div>
+        </div>
+    </div>
+
+    <!-- Main Layout (Form + Preview) -->
+    <div class="container-layout">
+        <!-- Left: Form -->
+        <div class="container-layout__left">
+            <form
+                id="container-form"
+                class="container-form">
+                <!-- Shape Selector -->
+                <div class="container-form__group">
+                    <label
+                        for="container-type-select"
+                        class="container-form__label"
+                        >容器形狀
+                    </label>
+                    <select
+                        id="container-type-select"
+                        class="container-form__select">
+
+                        <option value="rect">
+                            矩形容器
+                        </option>
+
+                        <option value="u_shape">
+                            U 型容器
+                        </option>
+
+                        <option value="t_shape">
+                            T 型容器
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Parameters for Rectangular Container -->
+                <div data-shape-param="rect">
+                    <div class="container-form__group">
+                        <label
+                            for="rect-widthX"
+                            class="container-form__label"
+                            >寬度 (X)</label
+                        >
+                        <input
+                            type="number"
+                            id="rect-widthX"
+                            class="container-form__input"
+                            value="100"
+                            min="1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label
+                            for="rect-depthZ"
+                            class="container-form__label"
+                            >深度 (Z)</label
+                        >
+                        <input
+                            type="number"
+                            id="rect-depthZ"
+                            class="container-form__input"
+                            value="60"
+                            min="1"
+                        />
+                    </div>
+                </div>
+
+                <!-- Parameters for U-Shape Container -->
+                <div data-shape-param="u_shape" class="hidden">
+                    <div class="container-form__group">
+                        <label
+                            for="u_shape-outerWidthX"
+                            class="container-form__label"
+                            >總寬度 (X)</label
+                        >
+                        <input
+                            type="number"
+                            id="u_shape-outerWidthX"
+                            class="container-form__input"
+                            value="120"
+                            min="1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label
+                            for="u_shape-outerDepthZ"
+                            class="container-form__label"
+                            >總深度 (Z)</label
+                        >
+                        <input
+                            type="number"
+                            id="u_shape-outerDepthZ"
+                            class="container-form__input"
+                            value="80"
+                            min="1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label
+                            for="u_shape-gapWidthX"
+                            class="container-form__label"
+                            >開口寬度 (X)</label
+                        >
+                        <input
+                            type="number"
+                            id="u_shape-gapWidthX"
+                            class="container-form__input"
+                            value="40"
+                            min="1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label
+                            for="u_shape-gapDepthZ"
+                            class="container-form__label"
+                            >開口深度 (Z)</label
+                        >
+                        <input
+                            type="number"
+                            id="u_shape-gapDepthZ"
+                            class="container-form__input"
+                            value="50"
+                            min="1"
+                        />
+                    </div>
+                </div>
+                
+                <!-- Parameters for T-Shape Container -->
+                <div data-shape-param="t_shape" class="hidden">
+                    <div class="container-form__group">
+                        <label for="t_shape-stemWidthX" class="container-form__label">主幹寬度 (X)</label>
+                        <input type="number" id="t_shape-stemWidthX" class="container-form__input" value="40" min="1">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="t_shape-stemDepthZ" class="container-form__label">主幹深度 (Z)</label>
+                        <input type="number" id="t_shape-stemDepthZ" class="container-form__input" value="100" min="1">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="t_shape-crossWidthX" class="container-form__label">橫幹寬度 (X)</label>
+                        <input type="number" id="t_shape-crossWidthX" class="container-form__input" value="120" min="1">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="t_shape-crossDepthZ" class="container-form__label">橫幹深度 (Z)</label>
+                        <input type="number" id="t_shape-crossDepthZ" class="container-form__input" value="30" min="1">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="t_shape-crossOffsetZ" class="container-form__label">橫幹Z軸偏移</label>
+                        <input type="number" id="t_shape-crossOffsetZ" class="container-form__input" value="0" min="0">
+                    </div>
+                </div>
+
+                <!-- Common Parameters -->
+                <div data-shape-param="common">
+                    <div class="container-form__group">
+                        <label
+                            for="common-heightY"
+                            class="container-form__label"
+                            >高度 (Y)</label
+                        >
+                        <input
+                            type="number"
+                            id="common-heightY"
+                            class="container-form__input"
+                            value="50"
+                            min="1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label
+                            for="common-wallThickness"
+                            class="container-form__label"
+                            >牆壁厚度</label
+                        >
+                        <input
+                            type="number"
+                            id="common-wallThickness"
+                            class="container-form__input"
+                            value="2"
+                            min="0.1"
+                        />
+                    </div>
+                    <div class="container-form__group">
+                        <label for="common-rotationY" class="container-form__label">Y 軸旋轉</label>
+                        <input type="number" id="common-rotationY" class="container-form__input" value="0" step="1">
+                    </div>
+                    <hr>
+                    <div class="container-form__group">
+                        <label for="common-positionX" class="container-form__label">位置 (X)</label>
+                        <input type="number" id="common-positionX" class="container-form__input" value="0">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="common-positionY" class="container-form__label">位置 (Y)</label>
+                        <input type="number" id="common-positionY" class="container-form__input" value="0">
+                    </div>
+                    <div class="container-form__group">
+                        <label for="common-positionZ" class="container-form__label">位置 (Z)</label>
+                        <input type="number" id="common-positionZ" class="container-form__input" value="0">
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right: 3D Preview -->
+        <div class="container-layout__right">
+            <div id="container-preview-canvas">
+                <p class="placeholder-text">
+                    正在載入...
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-actions">
+        <button id="container-next-step-btn" class="btn">
+            下一步
+        </button>
+    </div>
+</div>
