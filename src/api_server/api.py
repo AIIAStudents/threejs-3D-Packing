@@ -21,6 +21,7 @@ from api_server.logger import log, LOG_VERBOSE
 # 導入需要的 API 模組
 from api_server.group_api import create_group_routes
 from api_server.item_api import create_item_routes
+from api_server.assignment_api import assignment_api # <-- 匯入新的 assignment API
 from api_server.packer_service import run_packing_from_request # <-- 匯入新的打包服務
 
 # 初始化 Flask 應用與 CORS
@@ -31,6 +32,7 @@ CORS(app, resources={r"/*": {"origins": "http://localhost:5173", "expose_headers
 # 註冊路由
 create_group_routes(app)
 create_item_routes(app)
+app.register_blueprint(assignment_api) # <-- 註冊新的 assignment blueprint
 
 # --- Database Connection ---
 def get_db():
