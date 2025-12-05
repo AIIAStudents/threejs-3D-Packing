@@ -15,7 +15,8 @@ let mainContainerGroup = null;
 
 export function initScene() {
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    // 場景背景色（深色主題）。若要調整顏色，請同步修改 CSS 變數 --scene-bg-dark。
+    scene.background = new THREE.Color(0x1a1a1a);
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
     camera.position.set(200, 200, 200);
     camera.lookAt(0, 0, 0);
@@ -29,9 +30,9 @@ export function initScene() {
     directionalLight.position.set(150, 250, 100);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
-    const axesHelper = new THREE.AxesHelper(100);
-    axesHelper.name = 'mainAxesHelper';
-    scene.add(axesHelper);
+    // const axesHelper = new THREE.AxesHelper(100); // 預設移除 XYZ 軸線，讓畫面更乾淨
+    // axesHelper.name = 'mainAxesHelper';
+    // scene.add(axesHelper);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0, 0);
     controls.enableDamping = true;

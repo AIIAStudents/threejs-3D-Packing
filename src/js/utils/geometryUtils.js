@@ -60,25 +60,85 @@ export function buildLShapeGeometry(dim) {
 }
 
 export function buildContainerMeshWithOutline(shape, dim, opts = {}) {
-  console.log('[GEOMETRY-UTIL] Building container with shape:', shape);
+  console.log('[GEOMETRY-UTIL] Building container with shape:', shape, 'and dims:', dim);
   const opacity = opts.opacity ?? 0.2;
   let geo;
-  if (shape === 'l-shape') {
-    geo = buildLShapeGeometry(dim);
-  } else {
-    const w = _num(dim.width, 'width');
-    const d = _num(dim.depth, 'depth');
-    const h = _num(dim.height, 'height');
-    geo = new THREE.BoxGeometry(w, h, d);
-    geo.translate(0, h/2, 0);
+  
+  const h = _num(dim.height, 'height');
+
+  // Use THREE.Shape and ExtrudeGeometry for complex shapes to ensure consistency
+  const extrudeSettings = { depth: h, bevelEnabled: false };
+  let footprintShape;
+
+  switch (shape) {
+    case 'l-shape':
+      geo = buildLShapeGeometry(dim);
+      break;
+
+    case 'u_shape':
+      const uw = _num(dim.outerWidth, 'outerWidth');
+      const ud = _num(dim.outerDepth, 'outerDepth');
+      const gw = _num(dim.gapWidth, 'gapWidth');
+      const gd = _num(dim.gapDepth, 'gapDepth');
+      const sideW = (uw - gw) / 2;
+
+      footprintShape = new THREE.Shape()
+        .moveTo(0, 0)
+        .lineTo(uw, 0)
+        .lineTo(uw, ud)
+        .lineTo(uw - sideW, ud)
+        .lineTo(uw - sideW, ud - gd)
+        .lineTo(sideW, ud - gd)
+        .lineTo(sideW, ud)
+        .lineTo(0, ud)
+        .closePath();
+      
+      geo = new THREE.ExtrudeGeometry(footprintShape, extrudeSettings);
+      geo.translate(-uw / 2, 0, -ud / 2); // Center the shape
+      break;
+
+    case 't_shape':
+      const cw = _num(dim.crossWidthX, 'crossWidthX');
+      const cd = _num(dim.crossDepthZ, 'crossDepthZ');
+      const sw = _num(dim.stemWidthX, 'stemWidthX');
+      const sd = _num(dim.stemDepthZ, 'stemDepthZ');
+      const totalDepth = cd + sd;
+      const stemOffset = (cw - sw) / 2;
+
+      footprintShape = new THREE.Shape()
+        .moveTo(0, 0)
+        .lineTo(cw, 0)
+        .lineTo(cw, cd)
+        .lineTo(stemOffset + sw, cd)
+        .lineTo(stemOffset + sw, totalDepth)
+        .lineTo(stemOffset, totalDepth)
+        .lineTo(stemOffset, cd)
+        .lineTo(0, cd)
+        .closePath();
+
+      geo = new THREE.ExtrudeGeometry(footprintShape, extrudeSettings);
+      geo.translate(-cw / 2, 0, -totalDepth / 2); // Center the shape
+      break;
+
+    case 'cube':
+    case 'rectangular':
+    default:
+      const w = _num(dim.width, 'width');
+      const d = _num(dim.depth, 'depth');
+      geo = new THREE.BoxGeometry(w, h, d);
+      break;
   }
+  
+  // All geometries should have their base at y=0
+  geo.translate(0, h/2, 0);
+
   const mesh = new THREE.Mesh(
     geo,
-    new THREE.MeshStandardMaterial({ color: 0x808080, transparent: true, opacity, depthWrite: false })
+    new THREE.MeshStandardMaterial({ color: 0x808080, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide })
   );
-  const edges = new THREE.EdgesGeometry(geo, 1e-3);
-  const line  = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xff0000 }));
-  line.renderOrder = 999;
+  const edges = new THREE.EdgesGeometry(geo, 1); // Use a threshold to catch all edges
+  const line  = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xcccccc }));
+  
   const group = new THREE.Group();
   group.add(mesh);
   group.add(line);
