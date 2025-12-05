@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // 2. 主內容視圖切換
   if (sidebarSections.length > 0 && views.length > 0) {
     sidebarSections.forEach(section => {
-      section.addEventListener("click", (event) => {
+      section.addEventListener("click", async (event) => { // 改為 async 函數
         // 防止點擊父項目時，子項目也被觸發 (如果結構有嵌套)
         if (event.target.closest('.sidebar-section') !== section) {
             return;
@@ -32,11 +32,35 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
+        const targetView = document.getElementById(targetId);
+        if (!targetView) {
+            console.error(`[SIDEBAR]找不到目標視圖: #${targetId}`);
+            return;
+        }
+
         console.log(`[SIDEBAR] Section clicked. data-target: ${targetId}`);
         const currentActiveView = document.querySelector(".main-view.main-view-active");
         if(currentActiveView) {
             console.log(`[SIDEBAR] Hiding current view: #${currentActiveView.id}`);
         }
+
+        // <<<< 新增：動態載入 HTML >>>>
+        const htmlSource = targetView.dataset.htmlSource;
+        if (htmlSource && !targetView.dataset.loaded) {
+            try {
+                const response = await fetch(htmlSource);
+                if (!response.ok) throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+                const html = await response.text();
+                targetView.innerHTML = html;
+                targetView.dataset.loaded = "true";
+                console.log(`[SIDEBAR] 已成功載入 ${htmlSource} 到 #${targetId}`);
+
+            } catch (error) {
+                console.error(`[SIDEBAR] 無法載入外部 HTML: ${htmlSource}`, error);
+                targetView.innerHTML = `<div class="main-content"><h2 style="color:red;">無法載入視圖內容</h2><p>${error}</p></div>`;
+            }
+        }
+        // <<<< 結束：動態載入 HTML >>>>
 
         // 更新 Sidebar 的 active 狀態
         sidebarSections.forEach(s => s.classList.remove("sidebar-section-active"));
