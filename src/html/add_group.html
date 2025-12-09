@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>群組&物件－群組</title>
+  <link rel="stylesheet" href="./src/css/test_version/add_group.css">
+</head>
+<body>
+
+  <div class="main-container">
+    <!-- 這裡預期會由主版型載入側邊欄 -->
+    <!-- <div class="sidebar">...</div> -->
+
+    <div class="content-wrapper">
+      <header class="page-header">
+        <h1>群組&物件－群組</h1>
+      </header>
+      
+      <div class="description-block">
+        <p>在此頁面中，您可以決定需要建立多少個群組以及它們的基本資訊。完成群組設定後，便可前往下一步驟為每個群組配置詳細的物件規格。</p>
+      </div>
+
+      <!-- 內部步驟指示器 -->
+      <div class="steps-indicator-container">
+        <div class="step active">
+          <div class="step-number">1</div>
+          <div class="step-label">群組數量</div>
+        </div>
+        <div class="step-arrow">></div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-label">物件規格</div>
+        </div>
+      </div>
+      
+      <!-- 主要內容區 -->
+      <main class="main-content" id="main-content">
+        
+        <!-- 空狀態畫面 -->
+        <div class="content-card empty-state-container" id="empty-state-container">
+          <img src="./src/assets/temp_element/boxes_RGB.png" alt="尚無群組" class="empty-state-image">
+          <p class="empty-state-text">當前還沒有任何群組。<br>請點擊下方按鈕來建立您的第一個群組。</p>
+          <button class="btn btn-primary" id="add-group-btn-empty">
+            <span class="plus-icon">+</span> 新增群組
+          </button>
+        </div>
+
+        <!-- 群組列表表格 -->
+        <div class="content-card group-table-container hidden" id="group-table-container">
+          <div class="table-actions">
+            <button class="btn btn-primary" id="add-group-btn-table">
+              <span class="plus-icon">+</span> 新增群組
+            </button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-label">標籤</th>
+                  <th class="col-name">名稱</th>
+                  <th class="col-note">備註敘述</th>
+                  <th class="col-actions">操作</th>
+                </tr>
+              </thead>
+              <tbody id="group-table-body">
+                <!-- JavaScript 將會在此處動態生成群組列表 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 修正：載入並初始化 add_group.js 模組 -->
+  <script type="module">
+    import { init } from '/src/js_v2/group_items/add_group.js';
+
+    // 確保只在 HTML 文件完全載入並解析後才執行 init 函數
+    // 這樣可以避免在 DOM 尚未準備好時，init() 內部抓不到元素的錯誤
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM content fully loaded. Calling init() now.');
+      init();
+    });
+  </script>
+
+</body>
+</html>

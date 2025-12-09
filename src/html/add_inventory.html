@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>群組&物件－物件規格</title>
+  <link rel="stylesheet" href="./src/css/test_version/add_inventory.css">
+</head>
+<body>
+
+  <div class="main-container">
+    <div class="content-wrapper">
+      <header class="page-header">
+        <h1>群組&物件－物件規格</h1>
+      </header>
+      
+      <div class="description-block">
+        <p>請先從下拉選單中選擇一個群組，然後在下方為該群組新增或管理詳細的物件規格。</p>
+      </div>
+
+      <!-- 內部步驟指示器 -->
+      <div class="steps-indicator-container">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-label">群組數量</div>
+        </div>
+        <div class="step-arrow">></div>
+        <div class="step active">
+          <div class="step-number">2</div>
+          <div class="step-label">物件規格</div>
+        </div>
+      </div>
+      
+      <!-- 主要內容區 -->
+      <main class="main-content" id="main-content">
+        
+        <!-- 群組選擇區 -->
+        <div class="content-card">
+            <label for="group-selector" class="form-label">請選擇要編輯的群組：</label>
+            <select id="group-selector" class="form-control">
+                <option value="">請先載入群組...</option>
+            </select>
+        </div>
+
+        <!-- 物件列表與空狀態容器 -->
+        <div id="item-display-container" class="content-card hidden">
+            <div class="card-header">
+              <h2 class="card-title">物件列表</h2>
+              <button class="btn btn-primary" data-action="open-add-modal">
+                  <span class="plus-icon">+</span> 新增物件
+              </button>
+            </div>
+            
+            <!-- 空狀態畫面 (包含新增按鈕) -->
+            <div id="item-empty-state" class="empty-state">
+                <img src="./src/assets/temp_element/box_RGB.png" alt="尚無物件" class="empty-state__image">
+                <p class="empty-state__title">當前群組內沒有新增任何物件</p>
+                <p class="empty-state__subtitle">請點擊下方按鈕建立您的第一個物件。</p>
+                <button class="btn btn-primary" data-action="open-add-modal">
+                    <span class="plus-icon">+</span> 新增物件
+                </button>
+            </div>
+
+            <!-- 物件列表表格 -->
+            <div id="item-table-container" class="table-wrapper hidden">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>編號</th>
+
+                      <th>長</th>
+                      <th>寬</th>
+                      <th>高</th>
+                      <th>備註</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="item-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 新增物件 Modal -->
+  <div id="add-item-modal" class="modal-overlay hidden">
+    <div class="modal-panel">
+      <header class="modal-header">
+        <h2 class="modal-title">新增物件</h2>
+        <button class="modal-close-btn" data-action="close-add-modal">&times;</button>
+      </header>
+
+      <main class="modal-body">
+        <form id="add-item-modal-form">
+          <div class="form-grid-four">
+            <div class="form-group">
+              <label for="modal-item-length">長度*</label>
+              <input
+                type="number"
+                id="modal-item-length"
+                class="form-control"
+                required
+                step="0.01"
+                min="0"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="modal-item-width">寬度*</label>
+              <input
+                type="number"
+                id="modal-item-width"
+                class="form-control"
+                required
+                step="0.01"
+                min="0"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="modal-item-height">高度*</label>
+              <input
+                type="number"
+                id="modal-item-height"
+                class="form-control"
+                required
+                step="0.01"
+                min="0"
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="modal-item-quantity">數量*</label>
+              <input
+                type="number"
+                id="modal-item-quantity"
+                class="form-control"
+                required
+                step="1"
+                min="1"
+              >
+            </div>
+          </div>
+        </form>
+      </main>
+
+      <footer class="modal-footer">
+        <button class="btn btn-secondary" data-action="close-add-modal">取消</button>
+        <button class="btn btn-primary" id="modal-confirm-add-btn">確定</button>
+      </footer>
+    </div>
+  </div>
+
+  </div>
+
+  <script type="module" src="../js_v2/group_items/add_inventory.js"></script>
+</body>
+</html>
+
