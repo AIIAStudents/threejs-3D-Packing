@@ -1,0 +1,74 @@
+<!--
+    File: assign_sequence.html
+    Description: UI for reordering items within a selected space.
+-->
+<!-- Styles are now in assign_sequence.css -->
+
+<div class="assignment-page">
+    <!-- 1. Header -->
+    <header class="dc-header">
+        <h1 class="dc-title">空間配置 - 打包物件</h1>
+        <p class="dc-subtitle">
+            請選擇空間，並透過拖曳或使用右方工具列來排序物件。
+            這個順序將決定最終3D視圖中的堆疊順序。
+        </p>
+    </header>
+
+    <!-- 2. Combined Step Bar and Space Selector -->
+    <div class="step-and-select-container">
+        <!-- Step Bar -->
+        <div class="steps-indicator steps-indicator--container">
+            <div class="step" data-step="1"> <div class="step-number">1</div> <div class="step-label">選擇容器</div> </div>
+            <div class="step-arrow"></div>
+            <div class="step" data-step="2"> <div class="step-number">2</div> <div class="step-label">切割容器</div> </div>
+            <div class="step-arrow"></div>
+            <div class="step" data-step="3"> <div class="step-number">3</div> <div class="step-label">分配物件</div> </div>
+            <div class="step-arrow"></div>
+            <div class="step active" data-step="4"> <div class="step-number">4</div> <div class="step-label">打包物件</div> </div>
+        </div>
+        <!-- Space Selector Row (Moved Here) -->
+        <div id="space-select-row" class="space-select-row">
+            <label for="space-select">當前空間</label>
+            <select id="space-select">
+                <option value="">請先選擇一個空間</option>
+            </select>
+        </div>
+    </div>
+
+
+    <!-- 3. Main Content -->
+    <main class="main-content">
+        <div class="assign-sequence-layout">
+            <!-- Items Column -->
+            <div class="items-column">
+                <div id="items-board" class="items-board">
+                    <div class="item-board-placeholder">
+                        <p>請先選擇一個空間以載入物件。</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar Column -->
+            <div class="toolbar-column">
+                <button id="move-up-btn" class="icon-btn" title="往上移動">
+                    <img src="./src/assets/temp_element/up.png" alt="Move Up">
+                </button>
+                <button id="move-down-btn" class="icon-btn" title="往下移動">
+                    <img src="./src/assets/temp_element/down.png" alt="Move Down">
+                </button>
+                <button id="cancel-all-btn" class="icon-btn" title="取消所有變更">
+                    <img src="./src/assets/temp_element/close_v2.png" alt="Cancel">
+                </button>
+                <button id="confirm-all-btn" class="icon-btn" title="儲存目前順序">
+                    <img src="./src/assets/temp_element/check.png" alt="Confirm">
+                </button>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 4. Footer Actions (Button is now a FAB) -->
+    <footer class="footer-actions">
+        <!-- The button is moved out and restyled as a FAB -->
+    </footer>
+    <button id="execute-btn" class="fab">執行打包</button>
+</div>

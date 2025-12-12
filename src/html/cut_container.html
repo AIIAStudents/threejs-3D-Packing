@@ -58,22 +58,9 @@
             <div class="container-layout__right--cut">
                 <div class="zone-table-container">
                     <h2>區域列表</h2>
-                    <table id="zone-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>中心 X</th>
-                                <th>中心 Y</th>
-                                <th>寬度</th>
-                                <th>高度</th>
-                                <th>旋轉</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- JS will populate this -->
-                        </tbody>
-                    </table>
+                    <div id="zone-card-container">
+                        <!-- JS will populate this with cards -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,9 +69,9 @@
         <div class="container-actions">
             <button id="btn-prev-step" class="btn btn-secondary">上一步</button>
             <button id="btn-finish" class="btn">完成切割</button>
+            <button id="btn-next-step" class="btn">下一步</button>
         </div>
     </div>
 
-    <script type="module" src="./src/js_v2/container/cut_container.js"></script>
 </body>
 </html>

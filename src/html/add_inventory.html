@@ -46,9 +46,11 @@
         <div id="item-display-container" class="content-card hidden">
             <div class="card-header">
               <h2 class="card-title">物件列表</h2>
-              <button class="btn btn-primary" data-action="open-add-modal">
-                  <span class="plus-icon">+</span> 新增物件
-              </button>
+              <div class="header-actions">
+                <button class="btn btn-primary" data-action="open-add-modal">
+                    <span class="plus-icon">+</span> 新增物件
+                </button>
+              </div>
             </div>
             
             <!-- 空狀態畫面 (包含新增按鈕) -->
@@ -77,6 +79,11 @@
                   </thead>
                   <tbody id="item-table-body"></tbody>
                 </table>
+            </div>
+
+            <!-- 儲存按鈕容器 -->
+            <div class="card-footer-actions" style="display: flex; justify-content: flex-end; margin-top: 20px;">
+              <button id="save-all-btn" class="btn btn-success">儲存全部變更</button>
             </div>
         </div>
       </main>
