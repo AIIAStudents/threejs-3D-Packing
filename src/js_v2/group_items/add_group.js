@@ -26,6 +26,10 @@ let groupTableBody;
 let addGroupBtnEmpty;
 /** @type {HTMLButtonElement | null} */
 let addGroupBtnTable;
+/** @type {HTMLElement | null} */
+let nextStepContainer;
+/** @type {HTMLButtonElement | null} */
+let nextStepBtn;
 
 
 // --- [核心修正] 函數匯出 ---
@@ -47,8 +51,10 @@ export async function init() {
   groupTableBody = document.getElementById('group-table-body');
   addGroupBtnEmpty = document.getElementById('add-group-btn-empty');
   addGroupBtnTable = document.getElementById('add-group-btn-table');
+  nextStepContainer = document.getElementById('next-step-container');
+  nextStepBtn = document.getElementById('next-step-btn');
 
-  if (!mainContent || !emptyStateContainer || !groupTableContainer || !groupTableBody || !addGroupBtnEmpty || !addGroupBtnTable) {
+  if (!mainContent || !emptyStateContainer || !groupTableContainer || !groupTableBody || !addGroupBtnEmpty || !addGroupBtnTable || !nextStepContainer || !nextStepBtn) {
     console.error('[add_group.js] CRITICAL: One or more required DOM elements are missing. Halting initialization.');
     return;
   }
@@ -114,6 +120,7 @@ function renderEmptyState() {
   // 使用可選鏈操作符，避免在元素為 null 時出錯
   emptyStateContainer?.classList.remove('hidden');
   groupTableContainer?.classList.add('hidden');
+  nextStepContainer?.classList.add('hidden');
 }
 
 /**
@@ -129,6 +136,7 @@ function renderGroupTable() {
 
   emptyStateContainer?.classList.add('hidden');
   groupTableContainer?.classList.remove('hidden');
+  nextStepContainer?.classList.remove('hidden');
 
   groupTableBody.innerHTML = '';
 
@@ -189,6 +197,7 @@ function bindEvents() {
   addGroupBtnTable?.addEventListener('click', handleAddGroup);
   groupTableContainer?.addEventListener('click', handleTableClick);
   groupTableContainer?.addEventListener('input', handleTableInput);
+  nextStepBtn?.addEventListener('click', handleNavigateToNextStep);
 }
 
 /**
@@ -318,5 +327,24 @@ async function handleDeleteGroup(groupId) {
 
   } catch (error) {
     console.error(`[add_group.js] 無法透過 API 刪除群組 ${groupId}:`, error);
+  }
+}
+
+/**
+ * 處理導航到下一步（物件規格）的邏輯。
+ * @returns {void}
+ */
+function handleNavigateToNextStep() {
+  console.log('[add_group.js] Navigating to next step...');
+  // 找到對應 "物件規格" 的側邊欄區塊
+  const inventorySection = document.querySelector('.sidebar-section[data-target="view-groups-item"]');
+
+  if (inventorySection) {
+    console.log('[add_group.js] Found sidebar section for "items". Triggering click.');
+    inventorySection.click(); // 模擬點擊，觸發 sidebar.js 中的導航邏輯
+  } else {
+    console.error('[add_group.js] CRITICAL: Could not find the sidebar section for the next step (data-target="view-groups-item"). Navigation failed.');
+    // 可選：向使用者顯示錯誤
+    alert('無法導航至下一步，找不到對應的側邊欄選項。');
   }
 }

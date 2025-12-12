@@ -15,6 +15,7 @@
  * @property {number} quantity
  * @property {string} note
  * @property {number} group_id
+ * @property {boolean} [isDirty] - Optional flag to track changes
  */
 
 // --- 全域變數與常數 ---
@@ -24,6 +25,8 @@ let groups = [];
 /** @type {Item[]} */
 let currentItems = [];
 let isInitialized = false;
+/** @type {number | null} */
+let editingItemId = null; // Track which item row is in edit mode
 
 // --- DOM 節點參考 ---
 let groupSelector;
@@ -36,7 +39,7 @@ let addItemModalForm;
 let modalConfirmBtn;
 let openModalBtns;
 let closeModalBtns;
-
+let saveAllBtn;
 
 /**
  * 初始化函式
@@ -54,10 +57,11 @@ export async function init() {
     addItemModal = document.getElementById('add-item-modal');
     addItemModalForm = document.getElementById('add-item-modal-form');
     modalConfirmBtn = document.getElementById('modal-confirm-add-btn');
+    saveAllBtn = document.getElementById('save-all-btn');
     openModalBtns = document.querySelectorAll('[data-action="open-add-modal"]');
     closeModalBtns = document.querySelectorAll('[data-action="close-add-modal"]');
     
-    const requiredElements = [groupSelector, itemDisplayContainer, itemEmptyState, itemTableContainer, itemTableBody, addItemModal, addItemModalForm, modalConfirmBtn];
+    const requiredElements = [groupSelector, itemDisplayContainer, itemEmptyState, itemTableContainer, itemTableBody, addItemModal, addItemModalForm, modalConfirmBtn, saveAllBtn];
     if (requiredElements.some(el => !el) || openModalBtns.length === 0 || closeModalBtns.length === 0) {
         console.error('[add_inventory.js] One or more required DOM elements are missing.');
         return;
@@ -105,40 +109,39 @@ function bindEvents() {
     closeModalBtns.forEach(btn => btn.addEventListener('click', closeAddItemModal));
     addItemModal?.addEventListener('click', (e) => {
         if (e.target === addItemModal) {
-            closeAddItemModal(); // 點擊背景遮罩時關閉
+            closeAddItemModal();
         }
     });
 
     modalConfirmBtn?.addEventListener('click', handleModalConfirm);
+    saveAllBtn?.addEventListener('click', handleSaveAllChanges);
 
     itemTableContainer?.addEventListener('click', (e) => {
         const target = e.target;
-        if (!target) return;
-
-        const action = target.dataset.action;
+        if (!target || !target.dataset.action) return;
         const id = Number(target.dataset.id);
-
-        switch (action) {
-            case 'delete':
-                handleDeleteItem(id);
-                break;
-            case 'edit-note':
-                handleEditNote(id);
-                break;
-            case 'save-note':
-                handleSaveNote(id);
-                break;
-            case 'cancel-edit-note':
-                handleCancelEditNote();
-                break;
+        if (target.dataset.action === 'delete') {
+            handleDeleteItem(id);
+        } else if (target.dataset.action === 'edit-note') {
+            handleEditNote(id);
         }
     });
+
+    itemTableContainer?.addEventListener('input', handleTableInput);
 }
 
 /**
  * 處理群組下拉選單的變更事件
  */
 async function handleGroupSelectionChange() {
+    if (currentItems.some(item => item.isDirty)) {
+        if (!confirm('您有未儲存的變更，確定要切換群組嗎？所有未儲存的變更將會遺失。')) {
+            groupSelector.value = currentItems[0]?.group_id || '';
+            return;
+        }
+    }
+    editingItemId = null;
+    
     const groupId = groupSelector?.value;
     if (!groupId) {
         itemDisplayContainer?.classList.add('hidden');
@@ -171,13 +174,7 @@ async function loadItemsForGroup(groupId) {
  */
 function renderItemsView() {
     if (!itemTableBody || !itemEmptyState || !itemTableContainer) return;
-    const tableHeaderBtn = document.querySelector('.card-header .btn');
-
-    // 如果有任何項目處於編輯模式，先取消以避免UI錯亂
-    const isEditing = document.querySelector('.note-cell input');
-    if (isEditing) {
-        // 簡單地重新渲染會自動取消所有編輯狀態
-    }
+    const tableHeaderBtn = document.querySelector('.card-header .btn[data-action="open-add-modal"]');
 
     if (currentItems.length === 0) {
         itemEmptyState.classList.remove('hidden');
@@ -189,20 +186,29 @@ function renderItemsView() {
         tableHeaderBtn?.classList.remove('hidden');
         
         itemTableBody.innerHTML = '';
-        currentItems.forEach(item => {
+        currentItems.forEach((item, index) => {
             const tr = document.createElement('tr');
             tr.dataset.itemId = item.id;
+            if (item.isDirty) {
+                tr.classList.add('row-dirty');
+            }
+
+            const isEditing = item.id === editingItemId;
+
             tr.innerHTML = `
-                <td>${item.id}</td>
+                <td>${index + 1}</td>
                 <td>${item.length}</td>
                 <td>${item.width}</td>
                 <td>${item.height}</td>
                 <td class="note-cell">
-                    <span class="note-text">${item.note || ''}</span>
+                    ${isEditing 
+                        ? `<input type="text" class="form-control form-control-sm" name="note" value="${item.note || ''}">` 
+                        : `<span class="note-text">${item.note || ''}</span>`
+                    }
                 </td>
                 <td class="actions-cell">
                     <div class="action-buttons-wrapper">
-                        <button class="btn btn-secondary btn-sm" data-action="edit-note" data-id="${item.id}">編輯</button>
+                        <button class="btn btn-secondary btn-sm" data-action="edit-note" data-id="${item.id}" ${isEditing ? 'disabled' : ''}>編輯</button>
                         <button class="btn btn-danger btn-sm" data-action="delete" data-id="${item.id}">刪除</button>
                     </div>
                 </td>
@@ -243,13 +249,13 @@ async function handleModalConfirm() {
 
     const originalQuantity = parseInt(document.getElementById('modal-item-quantity').value, 10);
     const baseItemData = {
-        name: '', // 暫時設定為空字串，因為 modal 中沒有這個欄位
+        name: '',
         length: parseFloat(document.getElementById('modal-item-length').value),
         width: parseFloat(document.getElementById('modal-item-width').value),
         height: parseFloat(document.getElementById('modal-item-height').value),
-        note: '', // 暫時設定為空字串，因為 modal 中沒有這個欄位
+        note: '',
         group_id: Number(groupId),
-        quantity: 1, // 強制設定數量為 1，因為我們要建立多個獨立物件
+        quantity: 1,
     };
 
     if (isNaN(baseItemData.length) || baseItemData.length <= 0 ||
@@ -261,23 +267,17 @@ async function handleModalConfirm() {
     }
 
     try {
-        modalConfirmBtn.disabled = true; // 防止重複點擊
-
+        modalConfirmBtn.disabled = true;
         const creationPromises = [];
         for (let i = 0; i < originalQuantity; i++) {
             const promise = fetch(`${API_BASE_URL}/api/v2/items/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(baseItemData),
-            }).then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            });
+            }).then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP error! status: ${res.status}`)));
             creationPromises.push(promise);
         }
-
         const newItems = await Promise.all(creationPromises);
-        
         currentItems.push(...newItems);
         renderItemsView();
         closeAddItemModal();
@@ -285,7 +285,7 @@ async function handleModalConfirm() {
         console.error('[add_inventory.js] 無法新增物件:', error);
         alert('新增物件失敗，請檢查主控台以獲取更多資訊。');
     } finally {
-        modalConfirmBtn.disabled = false; // 恢復按鈕
+        modalConfirmBtn.disabled = false;
     }
 }
 
@@ -297,11 +297,8 @@ async function handleDeleteItem(itemId) {
     if (!confirm(`您確定要刪除編號為 ${itemId} 的物件嗎？`)) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/items/${itemId}`, {
-            method: 'DELETE',
-        });
+        const response = await fetch(`${API_BASE_URL}/api/v2/items/${itemId}`, { method: 'DELETE' });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
         currentItems = currentItems.filter(item => item.id !== itemId);
         renderItemsView();
     } catch (error) {
@@ -311,86 +308,84 @@ async function handleDeleteItem(itemId) {
 }
 
 /**
- * 處理點擊「編輯備註」按鈕的事件
+ * 處理點擊「編輯備註」按鈕的事件，進入單行編輯模式
  * @param {number} itemId
  */
 function handleEditNote(itemId) {
-    // 先重新渲染，確保只有一個項目處於編輯狀態
+    editingItemId = itemId;
     renderItemsView();
-
-    const item = currentItems.find(i => i.id === itemId);
-    if (!item) return;
-
-    const row = itemTableBody.querySelector(`tr[data-item-id="${itemId}"]`);
-    const noteCell = row?.querySelector('.note-cell');
-    const actionCell = row?.querySelector('.actions-cell');
-
-    if (!noteCell || !actionCell) return;
-
-    noteCell.innerHTML = `
-        <input type="text" class="form-control form-control-sm" value="${item.note || ''}">
-    `;
-
-    actionCell.innerHTML = `
-        <button class="btn btn-success btn-sm" data-action="save-note" data-id="${itemId}">儲存</button>
-        <button class="btn btn-secondary btn-sm" data-action="cancel-edit-note" data-id="${itemId}">取消</button>
-    `;
-    
-    // 自動聚焦到輸入框
-    noteCell.querySelector('input')?.focus();
+    const input = itemTableBody.querySelector(`tr[data-item-id="${itemId}"] .note-cell input`);
+    input?.focus();
 }
 
 /**
- * 處理儲存備註的邏輯
- * @param {number} itemId
+ * 處理表格內輸入事件，更新本地資料並標記為 dirty
+ * @param {Event} e
  */
-async function handleSaveNote(itemId) {
-    const row = itemTableBody.querySelector(`tr[data-item-id="${itemId}"]`);
-    const input = row?.querySelector('.note-cell input');
-    if (!input) return;
+function handleTableInput(e) {
+    if (!(e.target instanceof HTMLInputElement)) return;
+    const target = e.target;
+    const row = target.closest('tr');
+    if (!row) return;
 
-    const newNote = input.value;
-    const itemIndex = currentItems.findIndex(i => i.id === itemId);
-    if (itemIndex === -1) return;
+    const itemId = Number(row.dataset.itemId);
+    const fieldName = target.name;
+    const value = target.value;
 
-    const originalNote = currentItems[itemIndex].note;
-    
-    // 樂觀更新 (Optimistic Update)
-    currentItems[itemIndex].note = newNote;
-    renderItemsView(); // 立即重新渲染以退出編輯模式
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/v2/items/${itemId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ note: newNote }),
-        });
-
-        if (!response.ok) {
-            throw new Error(`伺服器錯誤: ${response.status}`);
-        }
-        
-        // 如果成功，可以選擇性地用伺服器返回的資料完全更新項目
-        const updatedItem = await response.json();
-        currentItems[itemIndex] = updatedItem;
-        
-    } catch (error) {
-        console.error(`[add_inventory.js] 無法儲存備註 ${itemId}:`, error);
-        alert('儲存備註失敗！');
-        
-        // 如果更新失敗，則恢復到原始值
-        currentItems[itemIndex].note = originalNote;
-    } finally {
-        // 無論成功或失敗，都再次渲染以確保UI同步
-        renderItemsView();
+    const itemToUpdate = currentItems.find(i => i.id === itemId);
+    if (itemToUpdate && (itemToUpdate[fieldName] !== value)) {
+        itemToUpdate[fieldName] = value;
+        itemToUpdate.isDirty = true;
+        row.classList.add('row-dirty'); // Immediately add visual feedback
     }
 }
 
 /**
- * 取消編輯備註
+ * 儲存所有標記為 'dirty' 的變更
  */
-function handleCancelEditNote() {
-    renderItemsView(); // 重新渲染即可恢復原狀
+async function handleSaveAllChanges() {
+    editingItemId = null; // 退出所有編輯模式
+    renderItemsView(); // 重新渲染以移除所有 input 框
+
+    const dirtyItems = currentItems.filter(item => item.isDirty);
+    if (dirtyItems.length === 0) {
+        alert('沒有偵測到任何變更。');
+        return;
+    }
+
+    saveAllBtn.disabled = true;
+    saveAllBtn.textContent = '儲存中...';
+
+    const savePromises = dirtyItems.map(item => {
+        return fetch(`${API_BASE_URL}/api/v2/items/${item.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: item.note }), // Currently only supports note
+        }).then(response => {
+            if (!response.ok) return Promise.reject(new Error(`Failed to save item ${item.id}`));
+            return response.json();
+        });
+    });
+
+    try {
+        const updatedItems = await Promise.all(savePromises);
+        
+        // 更新本地資料並清除 dirty 標記
+        updatedItems.forEach(updatedItem => {
+            const index = currentItems.findIndex(i => i.id === updatedItem.id);
+            if (index !== -1) {
+                currentItems[index] = { ...currentItems[index], ...updatedItem, isDirty: false };
+            }
+        });
+        
+        alert('所有變更已成功儲存！');
+
+    } catch (error) {
+        console.error('[add_inventory.js] 儲存變更失敗:', error);
+        alert('部分或全部變更儲存失敗，請檢查主控台獲取詳細資訊。');
+    } finally {
+        saveAllBtn.disabled = false;
+        saveAllBtn.textContent = '儲存全部變更';
+        renderItemsView(); // 重新渲染以移除 dirty 狀態的視覺回饋
+    }
 }
