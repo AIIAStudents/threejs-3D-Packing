@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+const API_BASE_URL = 'http://localhost:8888';
 const DEBUG = true;
 
 function debounce(func, delay) {
@@ -20,7 +21,7 @@ const ContainerPage = {
 			rect: { widthX: 100, depthZ: 60 },
 			u_shape: { outerWidthX: 120, outerDepthZ: 80, gapWidthX: 40, gapDepthZ: 50 },
 			t_shape: { stemWidthX: 40, stemDepthZ: 100, crossWidthX: 120, crossDepthZ: 30, crossOffsetZ: 0 },
-			common: { heightY: 50, wallThickness: 2, rotationY: 0, position: { x: 0, y: 0, z: 0 }, color: 0x1e90ff, opacity: 0.5 },
+			common: { heightY: 50, wallThickness: 2, color: 0x1e90ff, opacity: 0.5 },
 		},
 		three: { scene: null, camera: null, renderer: null, controls: null, containerMesh: null },
 		dom: { form: null, shapeSelect: null, shapeParamDivs: {}, inputs: {}, canvasContainer: null, nextButton: null },
@@ -49,13 +50,13 @@ const ContainerPage = {
 	},
 
 	bindDOM() {
-        console.log("✅ [3/6] bindDOM() called.");
+		console.log("✅ [3/6] bindDOM() called.");
 		const { dom } = this.state;
 		dom.form = document.getElementById("container-form");
 		dom.shapeSelect = document.getElementById("container-type-select");
 		dom.canvasContainer = document.getElementById("container-preview-canvas");
 		dom.nextButton = document.getElementById("container-next-step-btn");
-        console.log("🔍 [4/6] Querying for nextButton returned:", dom.nextButton);
+		console.log("🔍 [4/6] Querying for nextButton returned:", dom.nextButton);
 
 		if (!dom.form) {
 			console.error("❌ DOM binding failed: #container-form not found.");
@@ -89,7 +90,7 @@ const ContainerPage = {
         if (clientWidth === 0 || clientHeight === 0) {
             console.warn("⚠️ Canvas container has zero dimensions. 3D preview may be invisible.");
         }
-		three.camera = new THREE.PerspectiveCamera(50, clientWidth / clientHeight, 1, 1000);
+		three.camera = new THREE.PerspectiveCamera(50, clientWidth / clientHeight, 1, 20000);
 		three.camera.position.set(150, 150, 150);
 		three.camera.lookAt(0, 0, 0);
 		three.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -129,7 +130,7 @@ const ContainerPage = {
 		});
 
         console.log(" attaching click listener to:", dom.nextButton);
-		dom.nextButton.addEventListener("click", () => {
+		dom.nextButton.addEventListener("click", async () => {
             console.log("✅ [6/6] Next button CLICKED!");
 			const configToSave = {
 					shape: this.state.currentContainerType,
@@ -138,11 +139,26 @@ const ContainerPage = {
 			console.log("[Container] Storing config and moving to step 2 (cutting).", configToSave);
 
 			try {
-					localStorage.setItem("containerConfig", JSON.stringify(configToSave));
+				// Save to database via API
+				const response = await fetch(`${API_BASE_URL}/api/v2/containers/`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(configToSave),
+				});
+
+				if (!response.ok) {
+					const errorData = await response.json();
+					throw new Error(errorData.details || `HTTP error! Status: ${response.status}`);
+				}
+				console.log('[Container] Config saved to database successfully.');
+
+				// Also save to localStorage as a fallback/cache
+				localStorage.setItem("containerConfig", JSON.stringify(configToSave));
+
 			} catch (e) {
-					console.error("Failed to save container config to localStorage", e);
-					alert("錯誤：無法儲存容器設定。");
-					return;
+				console.error("Failed to save container config to database", e);
+				alert(`錯誤：無法將容器設定儲存到資料庫。\n${e.message}`);
+				return; // Stop execution if saving fails
 			}
 
 			const cutContainerTrigger = document.querySelector(
@@ -202,8 +218,6 @@ const ContainerPage = {
 		const config = this.getCurrentConfig();
 		three.containerMesh = this.createContainerMesh(this.state.currentContainerType, config);
 		if (three.containerMesh) {
-			three.containerMesh.rotation.y = THREE.MathUtils.degToRad(config.rotationY);
-			three.containerMesh.position.set(config.position.x, config.position.y, config.position.z);
 			three.scene.add(three.containerMesh);
 		}
 	},

@@ -2,7 +2,7 @@
 
 const API_BASE_URL = 'http://localhost:8888';
 
-const CutContainerPage = {
+export const CutContainerPage = {
     state: {
         containerConfig: null,
         zones: [],
@@ -47,6 +47,7 @@ const CutContainerPage = {
         this.elements.zoneCardContainer = document.getElementById('zone-card-container');
         this.elements.btnPrevStep = document.getElementById('btn-prev-step');
         this.elements.btnFinish = document.getElementById('btn-finish');
+        this.elements.btnNextStep = document.getElementById('btn-next-step');
     },
 
     addEventListeners() {
@@ -74,6 +75,16 @@ const CutContainerPage = {
                 console.error("Failed to save cutting job to DB:", error);
             }
         });
+
+        this.elements.btnNextStep.addEventListener('click', () => {
+            const assignSpaceTrigger = document.querySelector('.sidebar-section[data-target="view-assign-space"]');
+            if (assignSpaceTrigger) {
+                assignSpaceTrigger.click();
+            } else {
+                console.error('Could not find sidebar trigger for view-assign-space');
+                alert('無法自動導向下一步，請手動點擊側邊欄。');
+            }
+        });
     },
 
     async fetchData() {
@@ -84,12 +95,9 @@ const CutContainerPage = {
             if (data.error) throw new Error(data.error);
 
             this.state.containerConfig = data.container;
-            
-            console.log('[BEFORE FLATTEN]', JSON.parse(JSON.stringify(this.state.containerConfig)));
             if (this.state.containerConfig && this.state.containerConfig.parameters) {
                 Object.assign(this.state.containerConfig, this.state.containerConfig.parameters);
             }
-            console.log('[AFTER FLATTEN]', JSON.parse(JSON.stringify(this.state.containerConfig)));
             
             this.state.zones = data.zones.map((z, index) => ({
                 db_length: z.length, 
@@ -159,7 +167,6 @@ const CutContainerPage = {
     },
 
     async saveCuttingJob() {
-        // ... (saveCuttingJob remains the same)
         if (!this.state.containerConfig || this.state.zones.length === 0) {
             throw new Error("沒有容器設定或區域資料可儲存。");
         }
@@ -169,7 +176,10 @@ const CutContainerPage = {
                 label: zone.label,
                 length: zone.width,
                 width: zone.height,
-                height: zone.depth
+                height: zone.depth,
+                x: zone.x,
+                y: zone.y,
+                rotation: zone.rotation
             }))
         };
         const response = await fetch(`${API_BASE_URL}/api/v2/cutting/jobs`, {
@@ -194,7 +204,6 @@ const CutContainerPage = {
     },
     
     onMouseUp(e) {
-        // ... (onMouseUp remains the same)
         const { draggingState } = this.state;
         if (!draggingState.isDragging || !this.state.isEditing) return;
         if (draggingState.mode === 'draw') {
@@ -232,31 +241,19 @@ const CutContainerPage = {
         this.state.zones.forEach(zone => {
             const card = document.createElement('div');
             card.className = 'zone-card';
-            if (zone.id === this.state.selectedZoneId) {
-                card.classList.add('selected');
-            }
+            if (zone.id === this.state.selectedZoneId) card.classList.add('selected');
             card.dataset.zoneId = zone.id;
-    
-            const totalVolume = zone.length * zone.width * zone.height;
+            const totalVolume = zone.width * zone.height * zone.depth;
             const assignedGroupIds = this.state.assignments[zone.id] || [];
-            
             const usedVolume = assignedGroupIds.reduce((sum, groupId) => {
                 const group = this.state.groups.find(g => g.id === groupId);
                 return sum + (group ? group.totalVolume : 0);
             }, 0);
-
             const utilization = totalVolume > 0 ? (usedVolume / totalVolume) * 100 : 0;
-            
-            let assignedGroupsHtml = '';
-            if (assignedGroupIds.length > 0) {
-                assignedGroupsHtml = assignedGroupIds.map(groupId => {
-                    const group = this.state.groups.find(g => g.id === groupId);
-                    return `<span class="group-tag">${group ? group.name : `ID: ${groupId}`}</span>`;
-                }).join(' ');
-            } else {
-                assignedGroupsHtml = '<span class="no-groups-text">尚無</span>';
-            }
-
+            let assignedGroupsHtml = assignedGroupIds.length > 0 ? assignedGroupIds.map(groupId => {
+                const group = this.state.groups.find(g => g.id === groupId);
+                return `<span class="group-tag">${group ? group.name : `ID: ${groupId}`}</span>`;
+            }).join(' ') : '<span class="no-groups-text">尚無</span>';
             card.innerHTML = `
                 <div class="zone-card-header">
                     <span>區域 ${zone.label}</span>
@@ -269,17 +266,13 @@ const CutContainerPage = {
                         <span>當前群組:</span>
                         <div class="group-tags-container">${assignedGroupsHtml}</div>
                     </div>
-                </div>
-            `;
-    
+                </div>`;
             card.addEventListener('click', () => {
                 if (this.state.isEditing) {
                     this.state.selectedZoneId = zone.id;
-                    this.syncUI();
-                    this.redraw();
+                    this.syncUI(); this.redraw();
                 }
             });
-    
             card.querySelector('.btn-delete').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.state.zones = this.state.zones.filter(z => z.id !== zone.id);
@@ -290,7 +283,6 @@ const CutContainerPage = {
                 this.syncUI();
                 this.redraw();
             });
-    
             this.elements.zoneCardContainer.appendChild(card);
         });
     },
@@ -308,12 +300,26 @@ const CutContainerPage = {
 
     getContainerBoundingBox() {
         const config = this.state.containerConfig;
+        //console.log('[DEBUG-BBOX] Config received:', JSON.parse(JSON.stringify(config)));
         if (!config) return { width: 100, height: 100 };
-        return { width: config.widthX || 5800, height: config.depthZ || 2300 };
+        let dims;
+        switch (config.shape) {
+            case 'u_shape': 
+                dims = { width: config.outerWidthX, height: config.outerDepthZ };
+                break;
+            case 't_shape': 
+                dims = { width: config.crossWidthX, height: config.stemDepthZ };
+                break;
+            case 'rect': 
+            default: 
+                dims = { width: config.widthX, height: config.depthZ };
+                break;
+        }
+        //console.log('[DEBUG-BBOX] Dimensions returned:', dims);
+        return dims;
     },
 
     worldToCanvas(worldX, worldY) {
-        // ... (worldToCanvas remains mostly the same)
         const { canvas } = this.elements;
         const bbox = this.getContainerBoundingBox();
         if (!canvas) return { x: 0, y: 0 };
@@ -322,11 +328,15 @@ const CutContainerPage = {
         const scale = Math.min(scaleX, scaleY) * 0.95;
         const offsetX = (canvas.width - bbox.width * scale) / 2;
         const offsetY = (canvas.height - bbox.height * scale) / 2;
+        
+        if (worldX === 0 && worldY === 0) { 
+             console.log('[DEBUG-W2C] BBox:', bbox, 'Canvas Size:', {w: canvas.width, h: canvas.height}, 'Scale:', scale);
+        }
+
         return { x: worldX * scale + offsetX, y: worldY * scale + offsetY };
     },
 
     canvasToWorld(canvasX, canvasY) {
-        // ... (canvasToWorld remains mostly the same)
         const { canvas } = this.elements;
         const bbox = this.getContainerBoundingBox();
         if (!canvas) return { x: 0, y: 0 };
@@ -367,9 +377,8 @@ const CutContainerPage = {
     },
 
     onMouseMove(e) {
-        // ... (onMouseMove remains the same)
         const { draggingState, isEditing, selectedZoneId, zones } = this.state;
-        if (!draggingState.isDragging || !isEditing) return;
+        if (!draggingState.isEditing || !isEditing) return;
         const { x: worldX, y: worldY } = this.canvasToWorld(e.offsetX, e.offsetY);
         const selectedZone = zones.find(z => z.id === selectedZoneId);
         switch (draggingState.mode) {
@@ -404,22 +413,18 @@ const CutContainerPage = {
     },
 
     hitTestRectangle(worldX, worldY) {
-        // ... (hitTestRectangle remains the same)
         for (let i = this.state.zones.length - 1; i >= 0; i--) {
             const zone = this.state.zones[i];
             const dx = worldX - zone.x;
             const dy = worldY - zone.y;
             const localX = dx * Math.cos(-zone.rotation) - dy * Math.sin(-zone.rotation);
             const localY = dx * Math.sin(-zone.rotation) + dy * Math.cos(-zone.rotation);
-            if (Math.abs(localX) < zone.width / 2 && Math.abs(localY) < zone.height / 2) {
-                return zone;
-            }
+            if (Math.abs(localX) < zone.width / 2 && Math.abs(localY) < zone.height / 2) return zone;
         }
         return null;
     },
 
     hitTestHandles(zone, worldX, worldY) {
-        // ... (hitTestHandles remains the same)
         const handles = this.getHandlePositions(zone);
         const handleRadius = 8;
         const worldMouse = this.worldToCanvas(worldX, worldY);
@@ -427,15 +432,12 @@ const CutContainerPage = {
             const handlePos = handles[handleName];
             const dx = worldMouse.x - handlePos.x;
             const dy = worldMouse.y - handlePos.y;
-            if (dx * dx + dy * dy < handleRadius * handleRadius) {
-                return handleName;
-            }
+            if (dx * dx + dy * dy < handleRadius * handleRadius) return handleName;
         }
         return null;
     },
     
     resizeZone(zone, handle, worldMouseX, worldMouseY) {
-        // ... (resizeZone remains the same)
         const c = Math.cos(zone.rotation);
         const s = Math.sin(zone.rotation);
         const localMouseX = c * (worldMouseX - zone.x) + s * (worldMouseY - zone.y);
@@ -470,7 +472,6 @@ const CutContainerPage = {
 
     redraw() {
         if (!this.elements.ctx || !this.elements.canvas) return;
-        console.log('[DEBUG] Redrawing canvas with container config:', JSON.parse(JSON.stringify(this.state.containerConfig)));
         const { ctx, canvas } = this.elements;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         this.drawContainer();
@@ -508,6 +509,7 @@ const CutContainerPage = {
 
     drawUShapeContainer(ctx, config) {
         const { outerWidthX: ow, outerDepthZ: od, gapWidthX: gw, gapDepthZ: gd } = config;
+        console.log('[DEBUG-USHAPE] Dims:', {ow, od, gw, gd});
         const points = [ { x: 0, y: 0 }, { x: ow, y: 0 }, { x: ow, y: od }, { x: (ow + gw) / 2, y: od }, { x: (ow + gw) / 2, y: od - gd }, { x: (ow - gw) / 2, y: od - gd }, { x: (ow - gw) / 2, y: od }, { x: 0, y: od }, ];
         ctx.beginPath();
         const firstPoint = this.worldToCanvas(points[0].x, points[0].y);
@@ -522,9 +524,6 @@ const CutContainerPage = {
     
     drawTShapeContainer(ctx, config) {
         const { stemWidthX: sw, stemDepthZ: sd, crossWidthX: cw, crossDepthZ: cd, crossOffsetZ: co } = config;
-        const offsetX = (cw - sw) / 2;
-        const crossZStart = sd - cd + co;
-        const crossZEnd = sd + co;
         const points = [ { x: offsetX, y: 0 }, { x: offsetX + sw, y: 0 }, { x: offsetX + sw, y: crossZStart }, { x: cw, y: crossZStart }, { x: cw, y: crossZEnd }, { x: 0, y: crossZEnd }, { x: 0, y: crossZStart }, { x: offsetX, y: crossZStart }, ];
         ctx.beginPath();
         const firstPoint = this.worldToCanvas(points[0].x, points[0].y);
@@ -538,7 +537,6 @@ const CutContainerPage = {
     },
 
     drawZone(zone, isSelected) {
-        // ... (drawZone remains the same)
         const { ctx } = this.elements;
         const center = this.worldToCanvas(zone.x, zone.y);
         const scale = (this.worldToCanvas(1, 1).x - this.worldToCanvas(0, 0).x);
@@ -556,7 +554,6 @@ const CutContainerPage = {
     },
 
     getHandlePositions(zone) {
-        // ... (getHandlePositions remains the same)
         const halfW = zone.width / 2;
         const halfH = zone.height / 2;
         const corners = { tl: { x: -halfW, y: -halfH }, tr: { x: halfW, y: -halfH }, bl: { x: -halfW, y: halfH },  br: { x: halfW, y: halfH }, rotate: { x: 0, y: -halfH - 25 / ((this.worldToCanvas(1,1).x - this.worldToCanvas(0,0).x)) } };
@@ -572,7 +569,6 @@ const CutContainerPage = {
     },
 
     drawHandles(zone) {
-        // ... (drawHandles remains the same)
         const { ctx } = this.elements;
         const handles = this.getHandlePositions(zone);
         ctx.save();
@@ -594,29 +590,8 @@ const CutContainerPage = {
     },
 
     updateEditButton() {
-                if(this.elements.editToggleBtn) {
-                    this.elements.editToggleBtn.classList.toggle('active', this.state.isEditing);
-                }
-            },
-        };
-        
-        // --- Initialization Logic ---
-        if (typeof window !== 'undefined') {
-            let initializedByEvent = false;
-        
-            // Mode 1: Listen for SPA view change event
-            document.addEventListener("viewChanged", (e) => {
-                if (e.detail.newViewId === 'view-cut-container') {
-                    CutContainerPage.init();
-                    initializedByEvent = true;
-                }
-            });
-        
-            // Mode 2: Fallback for direct HTML file load
-            document.addEventListener('DOMContentLoaded', () => {
-                if (initializedByEvent) return;
-                if (document.getElementById('cut-canvas')) {
-                    CutContainerPage.init();
-                }
-            });
+        if(this.elements.editToggleBtn) {
+            this.elements.editToggleBtn.classList.toggle('active', this.state.isEditing);
         }
+    },
+};
