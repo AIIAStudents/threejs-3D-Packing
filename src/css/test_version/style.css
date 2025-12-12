@@ -313,6 +313,7 @@ body {
 /* æœ‰ active çš„é‚£å€‹æ‰é¡¯ç¤º */
 .main-view-active {
   display: block;
+  height: 100%; /* æ–°å¢ï¼šç¢ºä¿å•Ÿç”¨çš„è¦–åœ–èƒ½æ’é–‹ #main çš„é«˜åº¦ */
 }
 /* ===== Sidebar æ¬¡æ¨™é¡Œï¼ˆç¾¤çµ„ï¼†ç‰©ä»¶ - ç¾¤çµ„ / ç‰©ä»¶ï¼‰ ===== */
 
@@ -362,7 +363,7 @@ body {
 .breadcrumb__link:hover {
   color: var(--color-button); /* hover æ™‚ç•¥å¸¶ä¸»è‰² */
 }
-/* ÃB¥~¬°¯B°Ê«ö¶s¼W¥[ªº¼Ë¦¡ */
+/* ï¿½Bï¿½~ï¿½ï¿½ï¿½Bï¿½Ê«ï¿½ï¿½sï¿½Wï¿½[ï¿½ï¿½ï¿½Ë¦ï¿½ */
 #build-items-btn {
     position: fixed;
     bottom: 2rem;
@@ -376,7 +377,7 @@ body {
     cursor: pointer;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     z-index: 1000;
-    display: none; /* ¹w³]ÁôÂÃ¡A¦³ª«¥ó®É¤~Åã¥Ü */
+    display: none; /* ï¿½wï¿½]ï¿½ï¿½ï¿½Ã¡Aï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¤~ï¿½ï¿½ï¿½ */
 }
 #build-items-btn:hover {
     background-color: #0056b3;

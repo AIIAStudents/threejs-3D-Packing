@@ -1,0 +1,205 @@
+:root {
+  /* Three.js 場景背景色：與 JS 程式碼同步使用 */
+  --scene-bg-dark: #1a1a1a;
+}
+
+/* =================================
+   Container Definition Page
+   ================================= */
+
+/* --- Page Layout --- */
+.container-page--size {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: 20px;
+	box-sizing: border-box;
+}
+
+/* --- Step Indicator --- */
+.steps-indicator--container {
+	display: flex;
+	align-items: center;
+	margin-bottom: 24px;
+	flex-shrink: 0;
+}
+
+.steps-indicator--container .step {
+	display: flex;
+	align-items: center;
+	color: #999;
+	font-weight: 500;
+	transition: color 0.3s ease;
+}
+
+.steps-indicator--container .step.active {
+	color: #078080; /* 主色 */
+	font-weight: 700;
+}
+
+.steps-indicator--container .step-number {
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	background-color: #f0f0f0;
+	color: #999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 8px;
+	font-weight: bold;
+	border: 2px solid #ddd;
+}
+
+.steps-indicator--container .step.active .step-number {
+	background-color: #ffffff;
+	color: #078080;
+	border-color: #078080;
+}
+
+.steps-indicator--container .step-arrow {
+	width: 30px;
+	height: 2px;
+	background-color: #ddd;
+	margin: 0 16px;
+}
+
+/* --- Main Layout (Form + Preview) --- */
+.container-layout {
+	display: flex;
+	flex-grow: 1;
+	gap: 20px;
+	overflow: hidden; /* 防止內部元素撐開 */
+}
+
+.container-layout__left {
+	width: 350px;
+	flex-shrink: 0;
+	overflow-y: auto; /* 當表單過長時滾動 */
+	padding-right: 15px; /* for scrollbar */
+}
+
+.container-layout__right {
+	flex-grow: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* --- Form Styles --- */
+.container-form {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.container-form__group {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.container-form__label {
+	font-size: 14px;
+	font-weight: 500;
+	color: #333;
+}
+
+.container-form__select,
+.container-form__input {
+	width: 100%;
+	padding: 8px 12px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-size: 14px;
+	box-sizing: border-box;
+	transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.container-form__select:focus,
+.container-form__input:focus {
+	border-color: #078080;
+	box-shadow: 0 0 0 2px rgba(7, 128, 128, 0.2);
+	outline: none;
+}
+
+.container-form__input.invalid {
+	border-color: #d9534f; /* 錯誤紅色 */
+}
+
+.container-form hr {
+	border: none;
+	border-top: 1px solid #eee;
+	margin: 10px 0;
+}
+
+/* --- 3D Preview Canvas --- */
+#container-preview-canvas {
+	width: 100%;
+	height: 100%;
+	background-color: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	position: relative;
+	overflow: hidden; /* 確保 canvas 不會超出邊框 */
+}
+
+#container-preview-canvas canvas {
+	display: block; /* 移除 canvas 下方的空隙 */
+}
+
+#container-preview-canvas .placeholder-text {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	color: #999;
+	font-size: 16px;
+}
+
+/* --- Action Buttons --- */
+.container-actions {
+	display: flex;
+	justify-content: flex-end;
+	padding: 20px 0; /* Add some space around the button */
+	flex-shrink: 0; /* Prevent flex container from squashing it */
+}
+.btn {
+	padding: 10px 20px;
+	font-size: 16px;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	background-color: #078080;
+	color: white;
+	transition: background-color 0.3s;
+}
+
+.btn:hover {
+	background-color: #056666;
+}
+
+/* --- Utility --- */
+.hidden {
+	display: none !important;
+}
+
+/* 新增標題與說明樣式 */
+.dc-header {
+    margin-bottom: 20px;
+    text-align: left; /* 確保靠左對齊 */
+}
+
+.dc-title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.dc-subtitle {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+

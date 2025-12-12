@@ -1,0 +1,264 @@
+/* 新增：確保頁面容器能正確撐開高度 */
+.container-page--cut {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* 沿用 define_container 的基礎樣式，並在此處進行覆寫與擴充 */
+
+/* --- Page Layout --- */
+/* 讓左邊 canvas 區域變寬 */
+.container-layout__left--cut {
+    flex-grow: 1;
+    display: flex;
+    min-width: 400px;
+}
+
+.container-layout__right--cut {
+    width: 450px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding-right: 15px; /* for scrollbar */
+}
+
+/* --- Step Indicator --- */
+.steps-indicator--container .step.current .step-number {
+    border-color: #f35b90; /* A pinkish color */
+    color: #f35b90;
+}
+.steps-indicator--container .step.current .step-label {
+    color: #333;
+    font-weight: bold;
+}
+
+/* --- Canvas Area --- */
+.canvas-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #fff;
+    overflow: hidden;
+}
+
+#cut-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-image:
+        linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+    cursor: crosshair;
+}
+
+/* --- Edit Tools --- */
+.edit-tools {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 8px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tool-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
+.tool-btn.active {
+    background-color: #e91e63;
+    border-color: #d81b60;
+}
+
+.tool-btn img {
+    width: 18px;
+    height: 18px;
+    filter: grayscale(1);
+}
+
+.tool-btn.active img {
+    filter: brightness(0) invert(1);
+}
+
+
+/* --- Zone Table --- */
+.zone-table-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.zone-table-container h2 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 18px;
+    color: #333;
+}
+
+#zone-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#zone-table th, #zone-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+#zone-table th {
+    font-weight: 600;
+    color: #555;
+    background-color: #f8f9fa;
+}
+
+#zone-table tbody tr:hover {
+    background-color: #f1f3f5;
+}
+
+#zone-table input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    box-sizing: border-box;
+
+}
+#zone-table input::-webkit-outer-spin-button,
+#zone-table input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+
+#zone-table input:focus {
+    border-color: #e91e63;
+    box-shadow: 0 0 0 2px rgba(233, 30, 99, 0.2);
+    outline: none;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.action-btn img {
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+}
+
+/* --- Action Buttons --- */
+.container-actions {
+    justify-content: space-between; /* Override to space buttons apart */
+}
+
+.btn.btn-secondary {
+    background-color: #f0f0f0;
+    color: #555;
+    border: 1px solid #ccc;
+}
+
+.btn.btn-secondary:hover {
+    background-color: #e0e0e0;
+}
+
+/* --- Zone Card Layout --- */
+#zone-card-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Space between cards */
+}
+
+.zone-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border-left: 5px solid transparent;
+}
+
+.zone-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+}
+
+.zone-card.selected {
+    border-left-color: #e91e63; /* Pink accent for selected */
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.15);
+}
+
+.zone-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.zone-card-header span {
+    font-weight: 600;
+    font-size: 16px;
+    color: #333;
+}
+
+.zone-card-body p, .zone-card-body div {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.zone-groups {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #eee;
+}
+
+.zone-groups span {
+    font-weight: 500;
+}
+
+.group-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.group-tag {
+    background-color: #f0f0f0;
+    color: #333;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.no-groups-text {
+    color: #999;
+    font-style: italic;
+    font-size: 12px;
+}

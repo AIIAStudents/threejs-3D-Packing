@@ -1,0 +1,239 @@
+/*
+    File: assign_sequence.css
+    Description: Styles for the item sequencing page.
+*/
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0; /* Add padding: 0 for consistency */
+    box-sizing: border-box; /* Important for consistent box model */
+}
+
+
+/* Main page layout inherits from parent, but we can add specifics */
+.main-content {
+    display: flex; /* Changed from flex-direction: column */
+    flex: 1 1 auto; /* Shorthand for flex-grow: 1; flex-shrink: 1; flex-basis: auto; */
+    overflow: hidden;
+}
+
+.dc-subtitle {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+
+/* Main page container setup */
+.assignment-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Now works because html, body have height: 100% */
+    box-sizing: border-box; /* Ensure padding doesn't break height */
+}
+
+/* 1. Space Selector & Step Bar Container */
+.step-and-select-container {
+    position: relative;
+    margin-bottom: 35px; /* Increase space below the container to account for selector */
+}
+
+.space-select-row {
+    position: absolute;
+    bottom: -30px; /* Position it below the step bar */
+    left: 20px;   /* Indent from the left */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px 10px;
+    border-radius: 8px;
+    z-index: 10;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 0; /* Override any previous margin */
+}
+
+.space-select-row label {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#space-select {
+    padding: 8px 12px;
+    font-size: 16px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    min-width: 250px;
+}
+
+/* 2. Main content layout with toolbar */
+.assign-sequence-layout {
+    display: flex;
+    gap: 20px;
+    padding: 15px;
+    flex-grow: 1; /* Make it fill vertical space */
+    /* Removed overflow: hidden to avoid double clipping */
+}
+
+/* 3. Items Board & Cards */
+.items-column {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* Make it fill horizontal space */
+    min-width: 0; /* Prevent content overflow */
+    background-color: #f0f2f5;
+    border-radius: 8px;
+    padding: 10px;
+    overflow-y: auto; /* The column itself scrolls */
+}
+
+.items-board {
+    /* No more height, no more overflow, no more flex-grow */
+    background-color: #f8f9fa;
+    border: 1px solid #ccc; /* Made border more visible */
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.item-board-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: #6c757d;
+    font-size: 18px;
+}
+
+.item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ffffff;
+    padding: 12px 16px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+    border: 2px solid transparent; /* Add transparent border for smooth transition */
+}
+
+.item-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.item-card.selected {
+    border-color: #e91e63; /* No !important needed if we manage specificity */
+    box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+}
+
+.item-card.dragging {
+    opacity: 0.5;
+}
+
+.item-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-grow: 1;
+}
+
+.item-card-details .item-card-title {
+    font-weight: 500;
+}
+
+.item-card-details .item-dimensions {
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.item-card-details .item-note {
+    font-size: 0.9em;
+    color: #495057;
+    font-style: italic;
+}
+
+/* Group Color Coding - using a colored background on the card itself */
+.group-color-1 { background-color: #e6f7ff; }
+.group-color-2 { background-color: #fff1f0; }
+.group-color-3 { background-color: #fcffe6; }
+.group-color-4 { background-color: #f6ffed; }
+.group-color-5 { background-color: #f9f0ff; }
+
+/* 4. Right-side Toolbar */
+.toolbar-column {
+    flex-basis: 60px; /* Make column narrower */
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    visibility: hidden; /* Hide by default */
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.toolbar-column.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.toolbar-column .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.toolbar-column .icon-btn:hover {
+    background-color: #eef;
+    border-color: #99c;
+}
+
+.toolbar-column .icon-btn img {
+    width: 28px;
+    height: 28px;
+}
+
+/* 5. Floating Action Button (Execute) */
+#execute-btn.fab {
+    position: fixed;
+    bottom: 40px;
+    right: 40px;
+    width: 80px;
+    height: 80px;
+    background-color: #d9534f;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    padding: 0; /* Override any base btn styles */
+}
+
+#execute-btn.fab:hover {
+    background-color: #c9302c;
+    transform: scale(1.05);
+}
+
+/* Hide the old footer */
+.footer-actions {
+    display: none;
+}
