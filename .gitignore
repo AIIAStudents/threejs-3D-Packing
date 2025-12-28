@@ -1,33 +1,113 @@
-# node modules
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+# ==========================================
+# Node.js / JavaScript / Vite
+# ==========================================
 node_modules/
-
-# build output
 dist/
-build/
+.vite/
+*.local
 
-# logs
+# Build outputs
+build/
+out/
+
+# npm/yarn
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# ==========================================
+# Database & Data Files
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# Your specific database
+packing.db
+
+# ==========================================
+# Logs & Debug
+# ==========================================
+*.log
+debug.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# system files
+# ==========================================
+# IDE & Editors
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
-Thumbs.db
 
-# env config
+# ==========================================
+# OS Files
+# ==========================================
+Thumbs.db
+Desktop.ini
+.DS_Store
+._*
+
+# ==========================================
+# Temporary & Cache
+# ==========================================
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+
+# ==========================================
+# Environment & Config (sensitive data)
+# ==========================================
 .env
 .env.local
+.env.*.local
 
-# VS Code
-.vscode/
+# ==========================================
+# Testing
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
 
-# parcel / vite / webpack cache
-.cache/
+# ==========================================
+# Project Specific
+# ==========================================
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Debug/diagnostic files (keep diagnostic.html for development)
+# diagnostic.html
+
+# Container configs (might contain sensitive data)
+# container_config.json
 
 
-# unnecessary files
-/src/test_file/
-/src/rl_model/
-/src/rl_ppo_model/
-
-
+# ==========================================
+# Old directories
+# ==========================================
+api_server/
+js/
+py_packer/
+db/
+test_file/
+test_js/
+rl_model/
+rl_ppo_model/
