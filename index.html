@@ -1,47 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>My first three.js app</title>
-    <link rel = "stylesheet" href = "./src/css/style.css">
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
-    </style>
-    <link 
-      rel="stylesheet" 
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" 
-      integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" 
-      crossorigin="anonymous" 
-      referrerpolicy="no-referrer" />
+<html lang="zh-Hant">
 
-    <script src = "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js" ></script>
-  </head>
-  <body>
-    <canvas id="canvas"></canvas>
-    <!-- 這是 icon 選單區 -->
-    <div id="icon-toolbar" class="hidden">
-      <!-- icosahedron -->
-      <div class="icon-wrapper" data-type="icosahedron">
-        <img src="./src/assets/icons/icosahedron.png" alt="Icosahedron Icon" class="toolbar-icon" />
-        <span class="tooltip">createIcosahedron</span>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Packing System</title>
+
+  <!-- Centralized CSS Imports -->
+  <link rel="stylesheet" href="./src/css/test_version/style.css">
+  <link rel="stylesheet" href="./src/css/test_version/define_container.css">
+  <link rel="stylesheet" href="./src/css/test_version/cut_container.css">
+  <link rel="stylesheet" href="./src/css/test_version/assign_space.css">
+  <link rel="stylesheet" href="./src/css/test_version/assign_sequence.css">
+  <link rel="stylesheet" href="./src/css/test_version/add_group.css">
+  <link rel="stylesheet" href="./src/css/test_version/add_inventory.css">
+  <link rel="stylesheet" href="./src/css/test_version/view_final.css">
+
+  <!-- External Dependencies -->
+  <!-- Three.js (required for 3D view) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body>
+  <div id="app-container">
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar">
+      <!-- Content injected by sidebar.js -->
+      <div style="padding: 20px;">載入中...</div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+      <div class="welcome-screen"
+        style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #666;">
+        <i class="fas fa-box-open" style="font-size: 4rem; margin-bottom: 20px; color: #ddd;"></i>
+        <h2>歡迎使用 3D 裝箱系統</h2>
+        <p>請點擊左側選單開始新專案或管理設定。</p>
       </div>
-      <!-- sphere -->
-      <div class="icon-wrapper" data-type="sphere">
-        <img src="./src/assets/icons/sphere.png" alt="Sphere Icon" class="toolbar-icon" />
-        <span class="tooltip">createSphere</span>
-      </div>
-      <!-- cube -->
-      <div class="icon-wrapper" data-type="cube">
-        <img src="./src/assets/icons/cube.png" alt="Cube Icon" class="toolbar-icon" />
-        <span class="tooltip">createCube</span>
-      </div>
-    </div>
-    <!--  javascript -->
-    <script type="module" src="./src/js/scripts.js"></script>
-  </body>
+    </main>
+  </div>
+
+  <!-- Centralized JavaScript Imports -->
+  <!-- DirectModuleLoader initializes the Router (Sidebar) and loads module based on URL -->
+  <script type="module" src="./src/js_v2/DirectModuleLoader.js"></script>
+</body>
+
 </html>
-
-
