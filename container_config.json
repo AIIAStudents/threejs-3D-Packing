@@ -1,0 +1,15 @@
+{
+    "shape": "cube",
+    "dimensions": {
+        "width": 120,
+        "height": 120,
+        "depth": 120,
+        "mainWidth": 80,
+        "mainHeight": 120,
+        "mainDepth": 80,
+        "extWidth": 40,
+        "extHeight": 120,
+        "extDepth": 40
+    },
+    "doors": []
+}

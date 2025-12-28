@@ -5,16 +5,29 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+<<<<<<< HEAD
     "preview": "vite preview"
+=======
+    "preview": "vite preview",
+    "demo:partition_packer": "vite src/partition_packer/demo",
+    "test": "echo \"Error: no test specified\" && exit 1"
+>>>>>>> dafd3b7e97970e8e5d122212ad4d3da85b00451e
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "three": "^0.178.0"
+    "@tailwindcss/vite": "^4.1.13",
+    "cannon-es": "^0.20.0",
+    "tailwindcss": "^4.1.13",
+    "three": "^0.178.0",
+    "three-csg-ts": "^3.2.0"
   },
   "devDependencies": {
-    "vite": "^7.0.0"
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9",
+    "tsup": "^8.0.2",
+    "@types/node": "^20.12.12"
   }
 }

@@ -1,0 +1,7 @@
+# 程式檔案統一 LF 換行
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+
+# Windows 批次檔統一 CRLF
+*.bat text eol=crlf
