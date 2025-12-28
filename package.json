@@ -5,13 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-<<<<<<< HEAD
     "preview": "vite preview"
-=======
-    "preview": "vite preview",
-    "demo:partition_packer": "vite src/partition_packer/demo",
-    "test": "echo \"Error: no test specified\" && exit 1"
->>>>>>> dafd3b7e97970e8e5d122212ad4d3da85b00451e
   },
   "keywords": [],
   "author": "",
