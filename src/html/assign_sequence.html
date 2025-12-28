@@ -1,0 +1,36 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>排序設定</h2>
+    <p class="subtitle">拖曳物件調整打包順序</p>
+  </header>
+
+  <div class="content-wrapper">
+    <!-- Zone Selector -->
+    <section class="selector-section">
+      <div class="form-group">
+        <label for="zone-select">選擇編輯空間：</label>
+        <select id="zone-select" class="zone-selector">
+          <option value="">載入中...</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Item List for Ordering -->
+    <section class="ordering-section">
+      <div class="section-header">
+        <h3>物件順序</h3>
+        <span id="item-count" class="item-count">0 個物件</span>
+      </div>
+      <div id="items-container" class="sortable-list">
+        <div class="empty-state">
+          <p>請選擇上方的空間以編輯物件順序</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="page-footer">
+    <button id="btn-prev" class="btn btn-secondary">上一步</button>
+    <button id="btn-execute-packing" class="btn btn-primary">執行打包</button>
+  </footer>
+</div>

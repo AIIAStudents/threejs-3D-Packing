@@ -1,0 +1,34 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>分配物件至區域</h2>
+    <p class="subtitle">請將右側群組拖曳到左側對應的切割區域中進行分配。</p>
+  </header>
+
+  <div class="assign-content">
+    <!-- Left: Zones List (60%) -->
+    <section class="zones-section">
+      <h3>切割區域</h3>
+      <div id="zones-list" class="zones-list">
+        <div class="loading">載入區域中...</div>
+      </div>
+    </section>
+
+    <!-- Right: Groups Pool (40%) -->
+    <section class="groups-section">
+      <h3>群組列表 (拖曳)</h3>
+      <div id="groups-pool" class="groups-pool">
+        <div class="loading">載入群組中...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bottom Buttons -->
+  <div class="bottom-buttons">
+    <button id="save-changes-btn" class="btn btn-success">
+      <span class="icon">💾</span> 儲存變更
+    </button>
+    <button id="next-step-btn" class="btn btn-primary">
+      下一步 →
+    </button>
+  </div>
+</div>

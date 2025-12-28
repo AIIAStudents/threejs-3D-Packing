@@ -1,0 +1,57 @@
+  1. `api.py` (主 API 伺服器)
+
+   * 用途：這個檔案是整個 Flask API 伺服器（v2 版本）的主要入口點和協調者。它負責建立 Flask 應用程式、管理資料庫的生命週期，以及註冊所有其他的 API 藍圖 (Blueprints)。
+
+   * 主要功能：
+       * 資料庫臨時化 (Ephemeralization)：在每一次伺服器啟動時，它會自動刪除舊的 session_data.db
+         檔案（這個檔案整合了所有資料），然後依序呼叫各個模組中的初始化函數，重新建立所有必要的資料表。這樣做確保了資料在伺服器重啟後不會保留，模擬了記憶體資料庫的行為。
+       * Flask 應用實例：建立主要的 Flask 應用程式實例 (app)。
+       * 藍圖註冊 (Blueprint Registration)：負責導入並註冊所有其他的 API 藍圖（例如群組、物品、容器、切割空間、分配任務的 API），並為它們設定各自的 URL 前綴。
+       * CORS 設定：配置跨來源資源共享 (CORS)，允許前端應用程式在不同的位址或連接埠上訪問 API。
+       * 狀態端點 (Status Endpoint)：提供一個基本的 /api/v2/status 端點，用於檢查伺服器是否正常運行。
+       * 伺服器執行：定義當這個腳本被直接執行時，Flask 應用程式如何運行（主機、連接埠、偵錯模式）。
+
+  ---
+
+  2. `assignment_api.py` (分配任務 API)
+
+   * 用途：這個檔案定義了一個特定的 API 端點，負責獲取「分配物件」（或類似的分配任務）前端頁面所需的所有資料。它扮演著一個資料聚合器的角色。
+
+   * 主要功能：
+       * 藍圖定義：定義了一個 Flask 藍圖 (assignment_api_blueprint)，用於分配任務相關的路由。
+       * 資料庫連接：管理與多個資料庫檔案（items.db、cutting_jobs.db、containers.db）的連接。請注意，在我最近的修改之後，這些都已統一指向 session_data.db。
+       * `GET /api/assignment-data` 端點：這是這個檔案中主要的核心端點。當前端呼叫這個端點時，它會執行以下操作：
+           * 從 containers 資料表中獲取最新的容器設定。
+           * 從 cutting_jobs 資料表中獲取最新一次的切割任務，以及其所有相關聯的區域 (zones)。
+           * 從 items 資料表中獲取所有可用的物品/庫存列表。
+           * 將所有這些獲取的資料組合成一個單一、完整的 JSON 響應回傳給前端。
+       * 錯誤處理：包含 try-except 區塊，用於捕獲和處理潛在的資料庫或資料處理錯誤。
+
+       * 資料庫連線： 它使用 db_config.py 中的 SHARED_DATABASE_PATH，確認 session_data.db 是正確的資料庫。
+
+
+       
+      * 分配表格： init_assignments_table() 函數會建立一個名為 zone_assignments 的表格。
+      * 表格結構： zone_assignments 表格包含 zone_id 和 group_id 欄位，以及參照 zones 和 groups 表格的外來鍵約束。這個表格正是儲存儲存空間（區域）和群組之間關係的表格。
+      * API 端點：
+          * /assignment-data (GET)：擷取 zones 資料（透過連接 zone_assignments 包含 assigned_group_ids）、groups 資料、items 資料和 container 資料。
+          * /assignments (POST)：透過先刪除 zone_assignments 中所有現有項目，然後插入新項目來儲存分配。
+
+      總結來說：
+
+      儲存空間（區域）和群組之間關係的資料庫位於：
+      C:\Users\GIGABYTE\blf_sa\3js\three.js\src\db_v2\session_data.db
+
+      在此 session_data.db 文件中，儲存此關係的特定表格稱為 zone_assignments。此表格包含 zone_id 和 group_id 欄位，用於將群組連結到區域。assign_space.js 前端與後端 API 端點 (/api/assignment-data
+      和 /api/assignments) 互動，後端 API 端點又會從此 zone_assignments 表格讀取和寫入資料。
+
+  ---
+
+  3. `db_config.py` (資料庫配置)
+
+   * 用途：這是一個集中式的配置檔案，專門用於定義 api_server_v2 中所有 API 模組所使用的共享資料庫路徑。
+
+   * 主要功能：
+       * `SHARED_DATABASE_PATH`：它導出一個單一的常數變數 SHARED_DATABASE_PATH，其中儲存了統一的資料庫檔案路徑（目前是 session_data.db）。
+       * 一致性：透過將資料庫路徑集中管理在一個地方，它確保了 API 的所有部分都能連接到同一個臨時資料庫。
+       * 可維護性：如果未來需要更改資料庫檔案的名稱或位置，只需更新這個檔案即可，大大簡化了維護工作。

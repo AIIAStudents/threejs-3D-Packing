@@ -1,0 +1,36 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>新增群組</h2>
+  </header>
+
+  <div class="content-wrapper">
+    <!-- Create Group Form -->
+    <section class="form-section">
+      <h3>建立新群組</h3>
+      <form id="add-group-form" class="group-form">
+        <div class="form-group">
+          <label for="group-name">群組名稱 *</label>
+          <input type="text" id="group-name" name="name" required placeholder="輸入群組名稱">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">新增群組</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Groups List -->
+    <section class="list-section">
+      <h3>現有群組</h3>
+      <div id="groups-list" class="groups-container">
+        <div class="loading">載入中...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Save Changes Button (Bottom Right) -->
+  <div class="save-changes-container">
+    <button id="save-changes-btn" class="btn btn-success">
+      <span class="icon">💾</span> 儲存變更
+    </button>
+  </div>
+</div>

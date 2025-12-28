@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統診斷</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .test-card {
+      background: white;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .test-card h3 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .status {
+      padding: 8px 16px;
+      border-radius: 4px;
+      display: inline-block;
+      margin: 10px 5px 10px 0;
+      font-weight: bold;
+    }
+
+    .status.success {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .status.error {
+      background: #f44336;
+      color: white;
+    }
+
+    .status.pending {
+      background: #2196F3;
+      color: white;
+    }
+
+    pre {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+
+    button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button:hover {
+      background: #1976D2;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🔍 3D Packer 系統診斷</h1>
+
+  <div class="test-card">
+    <h3>1. 前端狀態</h3>
+    <div id="frontend-status" class="status pending">檢查中...</div>
+    <p>當前 URL: <code id="current-url"></code></p>
+  </div>
+
+  <div class="test-card">
+    <h3>2. 後端連接測試</h3>
+    <button onclick="testBackend()">測試後端</button>
+    <div id="backend-status" class="status pending">等待測試</div>
+    <pre id="backend-result"></pre>
+  </div>
+
+  <div class="test-card">
+    <h3>3. API 端點測試</h3>
+    <button onclick="testGroups()">測試 /api/groups</button>
+    <button onclick="testItems()">測試 /api/items</button>
+    <button onclick="testZones()">測試 /api/zones</button>
+    <div id="api-status"></div>
+    <pre id="api-result"></pre>
+  </div>
+
+  <div class="test-card">
+    <h3>4. 數據庫內容</h3>
+    <button onclick="checkDatabase()">檢查資料庫</button>
+    <pre id="db-result"></pre>
+  </div>
+
+  <div class="test-card">
+    <h3>5. 模塊加載測試</h3>
+    <button onclick="testModuleLoading()">測試模塊</button>
+    <pre id="module-result"></pre>
+  </div>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8888/api';
+
+    // Initialize
+    document.getElementById('current-url').textContent = window.location.href;
+    document.getElementById('frontend-status').textContent = '✓ 前端正常';
+    document.getElementById('frontend-status').className = 'status success';
+
+    async function testBackend() {
+      const statusEl = document.getElementById('backend-status');
+      const resultEl = document.getElementById('backend-result');
+
+      statusEl.textContent = '測試中...';
+      statusEl.className = 'status pending';
+
+      try {
+        const response = await fetch(`${API_BASE}/v2/status`);
+        const data = await response.json();
+
+        statusEl.textContent = '✓ 後端連接成功';
+        statusEl.className = 'status success';
+        resultEl.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        statusEl.textContent = '✗ 後端連接失敗';
+        statusEl.className = 'status error';
+        resultEl.textContent = `錯誤: ${error.message}\n\n請確認後端服務器是否正在運行：\npython start_servers.py`;
+      }
+    }
+
+    async function testGroups() {
+      await testEndpoint('/groups', 'Groups');
+    }
+
+    async function testItems() {
+      await testEndpoint('/items', 'Items');
+    }
+
+    async function testZones() {
+      await testEndpoint('/zones', 'Zones');
+    }
+
+    async function testEndpoint(endpoint, name) {
+      const statusEl = document.getElementById('api-status');
+      const resultEl = document.getElementById('api-result');
+
+      statusEl.innerHTML = `<span class="status pending">測試 ${name}...</span>`;
+
+      try {
+        const response = await fetch(`${API_BASE}${endpoint}`);
+        const data = await response.json();
+
+        statusEl.innerHTML = `<span class="status success">✓ ${name} API 正常</span>`;
+        resultEl.textContent = `${name} (${data.length || 0} 筆):\n` + JSON.stringify(data, null, 2);
+      } catch (error) {
+        statusEl.innerHTML = `<span class="status error">✗ ${name} API 失敗</span>`;
+        resultEl.textContent = `錯誤: ${error.message}`;
+      }
+    }
+
+    async function checkDatabase() {
+      const resultEl = document.getElementById('db-result');
+      resultEl.textContent = '檢查中...\n';
+
+      try {
+        const [groups, items, zones] = await Promise.all([
+          fetch(`${API_BASE}/groups`).then(r => r.json()),
+          fetch(`${API_BASE}/items`).then(r => r.json()),
+          fetch(`${API_BASE}/zones`).then(r => r.json())
+        ]);
+
+        resultEl.textContent = `
+資料庫統計:
+- 群組: ${groups.length} 筆
+- 物件: ${items.length} 筆  
+- 區域: ${zones.length} 筆
+
+群組列表:
+${groups.map(g => `  - ${g.name} (ID: ${g.id})`).join('\n') || '  (無)'}
+
+區域列表:
+${zones.map(z => `  - 區域 ${z.label} (${z.length}×${z.width}×${z.height})`).join('\n') || '  (無)'}
+                `.trim();
+      } catch (error) {
+        resultEl.textContent = `錯誤: ${error.message}`;
+      }
+    }
+
+    async function testModuleLoading() {
+      const resultEl = document.getElementById('module-result');
+      resultEl.textContent = '測試中...\n';
+
+      try {
+        // Test if we can load a module
+        const module = await import('/src/js_v2/group_items/add_inventory.js');
+        resultEl.textContent = `✓ 模塊加載成功\n\n模塊導出:\n${Object.keys(module).join(', ')}`;
+      } catch (error) {
+        resultEl.textContent = `✗ 模塊加載失敗\n\n錯誤: ${error.message}`;
+      }
+    }
+
+    // Auto-test backend on load
+    setTimeout(testBackend, 500);
+  </script>
+</body>
+
+</html>

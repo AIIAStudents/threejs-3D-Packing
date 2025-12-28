@@ -1,0 +1,87 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>新增物件</h2>
+  </header>
+
+  <div class="content-wrapper">
+    <!-- Filter and Controls -->
+    <section class="controls-section">
+      <div class="filter-controls">
+        <label for="filter-group">篩選群組：</label>
+        <select id="filter-group" class="filter-select">
+          <option value="">全部群組</option>
+        </select>
+        <button id="refresh-btn" class="btn btn-secondary btn-icon" title="重新整理">🔄 重新整理</button>
+        <button id="open-modal-btn" class="btn btn-primary">+ 新增物件</button>
+      </div>
+    </section>
+
+    <!-- Items Table -->
+    <section class="list-section">
+      <div id="items-list" class="items-table-container">
+        <div class="loading">載入中...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Modal Dialog -->
+  <div id="item-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>新增物件</h3>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-item-form" class="modal-form">
+          <div class="form-group">
+            <label for="item-group">所屬群組 *</label>
+            <select id="item-group" name="group_id" required>
+              <option value="">載入中...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="item-name">物件名稱 *</label>
+            <input type="text" id="item-name" name="item_name" required placeholder="例如: Box">
+            <small class="form-hint">若數量 > 1，系統會自動編號 (Box, Box_2, Box_3...)</small>
+          </div>
+
+          <div class="form-section-title">尺寸設定 (mm)</div>
+
+          <div class="form-group">
+            <label for="item-length">長度 (L) *</label>
+            <input type="number" id="item-length" name="length" required step="0.01" min="0" value="100">
+          </div>
+
+          <div class="form-group">
+            <label for="item-width">寬度 (W) *</label>
+            <input type="number" id="item-width" name="width" required step="0.01" min="0" value="100">
+          </div>
+
+          <div class="form-group">
+            <label for="item-height">高度 (H) *</label>
+            <input type="number" id="item-height" name="height" required step="0.01" min="0" value="100">
+          </div>
+
+          <div class="form-group">
+            <label for="item-quantity">數量 *</label>
+            <input type="number" id="item-quantity" name="quantity" required min="1" value="1">
+            <small class="form-hint">可一次新增多個相同尺寸的物件</small>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-btn">取消</button>
+            <button type="submit" class="btn btn-primary">確認新增</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Changes Button (Bottom Right) -->
+  <div class="save-changes-container">
+    <button id="save-changes-btn" class="btn btn-success">
+      <span class="icon">💾</span> 儲存變更
+    </button>
+  </div>
+</div>

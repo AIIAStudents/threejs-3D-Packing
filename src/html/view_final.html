@@ -1,0 +1,129 @@
+<div class="view-final-page">
+  <!-- Header with Actions -->
+  <header class="vf-header">
+    <div class="vf-header-left">
+      <h1 class="vf-title">打包結果預覽</h1>
+    </div>
+    <div class="vf-header-actions">
+      <button id="back-btn" class="btn btn-secondary">
+        <span>← 返回</span>
+      </button>
+      <button id="repack-btn" class="btn">
+        <span> 重新打包</span>
+      </button>
+      <button id="export-btn" class="btn btn-outline">
+        <span> 匯出報告</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Key Metrics Cards -->
+  <section class="vf-metrics">
+    <div class="metric-card">
+      <div class="metric-icon">🆔</div>
+      <div class="metric-content">
+        <div class="metric-label">任務編號</div>
+        <div class="metric-value" id="job-id">載入中...</div>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-content">
+        <div class="metric-label">執行時間</div>
+        <div class="metric-value" id="exec-time">載入中...</div>
+      </div>
+    </div>
+    <div class="metric-card metric-card--status">
+      <div class="metric-icon" id="status-icon">⏳</div>
+      <div class="metric-content">
+        <div class="metric-label">打包狀態</div>
+        <div class="metric-value" id="status-text">載入中...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Space Selector -->
+  <section class="vf-space-selector">
+    <div class="space-selector-card">
+      <label for="space-select" class="space-selector-label">📍 當前空間</label>
+      <select id="space-select" class="space-select">
+        <option value="">載入中...</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Statistics Section -->
+  <section class="vf-statistics">
+    <div class="stats-card">
+      <h2 class="stats-title"> 統計資訊</h2>
+      <div class="stats-grid">
+        <div class="stat-row">
+          <span class="stat-label">已打包物件</span>
+          <span class="stat-value" id="packed-count">-</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">未打包物件</span>
+          <span class="stat-value stat-value--warning" id="unpacked-count">-</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">總物件數</span>
+          <span class="stat-value" id="total-count">-</span>
+        </div>
+        <div class="stat-row stat-row--highlight">
+          <span class="stat-label">空間利用率</span>
+          <span class="stat-value stat-value--large" id="utilization">-</span>
+        </div>
+      </div>
+      <!-- Progress Bar -->
+      <div class="progress-bar-container">
+        <div class="progress-bar-label">
+          <span>打包進度</span>
+          <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Content: 3D Preview + Item List -->
+  <section class="vf-main-content">
+    <!-- 3D Preview Area -->
+    <div class="vf-preview-area">
+      <div class="preview-header">
+        <h2> 3D 預覽</h2>
+        <button id="fullscreen-btn" class="btn-icon" title="全螢幕預覽">
+          <span>⛶</span>
+        </button>
+      </div>
+      <div class="preview-container" id="preview-container">
+        <div class="preview-placeholder">
+          <div class="placeholder-icon">📦</div>
+          <div class="placeholder-text">3D 視覺化即將推出</div>
+          <div class="placeholder-subtext">未來將在此顯示打包結果的立體視圖</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item List -->
+    <div class="vf-item-list-area">
+      <div class="item-list-header">
+        <h2> 物件清單</h2>
+        <div class="item-list-controls">
+          <input type="text" id="search-input" placeholder="搜尋物件..." class="search-input">
+          <select id="filter-select" class="filter-select">
+            <option value="all">全部</option>
+            <option value="packed">已打包</option>
+            <option value="unpacked">未打包</option>
+          </select>
+        </div>
+      </div>
+      <div class="item-list" id="item-list">
+        <div class="item-list-placeholder">
+          <p>載入物件清單中...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

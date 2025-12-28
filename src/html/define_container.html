@@ -1,0 +1,101 @@
+<div class="define-container-page">
+  <header class="page-header">
+    <h2>定義容器 & 配置</h2>
+  </header>
+
+  <div class="define-container-content">
+    <!-- Form Section (Left) -->
+    <section class="form-section">
+      <form id="container-form" class="config-form">
+        <div class="form-section-inner">
+          <h3>基礎設定</h3>
+          <div class="form-group">
+            <label>容器形狀</label>
+            <select id="shape-select" name="shape">
+              <option value="rect">矩形 (Rectangular)</option>
+              <option value="u_shape">U 型 (U-Shape)</option>
+              <option value="t_shape">T 型 (T-Shape)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section-inner" id="dims-section">
+          <h3>尺寸參數 (mm)</h3>
+          <!-- Rect Inputs -->
+          <div class="dims-group active" data-shape="rect">
+            <div class="form-group">
+              <label>寬度 (X)</label>
+              <input type="number" name="widthX" value="5800" step="100">
+            </div>
+            <div class="form-group">
+              <label>深度 (Z)</label>
+              <input type="number" name="depthZ" value="2300" step="100">
+            </div>
+          </div>
+
+          <!-- U-Shape Inputs -->
+          <div class="dims-group" data-shape="u_shape">
+            <div class="form-group"><label>外寬 (Outer X)</label><input type="number" name="outerWidthX" value="6000"
+                step="100"></div>
+            <div class="form-group"><label>外深 (Outer Z)</label><input type="number" name="outerDepthZ" value="3000"
+                step="100"></div>
+            <div class="form-group"><label>缺口寬 (Gap X)</label><input type="number" name="gapWidthX" value="2000"
+                step="100"></div>
+            <div class="form-group"><label>缺口深 (Gap Z)</label><input type="number" name="gapDepthZ" value="1000"
+                step="100"></div>
+          </div>
+
+          <!-- T-Shape Inputs -->
+          <div class="dims-group" data-shape="t_shape">
+            <div class="form-group"><label>莖部寬 (Stem X)</label><input type="number" name="stemWidthX" value="2000"
+                step="100"></div>
+            <div class="form-group"><label>莖部深 (Stem Z)</label><input type="number" name="stemDepthZ" value="4000"
+                step="100"></div>
+            <div class="form-group"><label>橫樑寬 (Cross X)</label><input type="number" name="crossWidthX" value="4000"
+                step="100"></div>
+            <div class="form-group"><label>橫樑深 (Cross Z)</label><input type="number" name="crossDepthZ" value="1000"
+                step="100"></div>
+            <div class="form-group"><label>橫樑位置 (Cross Z Offset)</label><input type="number" name="crossOffsetZ"
+                value="1500" step="100"></div>
+          </div>
+
+          <!-- Common Height -->
+          <div class="form-group">
+            <label>高度 (Y) [共用]</label>
+            <input type="number" name="heightY" value="2400" step="100">
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Preview Section (Right) -->
+    <section class="preview-section">
+      <div class="preview-header">
+        <h3>即時 3D 預覽</h3>
+      </div>
+      <div class="preview-container">
+        <div id="preview-3d"></div>
+      </div>
+      <div class="preview-info">
+        <div class="info-item">
+          <span class="label">形狀：</span>
+          <span id="info-shape">矩形</span>
+        </div>
+        <div class="info-item">
+          <span class="label">高度：</span>
+          <span id="info-height">2400 mm</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bottom Buttons -->
+  <div class="bottom-buttons">
+    <button id="save-changes-btn" class="btn btn-success">
+      <span class="icon">💾</span> 儲存變更
+    </button>
+    <button id="next-step-btn" class="btn btn-primary">
+      下一步 →
+    </button>
+  </div>
+</div>

@@ -1,0 +1,38 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>切割容器 & 區域劃分</h2>
+    <div class="header-actions">
+      <!-- Canvas Controls -->
+      <button id="edit-toggle-btn" class="btn btn-outline">✏️ 編輯區域</button>
+    </div>
+  </header>
+
+  <div class="cut-workspace">
+    <!-- Canvas Section -->
+    <section class="canvas-section">
+      <canvas id="cut-canvas" width="800" height="600"></canvas>
+    </section>
+
+    <!-- Side Panel -->
+    <aside class="side-panel">
+      <div class="panel-header">
+        <h3>區域列表</h3>
+      </div>
+      <div id="zone-card-container" class="zone-list">
+        <div class="empty-state">
+          <p>尚未建立區域</p>
+          <p class="hint">提示：點擊「編輯區域」後，在畫布上拖曳即可建立新區域。</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Footer Actions -->
+  <footer class="page-footer">
+    <button id="btn-prev-step" class="btn btn-secondary">← 上一步</button>
+    <div class="footer-right">
+      <button id="btn-finish" class="btn btn-success">儲存切割</button>
+      <button id="btn-next-step" class="btn btn-primary">下一步 →</button>
+    </div>
+  </footer>
+</div>

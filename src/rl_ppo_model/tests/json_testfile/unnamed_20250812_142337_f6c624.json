@@ -1,0 +1,194 @@
+{
+  "environment_meta": {
+    "boundarySize": 150
+  },
+  "objects": [
+    {
+      "uuid": "7c57014c-7805-42f4-8933-933c07ac92cc",
+      "type": "IcosahedronGeometry",
+      "position": {
+        "x": -50,
+        "y": -62.69300783661847,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "material": {
+        "color": 16774631,
+        "metalness": 0,
+        "roughness": 1
+      },
+      "geometry": {
+        "radius": 10,
+        "detail": 0
+      },
+      "physics": {
+        "shape": "sphere",
+        "mass": 1
+      },
+      "positionMode": "manual",
+      "bbox": {
+        "width": 1,
+        "height": 1,
+        "depth": 1
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "uuid": "6b61afe2-a883-4370-8466-61b02ca899d6",
+      "type": "SphereGeometry",
+      "position": {
+        "x": -25,
+        "y": -65.00000246740352,
+        "z": 0
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "rotation": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "material": {
+        "color": 16765404,
+        "metalness": 0,
+        "roughness": 1
+      },
+      "geometry": {
+        "radius": 10,
+        "widthSegments": 16,
+        "heightSegments": 16,
+        "phiStart": 0,
+        "phiLength": 6.283185307179586,
+        "thetaStart": 0,
+        "thetaLength": 3.141592653589793
+      },
+      "physics": {
+        "shape": "sphere",
+        "mass": 1
+      },
+      "positionMode": "manual",
+      "bbox": {
+        "width": 1,
+        "height": 1,
+        "depth": 1
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "uuid": "415b01f4-ae21-4ab5-be0a-297e091f104f",
+      "type": "BoxGeometry",
+      "position": {
+        "x": 0.13988314557205223,
+        "y": -44.81591456960372,
+        "z": 0.71252852922481
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "rotation": {
+        "x": 0.032142358801995986,
+        "y": -0.002674053999725155,
+        "z": 0.019043793790869085
+      },
+      "material": {
+        "color": 13430527,
+        "metalness": 0,
+        "roughness": 1
+      },
+      "geometry": {
+        "width": 15,
+        "height": 15,
+        "depth": 15,
+        "widthSegments": 1,
+        "heightSegments": 1,
+        "depthSegments": 1
+      },
+      "physics": {
+        "shape": "box",
+        "mass": 1
+      },
+      "positionMode": "manual",
+      "bbox": {
+        "width": 1,
+        "height": 1,
+        "depth": 1
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    },
+    {
+      "uuid": "49f64ac3-1aa3-4cc8-9f89-44db9ae84b5e",
+      "type": "CylinderGeometry",
+      "position": {
+        "x": 0.054107365484599865,
+        "y": -64.96578514773411,
+        "z": -0.04743125385670132
+      },
+      "scale": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "rotation": {
+        "x": -0.004216784730215136,
+        "y": -0.002579279060125154,
+        "z": 0.0008109703670686731
+      },
+      "material": {
+        "color": 16764074,
+        "metalness": 0,
+        "roughness": 1
+      },
+      "geometry": {
+        "radiusTop": 8,
+        "radiusBottom": 8,
+        "height": 20,
+        "radialSegments": 32,
+        "heightSegments": 1,
+        "openEnded": false,
+        "thetaStart": 0,
+        "thetaLength": 6.283185307179586
+      },
+      "physics": {
+        "shape": "cylinder",
+        "mass": 1
+      },
+      "positionMode": "manual",
+      "bbox": {
+        "width": 1,
+        "height": 1,
+        "depth": 1
+      },
+      "velocity": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      }
+    }
+  ]
+}
