@@ -15,6 +15,20 @@ export class ThreeViewer {
     this.controls = null;
     this.animationId = null;
     this.isFullscreen = false;
+
+    // Visibility states
+    this.visibility = {
+      container: true,
+      zones: true,
+      items: true
+    };
+
+    // Store references to scene objects
+    this.sceneObjects = {
+      container: [],
+      zones: [],
+      items: []
+    };
   }
 
   init() {
@@ -31,10 +45,11 @@ export class ThreeViewer {
 
   setupScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf8f5f2);
+    // Beige/cream background to match reference image
+    this.scene.background = new THREE.Color(0xf5f0e8);
 
-    // Add grid helper
-    const gridHelper = new THREE.GridHelper(5000, 50, 0xcccccc, 0xeeeeee);
+    // Add grid helper with subtle colors
+    const gridHelper = new THREE.GridHelper(5000, 50, 0xd4c4a8, 0xe8e0d0);
     this.scene.add(gridHelper);
 
     // Add axes helper
@@ -122,6 +137,11 @@ export class ThreeViewer {
         }
       }
     });
+
+    // Clear object references
+    this.sceneObjects.container = [];
+    this.sceneObjects.zones = [];
+    this.sceneObjects.items = [];
   }
 
   loadPackingResult(packingData) {
@@ -156,24 +176,59 @@ export class ThreeViewer {
         break;
       case 'rect':
       default:
-        this.drawRectContainer(containerConfig);
+        const width = containerConfig.widthX || containerConfig.parameters?.widthX || 5800;
+        const height = containerConfig.heightY || containerConfig.parameters?.heightY || 2400;
+        const depth = containerConfig.depthZ || containerConfig.parameters?.depthZ || 2300;
+        this.drawRectContainer(width, height, depth);
         break;
     }
   }
 
-  drawRectContainer(config) {
-    const width = config.widthX || config.parameters?.widthX || 5800;
-    const height = config.heightY || config.parameters?.heightY || 2400;
-    const depth = config.depthZ || config.parameters?.depthZ || 2300;
+  drawRectContainer(width, height, depth) {
+    console.log('[ThreeViewer] Drawing rectangular container:', { width, height, depth });
 
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-    const edges = new THREE.EdgesGeometry(geometry);
+    // Create box geometry for container volume
+    const boxGeometry = new THREE.BoxGeometry(width, height, depth);
+
+    // CRITICAL FIX: Translate geometry so container starts at origin (0,0,0)
+    // instead of being centered at (width/2, height/2, depth/2)
+    // This aligns with zone coordinates which are relative to container origin
+    boxGeometry.translate(width / 2, height / 2, depth / 2);
+
+    // Semi-transparent material for container volume
+    const boxMaterial = new THREE.MeshBasicMaterial({
+      color: 0xc4a57b,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide
+    });
+    const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+
+    // Container outline edges
+    const edgesGeometry = new THREE.EdgesGeometry(boxGeometry);
     const line = new THREE.LineSegments(
-      edges,
-      new THREE.LineBasicMaterial({ color: 0x078080, linewidth: 2 })
+      edgesGeometry,
+      new THREE.LineBasicMaterial({ color: 0x8b6f47, linewidth: 2 })
     );
-    line.position.set(width / 2, height / 2, depth / 2);
+
+    // Position at origin - geometry is already translated
+    boxMesh.position.set(0, 0, 0);
+    line.position.set(0, 0, 0);
+
+    // Set initial visibility
+    boxMesh.visible = this.visibility.container;
+    line.visible = this.visibility.container;
+
+    this.scene.add(boxMesh);
     this.scene.add(line);
+
+    // Store references for visibility control
+    this.sceneObjects.container.push(boxMesh, line);
+
+    console.log('[ThreeViewer] Container positioned at origin with bounds:', {
+      min: { x: 0, y: 0, z: 0 },
+      max: { x: width, y: height, z: depth }
+    });
   }
 
   drawUShapeContainer(config) {
@@ -248,44 +303,67 @@ export class ThreeViewer {
   }
 
   drawZones(zones) {
+    if (!zones || zones.length === 0) {
+      console.log('[ThreeViewer] No zones to draw');
+      return;
+    }
+
+    console.log('[ThreeViewer] Drawing zones:', zones);
+
     zones.forEach((zone, index) => {
-      const width = zone.width || zone.length || 1000;
-      const height = zone.depth || zone.height || 2400;
-      const depth = zone.height || zone.width || 1000;
+      // Zone dimensions from database
+      const zoneWidth = zone.length || 1000;
+      const zoneHeight = zone.height || 2400;
+      const zoneDepth = zone.width || 1000;
 
-      const x = zone.x || 0;
-      const y = zone.y || 0;
-      const rotation = zone.rotation || 0;
+      // Corner position from 2D cutting interface
+      const cornerX = zone.x || 0;
+      const cornerZ = zone.y || 0;  // 2D y becomes 3D z
 
-      // Create semi-transparent box for zone
-      const geometry = new THREE.BoxGeometry(width, height, depth);
+      console.log(`Zone ${index} (${zone.label}):`, {
+        dims: { w: zoneWidth, h: zoneHeight, d: zoneDepth },
+        corner: { x: cornerX, z: cornerZ }
+      });
+
+      // Create geometry
+      const geometry = new THREE.BoxGeometry(zoneWidth, zoneHeight, zoneDepth);
+
+      // Semi-transparent material
       const material = new THREE.MeshBasicMaterial({
         color: this.getZoneColor(index),
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.3,
         side: THREE.DoubleSide
       });
       const mesh = new THREE.Mesh(geometry, material);
 
-      // Create edges for zone
+      // Zone outline
       const edges = new THREE.EdgesGeometry(geometry);
       const line = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: this.getZoneColor(index), linewidth: 2 })
+        new THREE.LineBasicMaterial({
+          color: this.getZoneColor(index),
+          linewidth: 3
+        })
       );
 
-      // Position the zone
-      mesh.position.set(x, height / 2, y);
-      line.position.set(x, height / 2, y);
+      // Position at CENTER of zone box (geometry center is at origin)
+      const centerX = cornerX + zoneWidth / 2;
+      const centerY = zoneHeight / 2;
+      const centerZ = cornerZ + zoneDepth / 2;
 
-      // Rotate if needed
-      if (rotation) {
-        mesh.rotation.y = rotation;
-        line.rotation.y = rotation;
-      }
+      mesh.position.set(centerX, centerY, centerZ);
+      line.position.set(centerX, centerY, centerZ);
+
+      // Set visibility
+      mesh.visible = this.visibility.zones;
+      line.visible = this.visibility.zones;
 
       this.scene.add(mesh);
       this.scene.add(line);
+
+      // Store references
+      this.sceneObjects.zones.push(mesh, line);
     });
   }
 
@@ -298,32 +376,52 @@ export class ThreeViewer {
       const height = max.y - min.y;
       const depth = max.z - min.z;
 
-      const centerX = (min.x + max.x) / 2;
-      const centerY = (min.y + max.y) / 2;
-      const centerZ = (min.z + max.z) / 2;
+      // Calculate local center (relative to zone origin)
+      const localCenterX = (min.x + max.x) / 2;
+      const localCenterY = (min.y + max.y) / 2;
+      const localCenterZ = (min.z + max.z) / 2;
+
+      // Apply zone offset if available
+      // Zone X (2D) -> World X (3D)
+      // Zone Y (2D) -> World Z (3D)
+      const offsetX = item.zoneOffset ? item.zoneOffset.x : 0;
+      const offsetZ = item.zoneOffset ? item.zoneOffset.y : 0; // 2D y -> 3D z
+
+      const worldCenterX = localCenterX + offsetX;
+      const worldCenterY = localCenterY; // Y is height, usually not offset unless stacked zones
+      const worldCenterZ = localCenterZ + offsetZ;
 
       // Create box for item
       const geometry = new THREE.BoxGeometry(width, height, depth);
       const material = new THREE.MeshPhongMaterial({
         color: 0x4caf50,
         transparent: true,
-        opacity: 0.7
+        opacity: 0.8
       });
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(centerX, centerY, centerZ);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
-      // Create edges for item
+      // Create edges
       const edges = new THREE.EdgesGeometry(geometry);
       const line = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: 0x2e7d32 })
+        new THREE.LineBasicMaterial({ color: 0x2e7d32, linewidth: 1 })
       );
-      line.position.set(centerX, centerY, centerZ);
+
+      // Position using calculated World coordinates
+      mesh.position.set(worldCenterX, worldCenterY, worldCenterZ);
+      line.position.set(worldCenterX, worldCenterY, worldCenterZ);
+
+      // Set visibility
+      mesh.visible = this.visibility.items;
+      line.visible = this.visibility.items;
 
       this.scene.add(mesh);
       this.scene.add(line);
+
+      // Store references
+      this.sceneObjects.items.push(mesh, line);
     });
   }
 
@@ -407,6 +505,28 @@ export class ThreeViewer {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
+  }
+
+  // Visibility toggle methods
+  toggleContainer(visible) {
+    this.visibility.container = visible;
+    this.sceneObjects.container.forEach(obj => {
+      obj.visible = visible;
+    });
+  }
+
+  toggleZones(visible) {
+    this.visibility.zones = visible;
+    this.sceneObjects.zones.forEach(obj => {
+      obj.visible = visible;
+    });
+  }
+
+  toggleItems(visible) {
+    this.visibility.items = visible;
+    this.sceneObjects.items.forEach(obj => {
+      obj.visible = visible;
+    });
   }
 
   dispose() {

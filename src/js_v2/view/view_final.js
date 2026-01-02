@@ -23,11 +23,31 @@ export const ViewFinalPage = {
     // Bind DOM elements
     this.bindElements();
 
+    // Initialize Three.js viewer
+    this.initThreeViewer();
+
     // Event listeners
     this.setupEventListeners();
 
     // Load packing result
     await this.loadPackingResult();
+  },
+
+  initThreeViewer() {
+    const container = document.getElementById('preview-container');
+    if (!container) {
+      console.error('Preview container not found');
+      return;
+    }
+
+    try {
+      this.threeViewer = new ThreeViewer(container);
+      this.threeViewer.init();  // Must call init() to set up scene
+      console.log('✓ ThreeViewer initialized');
+    } catch (error) {
+      console.error('Failed to initialize ThreeViewer:', error);
+      this.showPreviewError('無法初始化3D場景');
+    }
   },
 
   bindElements() {
@@ -72,6 +92,19 @@ export const ViewFinalPage = {
     if (this.elements.fullscreenBtn) {
       this.elements.fullscreenBtn.addEventListener('click', () => this.handleFullscreen());
     }
+
+    // Display toggle buttons
+    document.getElementById('toggle-container-btn')?.addEventListener('click', (e) => {
+      this.toggleDisplay('container', e.currentTarget);
+    });
+
+    document.getElementById('toggle-zones-btn')?.addEventListener('click', (e) => {
+      this.toggleDisplay('zones', e.currentTarget);
+    });
+
+    document.getElementById('toggle-items-btn')?.addEventListener('click', (e) => {
+      this.toggleDisplay('items', e.currentTarget);
+    });
   },
 
   async loadPackingResult() {
@@ -86,6 +119,9 @@ export const ViewFinalPage = {
       const data = await response.json();
       console.log('Packing result loaded:', data);
 
+      // Store full data for later use
+      this.state.fullData = data;
+
       // Handle zone-based results
       if (data.spaces && Array.isArray(data.spaces) && data.spaces.length > 0) {
         // Use first space/zone for now
@@ -98,6 +134,9 @@ export const ViewFinalPage = {
           volume_utilization: firstSpace.result?.volume_utilization || 0,
           execution_time_ms: data.total_execution_time || 0,
           zone_label: firstSpace.zone_label,
+          // CRITICAL FIX: Use master container (data.container) if available to show full context
+          container: data.container || firstSpace.result?.container || {},
+          zones: data.zones || [],
           items: firstSpace.result?.items || []
         };
       } else {
@@ -107,9 +146,35 @@ export const ViewFinalPage = {
 
       console.log('Rendering with result:', this.state.packingResult);
       this.renderAll();
+      this.populateSpaceSelector(data);
     } catch (error) {
       console.error('Failed to load packing result:', error);
       this.showError('無法載入打包結果。請確認是否已執行打包。');
+    }
+  },
+
+  populateSpaceSelector(data) {
+    const spaceSelect = document.getElementById('space-select');
+    if (!spaceSelect) return;
+
+    // Clear existing options
+    spaceSelect.innerHTML = '';
+
+    if (data.spaces && Array.isArray(data.spaces) && data.spaces.length > 0) {
+      // Add options for each space
+      data.spaces.forEach((space, index) => {
+        const option = document.createElement('option');
+        option.value = space.zone_id;
+        option.textContent = `${space.zone_label} (${space.packed_count}/${space.packed_count + space.unpacked_count} 件)`;
+        if (index === 0) option.selected = true;
+        spaceSelect.appendChild(option);
+      });
+    } else {
+      // No spaces available
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '無可用空間';
+      spaceSelect.appendChild(option);
     }
   },
 
@@ -119,6 +184,150 @@ export const ViewFinalPage = {
     this.renderMetrics();
     this.renderStatistics();
     this.renderItemList();
+    this.render3DPreview();
+  },
+
+
+  render3DPreview() {
+    if (!this.threeViewer) {
+      console.warn('ThreeViewer not initialized');
+      this.showPreviewError('3D渲染器未初始化');
+      return;
+    }
+
+    const result = this.state.packingResult;
+    if (!result) {
+      console.warn('No packing result data');
+      return;
+    }
+
+    try {
+      // 1. Prepare Zones Map (ID -> Offset)
+      // We need to know where each zone starts in 3D space to offset the items
+      const zoneOffsetMap = {};
+      const zones = result.zones || this.state.fullData?.zones || [];
+
+      zones.forEach(zone => {
+        zoneOffsetMap[zone.zone_id] = {
+          x: zone.x || 0,
+          y: zone.y || 0
+        };
+      });
+
+      // 2. Prepare Items with World Coordinates
+      // The API returns items grouped by space (zone).
+      // We need to flatten this list and add the zone offset to each item.
+      let allItems = [];
+      const spaces = this.state.fullData?.spaces || [];
+
+      spaces.forEach(space => {
+        if (space.result && space.result.items) {
+          const zoneOffset = zoneOffsetMap[space.zone_id] || { x: 0, y: 0 };
+
+          const spaceItems = space.result.items.map(item => ({
+            ...item,
+            // Attach zone offset for the viewer to use
+            zoneOffset: zoneOffset
+          }));
+          allItems = allItems.concat(spaceItems);
+        }
+      });
+
+      const packingData = {
+        container: result.container || this.state.fullData?.container || {},
+        items: allItems, // Use our processed items list
+        zones: zones
+      };
+
+      console.log('[ViewFinal] Rendering 3D preview with:', {
+        containerSize: packingData.container,
+        itemCount: packingData.items.length,
+        zoneCount: packingData.zones.length
+      });
+
+      this.threeViewer.loadPackingResult(packingData);
+      console.log('✓ 3D preview rendered successfully');
+
+    } catch (error) {
+      console.error('Render error:', error);
+      this.showPreviewError(`渲染失敗: ${error.message}`);
+    }
+  },
+
+  showPreviewError(message) {
+    const container = document.getElementById('preview-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="preview-placeholder">
+          <div class="placeholder-icon">⚠️</div>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+  },
+
+  toggleDisplay(type, button) {
+    if (!this.threeViewer) {
+      console.warn('ThreeViewer not initialized');
+      return;
+    }
+
+    // Toggle button active state
+    const isActive = button.classList.toggle('active');
+
+    // Call corresponding ThreeViewer toggle method
+    switch (type) {
+      case 'container':
+        this.threeViewer.toggleContainer(isActive);
+        break;
+      case 'zones':
+        this.threeViewer.toggleZones(isActive);
+        break;
+      case 'items':
+        this.threeViewer.toggleItems(isActive);
+        break;
+    }
+
+    console.log(`✓ Toggled ${type} visibility: ${isActive}`);
+  },
+
+  async onSpaceChange(spaceId) {
+    if (!spaceId) return;
+
+    console.log('Switching to space:', spaceId);
+
+    try {
+      // Fetch space-specific packing result
+      const response = await fetch(`${this.API_BASE}/sequence/space-result/${spaceId}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to load space result');
+      }
+
+      const spaceData = await response.json();
+
+      // Update state with space-specific result
+      this.state.packingResult = {
+        zone_id: spaceData.zone_id,
+        zone_label: spaceData.zone_label,
+        packed_count: spaceData.packed_count || 0,
+        unpacked_count: spaceData.unpacked_count || 0,
+        volume_utilization: spaceData.volume_utilization || 0,
+        execution_time_ms: spaceData.execution_time_ms || 0,
+        container: spaceData.result?.container || {},
+        items: spaceData.result?.items || [],
+        zones: spaceData.result?.zones || []
+      };
+
+      // Re-render everything with new space data
+      this.renderAll();
+
+      console.log(`✓ Switched to space: ${spaceData.zone_label}`);
+
+    } catch (error) {
+      console.error('Failed to switch space:', error);
+      alert('載入空間數據失敗：' + error.message);
+    }
   },
 
   renderMetrics() {

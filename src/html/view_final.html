@@ -92,17 +92,29 @@
     <!-- 3D Preview Area -->
     <div class="vf-preview-area">
       <div class="preview-header">
-        <h2> 3D 預覽</h2>
-        <button id="fullscreen-btn" class="btn-icon" title="全螢幕預覽">
-          <span>⛶</span>
-        </button>
+        <h2>🎨 3D 預覽</h2>
+        <div class="preview-controls">
+          <div class="display-toggles">
+            <button id="toggle-container-btn" class="toggle-btn active" title="顯示/隱藏容器">
+              <span>📦</span>
+              <span class="toggle-label">容器</span>
+            </button>
+            <button id="toggle-zones-btn" class="toggle-btn active" title="顯示/隱藏空間切割">
+              <span>✂️</span>
+              <span class="toggle-label">空間</span>
+            </button>
+            <button id="toggle-items-btn" class="toggle-btn active" title="顯示/隱藏物件">
+              <span>📦</span>
+              <span class="toggle-label">物件</span>
+            </button>
+          </div>
+          <button id="fullscreen-btn" class="btn-icon" title="全螢幕預覽">
+            <span>⛶</span>
+          </button>
+        </div>
       </div>
       <div class="preview-container" id="preview-container">
-        <div class="preview-placeholder">
-          <div class="placeholder-icon">📦</div>
-          <div class="placeholder-text">3D 視覺化即將推出</div>
-          <div class="placeholder-subtext">未來將在此顯示打包結果的立體視圖</div>
-        </div>
+        <!-- ThreeViewer will render here -->
       </div>
     </div>
 
@@ -123,7 +135,16 @@
         <div class="item-list-placeholder">
           <p>載入物件清單中...</p>
         </div>
-      </div>
-    </div>
+      </div> <!-- item-list-area -->
   </section>
 </div>
+
+<!-- Load Three.js ViewFinal Module -->
+<script type="module">
+  import { ViewFinalPage } from '/src/js_v2/view/view_final.js';
+
+  // Initialize when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    ViewFinalPage.init();
+  });
+</script>
