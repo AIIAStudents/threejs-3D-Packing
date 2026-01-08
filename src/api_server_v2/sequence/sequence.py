@@ -249,6 +249,7 @@ def get_latest_result():
         spaces = []
         total_packed = 0
         total_unpacked = 0
+        total_execution_time = 0
         
         for row in results_rows:
             result = json.loads(row['result_json'])
@@ -278,15 +279,41 @@ def get_latest_result():
             
             total_packed += row['packed_count']
             total_unpacked += row['unpacked_count']
+            total_execution_time += row['execution_time_ms']
+        
+        # Fetch container configuration
+        container_row = conn.execute('SELECT * FROM containers ORDER BY id DESC LIMIT 1').fetchone()
+        container_data = None
+        if container_row:
+            params = json.loads(container_row['parameters'])
+            container_data = params
+        
+        # Fetch all zones for visualization
+        zones_rows = conn.execute('SELECT * FROM zones').fetchall()
+        zones_data = []
+        for zone in zones_rows:
+            zones_data.append({
+                'zone_id': zone['id'],
+                'label': zone['label'],
+                'length': zone['length'],
+                'width': zone['width'],
+                'height': zone['height'],
+                'x': zone['x'],
+                'y': zone['y'],
+                'rotation': zone['rotation']
+            })
         
         # 4. Return combined response
         return jsonify({
             "job_id": job_id,
             "success": True,
             "message": f"載入 {len(spaces)} 個空間的打包結果",
+            "container": container_data,
+            "zones": zones_data,
             "spaces": spaces,
             "total_packed": total_packed,
-            "total_unpacked": total_unpacked
+            "total_unpacked": total_unpacked,
+            "total_execution_time": total_execution_time
         }), 200
         
     except Exception as e:
