@@ -35,6 +35,10 @@ class DirectModuleLoader {
     '/view-final': {
       html: '/src/html/view_final.html',
       js: '/src/js_v2/view/view_final.js'
+    },
+    '/animation-preview': {
+      html: '/src/html/animation_preview.html',
+      js: '/src/js_v2/view/animation_preview.js'
     }
   };
 
@@ -42,7 +46,7 @@ class DirectModuleLoader {
     this.contentContainer = document.getElementById('main-content');
     this.moduleCache = new Map();
 
-    // Initialize sidebar   
+    // Initialize sidebar (controls)
     this.sidebar = new Sidebar();
 
     // Listen for hash changes (browser back/forward, manual hash change)
@@ -95,7 +99,8 @@ class DirectModuleLoader {
           '/src/html/cut_container.html': '/cut-container',
           '/src/html/assign_space.html': '/assign-space',
           '/src/html/assign_sequence.html': '/assign-sequence',
-          '/src/html/view_final.html': '/view-final'
+          '/src/html/view_final.html': '/view-final',
+          '/src/html/animation_preview.html': '/animation-preview'
         };
 
         const newRoute = legacyMap[path];

@@ -4,7 +4,7 @@
 */
 export class Sidebar {
   constructor() {
-    this.container = document.getElementById('sidebar');
+    this.container = document.getElementById('controls');
     // Define menu structure with LOGICAL routes
     this.menuItems = [
       {
@@ -19,7 +19,7 @@ export class Sidebar {
       {
         id: 'space-planning',
         title: '空間配置',
-        icon: '📐',
+        icon: '📏',
         children: [
           { id: 'view-container-config', title: '空間大小', target: '/define-container' },
           { id: 'view-cut-container', title: '切割容器', target: '/cut-container' },
@@ -27,15 +27,28 @@ export class Sidebar {
           { id: 'view-assign-sequence', title: '排序設定', target: '/assign-sequence' },
           { id: 'view-result', title: '預覽畫面', target: '/view-final' }
         ]
+      },
+      {
+        id: 'animation-section',
+        title: '動畫預覽',
+        icon: '🎬',
+        children: [
+          { id: 'view-animation', title: '3D 預覽', target: '/animation-preview' }
+        ]
       }
     ];
     this.init();
   }
 
   init() {
-    if (!this.container) return;
+    console.log('[Sidebar] Initializing with container:', this.container);
+    if (!this.container) {
+      console.error('[Sidebar] Container #controls not found!');
+      return;
+    }
     this.render();
     this.addEventListeners();
+    console.log('[Sidebar] Rendered successfully');
   }
 
   render() {
