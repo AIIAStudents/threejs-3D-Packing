@@ -1,108 +1,278 @@
-/* add_group.css */
+/* add_group.css - Deep Ocean Glass Theme */
 .page-container {
-  padding: 20px;
+  padding: 24px;
   height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 24px;
+  overflow: hidden;
+  /* Prevent body scroll, use inner scroll */
 }
 
+/* Header */
 .page-header {
-  background: white;
-  padding: 15px 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.page-header h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .content-wrapper {
-  display: grid;
-  grid-template-columns: 400px 1fr;
-  gap: 20px;
-  flex: 1;
-}
-
-.form-section,
-.list-section {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.data-form {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  /* Vertical layout */
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+  /* Important for scrolling */
+}
+
+/* Form Section (Top Bar) */
+.form-section {
+  flex-shrink: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.form-section h3 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-section h3::before {
+  content: '✨';
+}
+
+.group-form {
+  display: flex;
+  align-items: flex-end;
+  /* Align bottom to match button height */
+  gap: 20px;
 }
 
 .form-group {
+  flex: 1;
+  /* Input takes available space */
+  max-width: 400px;
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 
 .form-group label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
   font-weight: 500;
-  margin-bottom: 5px;
-  color: #333;
 }
 
-.form-group input,
-.form-group textarea {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-family: inherit;
+.form-group input {
+  height: 48px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0 16px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.3s;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: rgba(15, 23, 42, 0.8);
 }
 
 .form-actions {
-  margin-top: 10px;
+  margin: 0;
+}
+
+.form-actions .btn {
+  height: 48px;
+  padding: 0 32px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.form-actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+/* List Section (Bottom Area) */
+.list-section {
+  flex: 1;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Contain scrollbar */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.list-section h3 {
+  padding: 24px 24px 16px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.groups-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
 }
 
 .groups-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  max-height: 500px;
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
 }
 
 .group-card {
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: 6px;
-  border-left: 4px solid #2196F3;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 20px;
   position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
 }
 
-.group-card h4 {
-  margin: 0 0 5px 0;
-  color: #333;
+.group-card:hover {
+  transform: translateY(-4px);
+  background: rgba(30, 41, 59, 0.8);
+  border-color: var(--accent-blue);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
 }
 
-.group-card p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.group-card .delete-btn {
+.group-card::before {
+  content: '';
   position: absolute;
-  top: 10px;
-  right: 10px;
-  background: #f44336;
-  color: white;
-  border: none;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 4px 0 0 4px;
+  opacity: 0.6;
+}
+
+.group-card:hover::before {
+  opacity: 1;
+}
+
+.group-info h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.group-info .group-id {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-family: monospace;
+  background: rgba(0, 0, 0, 0.2);
   padding: 4px 8px;
-  border-radius: 3px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.group-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  /* Hide by default */
+  transform: translateY(10px);
+  transition: all 0.3s;
+}
+
+.group-card:hover .group-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-size: 0.8rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.group-card .delete-btn:hover {
-  background: #d32f2f;
+.delete-btn:hover {
+  background: var(--accent-danger);
+  color: white;
 }
 
-/* Save Changes Button */
+/* Empty State */
+.empty-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.4rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Save Button */
 .save-changes-container {
   position: fixed;
   bottom: 30px;
@@ -111,25 +281,24 @@
 }
 
 .save-changes-container .btn {
-  padding: 14px 28px;
-  font-size: 1.05rem;
+  height: 56px;
+  padding: 0 32px;
+  background: var(--accent-success);
+  color: white;
+  border: none;
+  border-radius: 28px;
+  font-size: 1.1rem;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.save-changes-container .btn .icon {
-  font-size: 1.2rem;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
 .save-changes-container .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
-}
-
-/* Add padding to bottom of page to prevent save button overlap */
-.page-container {
-  padding-bottom: 100px;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
+  background: #059669;
 }

@@ -1,7 +1,8 @@
-/* cut_container.css - 6:4 ratio layout */
+/* cut_container.css - Deep Ocean Glass Theme */
 .page-container {
   padding: 0;
   height: 100%;
+  padding-bottom: 20px;
   display: flex;
   flex-direction: column;
 }
@@ -13,56 +14,78 @@
   gap: 0;
   flex: 1;
   overflow: hidden;
-  background: white;
+  background: transparent;
 }
 
 .page-header {
-  background: white;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
   padding: 15px 20px;
-  border-bottom: 1px solid #ddd;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
+.page-header h2 {
+  color: var(--text-primary);
+  margin: 0;
+}
+
 .header-actions .btn-outline {
-  border: 1px solid #2196F3;
-  color: #2196F3;
-  background: white;
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+  background: transparent;
+  transition: all 0.2s;
+}
+
+.header-actions .btn-outline:hover {
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .header-actions .btn-outline.active {
-  background: #2196F3;
+  background: var(--accent-blue);
   color: white;
 }
 
 .zone-sidebar {
   width: 100%;
-  background: #f9f9f9;
-  border-left: 1px solid #ddd;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-left: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
   padding: 15px;
+}
+
+.zone-sidebar h3 {
+  color: var(--text-primary);
+  margin-top: 0;
 }
 
 .zone-list {
   flex: 1;
   overflow-y: auto;
   margin-top: 10px;
+  padding-right: 5px;
 }
 
 .empty-state {
-  color: #999;
+  color: var(--text-secondary);
   text-align: center;
   padding: 20px;
-  border: 2px dashed #ddd;
+  border: 2px dashed var(--glass-border);
   border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .canvas-wrapper {
   flex: 1;
   position: relative;
-  background: #eee;
+  background: rgba(15, 23, 42, 0.4);
+  /* Dark backdrop for canvas area */
   padding: 20px;
   display: flex;
   justify-content: center;
@@ -72,13 +95,17 @@
 
 canvas {
   background: white;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  /* Keep canvas white for drawing context unless updated to dark mode drawing */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
 }
 
 .page-footer {
   padding: 15px 20px;
-  background: white;
-  border-top: 1px solid #ddd;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -92,8 +119,8 @@ canvas {
 
 /* Zone Card Styles */
 .zone-card {
-  background: white;
-  border: 1px solid #eee;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 10px;
@@ -103,12 +130,14 @@ canvas {
 
 .zone-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .zone-card.selected {
-  border-color: #2196F3;
-  background: #e3f2fd;
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 1px var(--accent-blue);
 }
 
 .zone-card-header {
@@ -117,24 +146,24 @@ canvas {
   align-items: center;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .zone-stat {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--text-secondary);
   margin: 2px 0;
 }
 
 .zone-groups {
   margin-top: 8px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--glass-border);
   padding-top: 5px;
 }
 
 .zone-groups span:first-child {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .group-tags-container {
@@ -145,17 +174,17 @@ canvas {
 }
 
 .group-tag {
-  background: #e0f2f1;
-  color: #00695c;
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--text-primary);
   font-size: 0.75rem;
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #b2dfdb;
+  border: 1px solid var(--accent-blue);
 }
 
 .no-groups-text {
   font-size: 0.8rem;
-  color: #ccc;
+  color: var(--text-muted);
   font-style: italic;
 }
 
@@ -168,18 +197,21 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s;
 }
 
 .btn-delete:hover {
-  background: #ffebee;
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-danger);
 }
 
-.btn-delete img {
-  width: 16px;
-  height: 16px;
-  opacity: 0.6;
+/* Scrollbar */
+.zone-list::-webkit-scrollbar {
+  width: 6px;
 }
 
-.btn-delete:hover img {
-  opacity: 1;
+.zone-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
 }

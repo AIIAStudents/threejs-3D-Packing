@@ -1,10 +1,9 @@
-/* define_container.css - Isolated left-right layout */
+/* define_container.css - Deep Ocean Glass Theme */
 
 /* Specific container for define_container page only */
 .define-container-page {
   padding: 0;
-  padding-bottom: 100px;
-  /* Space for bottom buttons */
+  padding-bottom: 20px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -12,24 +11,32 @@
 
 /* Left-right layout for define_container only */
 .define-container-content {
-  display: grid;
-  grid-template-columns: 350px 1fr;
-  grid-template-rows: 1fr;
-  gap: 0;
-  padding: 0;
+  display: flex;
+  /* Changed to Flex to better handle sidebar offset if grid fails */
+  gap: 20px;
+  padding: 20px;
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  height: 100%;
 }
 
 /* Form Section (Left Panel) */
 .form-section {
+  width: 350px;
   flex-shrink: 0;
   overflow-y: auto;
   min-height: 0;
-  background: white;
+
+  /* Glass Effect */
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--glass-shadow);
+
   padding: 20px;
-  border-right: 2px solid var(--border-color);
 }
 
 .config-form {
@@ -40,7 +47,7 @@
 
 .form-section-inner {
   padding-bottom: 15px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .form-section-inner:last-of-type {
@@ -49,7 +56,7 @@
 
 .form-section-inner h3 {
   margin: 0 0 12px 0;
-  color: var(--primary-dark);
+  color: var(--text-primary);
   font-size: 1.05rem;
   font-weight: 600;
 }
@@ -64,23 +71,25 @@
   margin-bottom: 6px;
   font-weight: 500;
   font-size: 0.9rem;
-  color: var(--text-dark);
+  color: var(--text-secondary);
 }
 
 .form-group input,
 .form-group select {
   padding: 10px 12px;
-  border: 2px solid var(--border-color);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   font-size: 0.95rem;
+  color: var(--text-primary);
   transition: all 0.3s;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(166, 124, 82, 0.1);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .dims-group {
@@ -100,7 +109,12 @@
 
 /* Preview Section (Right Panel) */
 .preview-section {
-  background: #f5f5f5;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -111,13 +125,13 @@
 
 .preview-header {
   padding-bottom: 12px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 1px solid var(--glass-border);
   flex-shrink: 0;
 }
 
 .preview-header h3 {
   margin: 0;
-  color: var(--primary-dark);
+  color: var(--text-primary);
   font-size: 1.2rem;
 }
 
@@ -132,9 +146,9 @@
 #preview-3d {
   width: 100%;
   height: 100%;
-  background: white;
+  background: rgba(15, 23, 42, 0.4);
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--glass-border);
 }
 
 #preview-3d canvas {
@@ -146,7 +160,7 @@
 .preview-info {
   margin-top: 15px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--glass-border);
   display: flex;
   gap: 30px;
   flex-shrink: 0;
@@ -159,11 +173,11 @@
 
 .info-item .label {
   font-weight: 600;
-  color: var(--text-dark);
+  color: var(--text-secondary);
 }
 
 .info-item span:last-child {
-  color: var(--text-color);
+  color: var(--text-primary);
 }
 
 /* Bottom Buttons Container */
@@ -180,27 +194,30 @@
   padding: 14px 28px;
   font-size: 1.05rem;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .bottom-buttons .btn-success {
-  background: #4CAF50;
+  background: var(--accent-success);
+  color: white;
 }
 
 .bottom-buttons .btn-success:hover {
-  background: #45a049;
+  background-color: #059669;
+  /* emerald 600 */
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
 }
 
 .bottom-buttons .btn-primary {
-  background: var(--primary-color);
+  background: var(--accent-blue);
+  color: white;
 }
 
 .bottom-buttons .btn-primary:hover {
-  background: var(--primary-dark);
+  background: var(--accent-blue-hover);
   transform: translateY(-2px);
 }
