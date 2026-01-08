@@ -1,0 +1,72 @@
+<div class="page-container">
+  <!-- Header -->
+  <div class="page-header">
+    <h2>🎬 動畫預覽</h2>
+    <button class="btn btn-outline" onclick="window.location.hash='#/view-final'">
+      ← 返回結果頁
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="animation-content-wrapper">
+    <!-- 3D Canvas -->
+    <div class="animation-canvas-container glass-panel">
+      <div id="animation-canvas" class="canvas-wrapper"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="animation-controls glass-panel">
+      <!-- Progress Bar -->
+      <div class="progress-container">
+        <div class="progress-label">
+          <span>動畫進度</span>
+          <span id="progress-text">0%</span>
+        </div>
+        <div class="progress-bar-wrapper" id="progress-bar">
+          <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="control-panel">
+        <div class="playback-controls">
+          <button class="control-btn" id="btn-reset" title="重置">
+            ⟲
+          </button>
+          <button class="control-btn" id="btn-prev" title="上一步">
+            ◀
+          </button>
+          <button class="control-btn" id="btn-play" title="播放">
+            ▶
+          </button>
+          <button class="control-btn" id="btn-next" title="下一步">
+            ▶▶
+          </button>
+        </div>
+
+        <div class="speed-control">
+          <span style="color: var(--text-secondary); font-size: 0.9rem;">速度:</span>
+          <button class="speed-btn" data-speed="0.5">0.5x</button>
+          <button class="speed-btn active" data-speed="1">1.0x</button>
+          <button class="speed-btn" data-speed="2">2.0x</button>
+        </div>
+      </div>
+
+      <!-- Info Display -->
+      <div class="info-display">
+        <div class="info-item">
+          <span class="info-label">當前步驟</span>
+          <span class="info-value" id="current-step">0 / 0</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">當前物件</span>
+          <span class="info-value" id="current-item">-</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">容器利用率</span>
+          <span class="info-value" id="utilization">0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
