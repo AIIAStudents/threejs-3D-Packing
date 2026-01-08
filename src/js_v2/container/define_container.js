@@ -57,7 +57,8 @@ export const DefineContainerPage = {
 
     // Scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xFAF6EF);
+    // Explicit Dark Background (Deep Slate)
+    this.scene.background = new THREE.Color(0x0f172a);
 
     // Camera
     const width = this.previewContainer.clientWidth;
@@ -68,27 +69,31 @@ export const DefineContainerPage = {
       console.warn('Preview container has zero dimensions!');
     }
 
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 1, 20000);
+    // Fix: Increase far clipping plane to 500000 to prevent floor clipping when zooming out
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 1, 500000);
     this.camera.position.set(8000, 6000, 8000);
     this.camera.lookAt(0, 0, 0);
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true }); // Solid background, alpha not needed
     this.renderer.setSize(width, height);
     this.previewContainer.appendChild(this.renderer.domElement);
     console.log('Renderer added to DOM');
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
     directionalLight.position.set(5000, 8000, 5000);
     this.scene.add(directionalLight);
 
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.5);
+    this.scene.add(hemiLight);
 
-    // Grid helper only (no ground plane)
-    const gridHelper = new THREE.GridHelper(20000, 100, 0xD4C4A8, 0xE8DCC8);
+    // Grid helper (Dark Theme)
+    const gridHelper = new THREE.GridHelper(20000, 100, 0x3b82f6, 0x334155);
+    gridHelper.position.y = -10;
     this.scene.add(gridHelper);
 
     // OrbitControls (if available)
@@ -258,16 +263,16 @@ export const DefineContainerPage = {
     // Rotate to stand upright and center
     geometry.rotateX(-Math.PI / 2);
 
-    // Material
+    // Material (Industrial Glass)
     const material = new THREE.MeshPhongMaterial({
-      color: 0xA67C52,
+      color: 0xffffff,
       transparent: true,
-      opacity: 0.7,
+      opacity: 0.05,
       side: THREE.DoubleSide
     });
 
     const edges = new THREE.EdgesGeometry(geometry);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x8B6338, linewidth: 2 });
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.5 });
     const wireframe = new THREE.LineSegments(edges, lineMaterial);
 
     const mesh = new THREE.Group();
