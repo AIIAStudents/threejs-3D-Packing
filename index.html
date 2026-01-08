@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./src/css/test_version/add_group.css">
   <link rel="stylesheet" href="./src/css/test_version/add_inventory.css">
   <link rel="stylesheet" href="./src/css/test_version/view_final.css">
+  <link rel="stylesheet" href="./src/css/test_version/animation_preview.css">
 
   <!-- External Dependencies -->
   <!-- Three.js (required for 3D view) -->
@@ -26,9 +27,10 @@
 </head>
 
 <body>
+  <div id="canvas-container"></div>
   <div id="app-container">
-    <!-- Sidebar Navigation -->
-    <nav id="sidebar">
+    <!-- Sidebar Navigation (Renamed to controls per YAML spec) -->
+    <nav id="controls">
       <!-- Content injected by sidebar.js -->
       <div style="padding: 20px;">載入中...</div>
     </nav>
@@ -46,5 +48,5 @@
 
   <!-- Centralized JavaScript Imports -->
   <!-- DirectModuleLoader initializes the Router (Sidebar) and loads module based on URL -->
-  <script type="module" src="./src/js_v2/DirectModuleLoader.js"></script>
+  <script type="module" src="./src/js_v2/DirectModuleLoader.js?v=2"></script>
 </body>
