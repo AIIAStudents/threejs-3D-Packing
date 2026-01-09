@@ -1,72 +1,182 @@
-<div class="page-container">
-  <!-- Header -->
-  <div class="page-header">
-    <h2>🎬 動畫預覽</h2>
-    <button class="btn btn-outline" onclick="window.location.hash='#/view-final'">
-      ← 返回結果頁
-    </button>
-  </div>
+<div class="page-container" style="position: relative; height: 100%; overflow: hidden; background: #0f172a;">
 
-  <!-- Content -->
-  <div class="animation-content-wrapper">
-    <!-- 3D Canvas -->
-    <div class="animation-canvas-container glass-panel">
-      <div id="animation-canvas" class="canvas-wrapper"></div>
+  <!-- Canvas Layer (Full Background) -->
+  <div id="animation-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></div>
+
+  <!-- Glass UI Overlay -->
+  <style>
+    .glass-ui-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 320px;
+      padding: 24px;
+      border-radius: 16px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .ui-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .ui-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ui-badge {
+      font-size: 0.6rem;
+      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .stat-list {
+      margin-bottom: 20px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .stat-label {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .stat-value {
+      color: #a5f3fc;
+      font-weight: 500;
+      font-family: monospace;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+      margin: 15px 0;
+    }
+
+    /* Controls */
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .glass-btn {
+      flex: 1;
+      padding: 8px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 8px;
+      color: #60a5fa;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .glass-btn:hover {
+      background: rgba(59, 130, 246, 0.3);
+      color: #fff;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+    }
+
+    .glass-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    /* Progress Bar */
+    .progress-track {
+      background: rgba(255, 255, 255, 0.1);
+      height: 4px;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: #3b82f6;
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
+  </style>
+
+  <div class="glass-ui-panel" id="ui-panel">
+    <div class="ui-header">
+      <h2 class="ui-title">Animation Preview <span class="ui-badge">LIVE</span></h2>
+      <button class="glass-btn" style="flex:0; width: 32px; height: 32px; padding:0; font-size:1rem;"
+        onclick="window.location.hash='#/view-final'" title="Exit">✕</button>
     </div>
 
-    <!-- Controls -->
-    <div class="animation-controls glass-panel">
-      <!-- Progress Bar -->
-      <div class="progress-container">
-        <div class="progress-label">
-          <span>動畫進度</span>
-          <span id="progress-text">0%</span>
-        </div>
-        <div class="progress-bar-wrapper" id="progress-bar">
-          <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
-        </div>
+    <div class="stat-list">
+      <div class="stat-row">
+        <span class="stat-label">Progress</span>
+        <span class="stat-value" id="progress-text">0%</span>
       </div>
 
-      <!-- Playback Controls -->
-      <div class="control-panel">
-        <div class="playback-controls">
-          <button class="control-btn" id="btn-reset" title="重置">
-            ⟲
-          </button>
-          <button class="control-btn" id="btn-prev" title="上一步">
-            ◀
-          </button>
-          <button class="control-btn" id="btn-play" title="播放">
-            ▶
-          </button>
-          <button class="control-btn" id="btn-next" title="下一步">
-            ▶▶
-          </button>
-        </div>
-
-        <div class="speed-control">
-          <span style="color: var(--text-secondary); font-size: 0.9rem;">速度:</span>
-          <button class="speed-btn" data-speed="0.5">0.5x</button>
-          <button class="speed-btn active" data-speed="1">1.0x</button>
-          <button class="speed-btn" data-speed="2">2.0x</button>
-        </div>
+      <div class="progress-track" id="progress-bar" style="margin-bottom: 20px;">
+        <div class="progress-fill" id="progress-fill"></div>
       </div>
 
-      <!-- Info Display -->
-      <div class="info-display">
-        <div class="info-item">
-          <span class="info-label">當前步驟</span>
-          <span class="info-value" id="current-step">0 / 0</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">當前物件</span>
-          <span class="info-value" id="current-item">-</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">容器利用率</span>
-          <span class="info-value" id="utilization">0%</span>
-        </div>
+      <div class="stat-row">
+        <span class="stat-label">Step</span>
+        <span class="stat-value" id="current-step">0 / 0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Current Item</span>
+        <span class="stat-value" id="current-item">-</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Space Utilization</span>
+        <span class="stat-value" id="utilization">0%</span>
       </div>
     </div>
+
+    <div class="divider"></div>
+
+    <!-- Playback Controls -->
+    <div class="control-row">
+      <button class="glass-btn" id="btn-prev" title="Previous">◀</button>
+      <button class="glass-btn" id="btn-play" title="Play/Pause" style="flex: 2;">▶</button>
+      <button class="glass-btn" id="btn-next" title="Next">▶▶</button>
+    </div>
+
+    <div class="control-row">
+      <button class="glass-btn" id="btn-reset" style="font-size: 0.9rem;">Reset</button>
+      <div style="flex: 2; display: flex; gap: 5px;">
+        <button class="glass-btn speed-btn" data-speed="1" style="font-size: 0.8rem;">1x</button>
+        <button class="glass-btn speed-btn" data-speed="2" style="font-size: 0.8rem;">2x</button>
+      </div>
+    </div>
+
   </div>
+
 </div>

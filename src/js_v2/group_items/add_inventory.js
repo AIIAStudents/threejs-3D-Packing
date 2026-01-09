@@ -275,13 +275,29 @@ export const AddInventoryPage = {
       const result = await response.json();
 
       if (response.ok) {
-        const message = result.skipped > 0
-          ? `成功新增 ${result.count} 個物件！(跳過 ${result.skipped} 個重複項)`
-          : `✓ 成功新增 ${result.count} 個物件！`;
-
-        alert(message);
         this.closeModal();
-        await this.loadItems();
+
+        // Show Success Modal
+        const successModal = document.getElementById('success-modal');
+        const successTitle = successModal.querySelector('.modal-title');
+        const okBtn = document.getElementById('btn-modal-ok');
+
+        if (successModal && okBtn) {
+          successTitle.textContent = result.skipped > 0 ? '部分新增' : '新增成功';
+          successModal.classList.add('active');
+
+          const handleOk = () => {
+            successModal.classList.remove('active');
+            okBtn.removeEventListener('click', handleOk);
+            this.loadItems();
+          };
+
+          okBtn.addEventListener('click', handleOk);
+        } else {
+          alert('新增成功！');
+          this.loadItems();
+        }
+
       } else {
         throw new Error(result.error || '新增失敗');
       }
@@ -314,8 +330,26 @@ export const AddInventoryPage = {
       });
 
       if (response.ok) {
-        alert('刪除成功！');
-        await this.loadItems();
+        // Show Success Modal
+        const successModal = document.getElementById('success-modal');
+        const successTitle = successModal.querySelector('.modal-title');
+        const okBtn = document.getElementById('btn-modal-ok');
+
+        if (successModal && okBtn) {
+          successTitle.textContent = '刪除成功';
+          successModal.classList.add('active');
+
+          const handleOk = () => {
+            successModal.classList.remove('active');
+            okBtn.removeEventListener('click', handleOk);
+            this.loadItems();
+          };
+
+          okBtn.addEventListener('click', handleOk);
+        } else {
+          alert('刪除成功！');
+          await this.loadItems();
+        }
       }
     } catch (error) {
       console.error(error);
@@ -333,11 +367,27 @@ export const AddInventoryPage = {
   },
 
   async handleSaveChanges() {
-    // This function always shows success message
-    // Database updates happen in real-time during add/delete operations
-    alert('儲存變更成功！');
+    // Show Success Modal
+    const modal = document.getElementById('success-modal');
+    const successTitle = modal.querySelector('.modal-title');
+    const okBtn = document.getElementById('btn-modal-ok');
 
-    // Reload to ensure UI is in sync with database
-    await this.loadItems();
+    if (modal && okBtn) {
+      successTitle.textContent = '更新成功';
+      modal.classList.add('active');
+
+      const handleOk = () => {
+        modal.classList.remove('active');
+        okBtn.removeEventListener('click', handleOk);
+        // Reload to ensure UI is in sync with database
+        this.loadItems();
+      };
+
+      okBtn.addEventListener('click', handleOk);
+    } else {
+      // Fallback
+      alert('儲存變更成功！');
+      await this.loadItems();
+    }
   }
 };

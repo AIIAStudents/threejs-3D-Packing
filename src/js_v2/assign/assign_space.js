@@ -286,7 +286,25 @@ export const AssignSpacePage = {
 
       const result = await response.json();
       console.log('Save result:', result);
-      alert('✓ 分配已儲存成功！');
+
+      // Show Success Modal
+      const modal = document.getElementById('success-modal');
+      const successTitle = modal.querySelector('.modal-title');
+      const okBtn = document.getElementById('btn-modal-ok');
+
+      if (modal && okBtn) {
+        successTitle.textContent = '更新成功';
+        modal.classList.add('active');
+
+        const handleOk = () => {
+          modal.classList.remove('active');
+          okBtn.removeEventListener('click', handleOk);
+        };
+
+        okBtn.addEventListener('click', handleOk);
+      } else {
+        alert('✓ 分配已儲存成功！');
+      }
 
     } catch (error) {
       console.error('Error saving assignments:', error);

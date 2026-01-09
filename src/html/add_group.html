@@ -4,27 +4,41 @@
   </header>
 
   <div class="content-wrapper">
-    <!-- Create Group Form -->
-    <section class="form-section">
-      <h3>建立新群組</h3>
-      <form id="add-group-form" class="group-form">
-        <div class="form-group">
-          <label for="group-name">群組名稱 *</label>
-          <input type="text" id="group-name" name="name" required placeholder="輸入群組名稱">
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">新增群組</button>
-        </div>
-      </form>
-    </section>
-
     <!-- Groups List -->
     <section class="list-section">
-      <h3>現有群組</h3>
+      <div class="section-header"
+        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0;">現有群組</h3>
+        <button id="open-group-modal-btn" class="btn btn-primary">
+          <span class="icon">✨</span> 建立新群組
+        </button>
+      </div>
       <div id="groups-list" class="groups-container">
         <div class="loading">載入中...</div>
       </div>
     </section>
+  </div>
+
+  <!-- Create Group Modal -->
+  <div id="group-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><span class="icon">✨</span> 建立新群組</h3>
+        <button class="modal-close" id="modal-close-group">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-group-form" class="modal-form">
+          <div class="form-group">
+            <label for="group-name">群組名稱 *</label>
+            <input type="text" id="group-name" name="name" required placeholder="輸入群組名稱">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-group-btn">取消</button>
+            <button type="submit" class="btn btn-primary">新增群組</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- Save Changes Button (Bottom Right) -->
@@ -33,4 +47,18 @@
       <span class="icon">💾</span> 儲存變更
     </button>
   </div>
+</div>
+
+<!-- Success Modal -->
+<div id="success-modal" class="modal-overlay">
+  <div class="success-modal">
+    <div class="checkmark-circle">
+      <svg class="checkmark" viewBox="0 0 52 52">
+        <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+      </svg>
+    </div>
+    <h3 class="modal-title">更新成功</h3>
+    <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+  </div>
+</div>
 </div>
