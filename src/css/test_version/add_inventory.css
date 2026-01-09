@@ -47,12 +47,13 @@
 .filter-controls label {
   font-weight: 500;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .filter-select {
-  padding: 8px 12px;
+  padding: 8px 20px;
   border: 1px solid var(--glass-border);
-  border-radius: 6px;
+  border-radius: 50px;
   background: rgba(15, 23, 42, 0.6);
   color: var(--text-primary);
   font-size: 0.95rem;
@@ -70,13 +71,28 @@
 .filter-select option {
   background: #0f172a;
   color: var(--text-primary);
+  padding: 10px;
+  /* Attempt to add padding */
+  border-radius: 10px;
+  /* Attempt rounded corners, though support varies */
 }
 
 .btn-icon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  /* Center content */
   gap: 8px;
   padding: 8px 16px;
+  white-space: nowrap;
+  min-width: 120px;
+  /* Force minimum width to prevent squashing */
+}
+
+/* Specific fix for open modal button */
+#open-modal-btn {
+  white-space: nowrap;
+  min-width: 120px;
 }
 
 .list-section {
