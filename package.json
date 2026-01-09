@@ -1,27 +1,17 @@
 {
-  "name": "three",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "three-webgpu-packer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "@tailwindcss/vite": "^4.1.13",
-    "cannon-es": "^0.20.0",
-    "tailwindcss": "^4.1.13",
-    "three": "^0.178.0",
-    "three-csg-ts": "^3.2.0"
-  },
   "devDependencies": {
-    "typescript": "^5.9.3",
-    "vite": "^7.1.9",
-    "tsup": "^8.0.2",
-    "@types/node": "^20.12.12"
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
   }
 }
