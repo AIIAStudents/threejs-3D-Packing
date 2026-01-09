@@ -75,32 +75,68 @@ export const DefineContainerPage = {
     this.camera.lookAt(0, 0, 0);
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true }); // Solid background, alpha not needed
+    // Added logarithmicDepthBuffer: true to fix Z-fighting
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, logarithmicDepthBuffer: true });
     this.renderer.setSize(width, height);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.previewContainer.appendChild(this.renderer.domElement);
     console.log('Renderer added to DOM');
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // Lighting (Immersive Dark Theme)
+    // 1. Ambient
+    const ambientLight = new THREE.AmbientLight(0x475569, 1.2);
     this.scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    directionalLight.position.set(5000, 8000, 5000);
-    this.scene.add(directionalLight);
+    // 2. Main Directional (Sun)
+    const dirLight = new THREE.DirectionalLight(0xe0f2fe, 3.0);
+    dirLight.position.set(5000, 10000, 5000);
+    this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.5);
-    this.scene.add(hemiLight);
+    // 3. Point Lights (Sparkle)
+    const pointLight1 = new THREE.PointLight(0x3b82f6, 5, 5000);
+    pointLight1.position.set(-1000, 2000, -1000);
+    this.scene.add(pointLight1);
 
-    // Grid helper (Dark Theme)
-    const gridHelper = new THREE.GridHelper(20000, 100, 0x3b82f6, 0x334155);
-    gridHelper.position.y = -10;
-    this.scene.add(gridHelper);
+    // Fog (Linear)
+    this.scene.fog = new THREE.Fog(0x0f172a, 40000, 100000);
+
+    // Infinite Grid & Floor System
+    // 1. Reflective Floor
+    const planeGeo = new THREE.PlaneGeometry(100000, 100000);
+    const planeMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0f172a,
+      metalness: 0.2,
+      roughness: 0.1,
+      transparent: true,
+      opacity: 0.8,
+      reflectivity: 0.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.2
+    });
+    const floor = new THREE.Mesh(planeGeo, planeMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -20;
+    this.scene.add(floor);
+
+    // 2. Dual Grid
+    const gridMajor = new THREE.GridHelper(100000, 20, 0x3b82f6, 0x3b82f6);
+    gridMajor.position.y = -19;
+    gridMajor.material.opacity = 0.3;
+    gridMajor.material.transparent = true;
+    this.scene.add(gridMajor);
+
+    const gridMinor = new THREE.GridHelper(100000, 1000, 0x1e293b, 0x1e293b);
+    gridMinor.position.y = -19;
+    gridMinor.material.opacity = 0.1;
+    gridMinor.material.transparent = true;
+    this.scene.add(gridMinor);
 
     // OrbitControls (if available)
     if (typeof THREE.OrbitControls !== 'undefined') {
       this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
       this.controls.enableDamping = true;
-      this.controls.dampingFactor = 0.05;
+      this.controls.dampingFactor = 0.2; // Snappier controls
       console.log('OrbitControls initialized');
     } else {
       console.warn('OrbitControls not available');
@@ -381,7 +417,25 @@ export const DefineContainerPage = {
         console.warn('API error, but saved to localStorage:', error);
       }
 
-      alert('✓ 容器設定已儲存！');
+      // Show Success Modal
+      const modal = document.getElementById('success-modal');
+      const successTitle = modal.querySelector('.modal-title');
+      const okBtn = document.getElementById('btn-modal-ok');
+
+      if (modal && okBtn) {
+        successTitle.textContent = '更新成功';
+        modal.classList.add('active');
+
+        const handleOk = () => {
+          modal.classList.remove('active');
+          okBtn.removeEventListener('click', handleOk);
+        };
+
+        okBtn.addEventListener('click', handleOk);
+      } else {
+        alert('✓ 容器設定已儲存！');
+      }
+
     } catch (error) {
       console.error('Save error:', error);
       alert('❌ 儲存失敗：' + error.message);

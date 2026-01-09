@@ -24,25 +24,27 @@ export const CutContainerPage = {
   isInitialized: false,
 
   async init() {
-    if (this.isInitialized) {
-      await this.fetchData(); // Always refetch data when view is revisited
-      return;
-    }
-
+    // Always re-bind DOM elements because DirectModuleLoader replaces innerHTML
     this.bindDOM();
 
-    // Add listeners once during the very first initialization
-    this.addEventListeners();
-    this.isInitialized = true;
+    // Always re-attach DOM-specific event listeners to the new elements
+    this.addDOMEventListeners();
 
-    // Fetch initial data and perform the first render
+    // Only attach global listeners (like window resize) once
+    if (!this.isInitialized) {
+      window.addEventListener('resize', () => this.resizeCanvas());
+      this.isInitialized = true;
+    }
+
+    // Always fetch data and render
     await this.fetchData();
   },
 
   bindDOM() {
     this.elements.canvas = document.getElementById('cut-canvas');
-    if (!this.elements.canvas) return;
-    this.elements.ctx = this.elements.canvas.getContext('2d');
+    if (this.elements.canvas) {
+      this.elements.ctx = this.elements.canvas.getContext('2d');
+    }
     this.elements.editToggleBtn = document.getElementById('edit-toggle-btn');
     this.elements.zoneCardContainer = document.getElementById('zone-card-container');
     this.elements.btnPrevStep = document.getElementById('btn-prev-step');
@@ -50,34 +52,42 @@ export const CutContainerPage = {
     this.elements.btnNextStep = document.getElementById('btn-next-step');
   },
 
-  addEventListeners() {
-    window.addEventListener('resize', () => this.resizeCanvas());
-    this.elements.editToggleBtn.addEventListener('click', () => this.toggleEditMode());
-    this.elements.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-    this.elements.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
-    this.elements.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-    this.elements.canvas.addEventListener('mouseout', (e) => this.onMouseUp(e));
+  addDOMEventListeners() {
+    if (this.elements.editToggleBtn) {
+      this.elements.editToggleBtn.addEventListener('click', () => this.toggleEditMode());
+    }
 
-    this.elements.btnPrevStep.addEventListener('click', () => {
-      const defineContainerTrigger = document.querySelector('.sidebar-section[data-target="view-space-size"]');
-      if (defineContainerTrigger) defineContainerTrigger.click();
-      else window.history.back();
-    });
+    if (this.elements.canvas) {
+      this.elements.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+      this.elements.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+      this.elements.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+      this.elements.canvas.addEventListener('mouseout', (e) => this.onMouseUp(e));
+    }
 
-    this.elements.btnFinish.addEventListener('click', async () => {
-      try {
-        await this.saveCuttingJob();
-        alert('✓ 切割工作已成功儲存！');
-      } catch (error) {
-        alert(`❌ 儲存失敗：${error.message}`);
-        console.error("Failed to save cutting job to DB:", error);
-      }
-    });
+    if (this.elements.btnPrevStep) {
+      this.elements.btnPrevStep.addEventListener('click', () => {
+        window.location.hash = '/define-container';
+      });
+    }
 
-    this.elements.btnNextStep.addEventListener('click', () => {
-      // Just navigate, no save
-      window.location.hash = '/src/html/assign_space.html';
-    });
+    if (this.elements.btnFinish) {
+      this.elements.btnFinish.addEventListener('click', async () => {
+        try {
+          await this.saveCuttingJob();
+          alert('✓ 切割工作已成功儲存！');
+        } catch (error) {
+          alert(`❌ 儲存失敗：${error.message}`);
+          console.error("Failed to save cutting job to DB:", error);
+        }
+      });
+    }
+
+    if (this.elements.btnNextStep) {
+      this.elements.btnNextStep.addEventListener('click', () => {
+        // Just navigate, no save
+        window.location.hash = '/assign-space';
+      });
+    }
   },
 
   async fetchData() {
@@ -248,7 +258,12 @@ export const CutContainerPage = {
       card.innerHTML = `
                 <div class="zone-card-header">
                     <span>區域 ${zone.label}</span>
-                    <button class="action-btn btn-delete" title="刪除區域"><img src="./src/assets/temp_element/close.png"></button>
+                    <button class="action-btn btn-delete" title="刪除區域">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div class="zone-card-body">
                     <p class="zone-stat">總體積: ${totalVolume.toFixed(0)} / 已用: ${usedVolume.toFixed(0)}</p>
@@ -485,7 +500,7 @@ export const CutContainerPage = {
     if (!ctx || !canvas) return;
 
     ctx.save();
-    ctx.strokeStyle = '#E8DCC8';
+    ctx.strokeStyle = '#334155'; // Dark Slate for grid on dark bg
     ctx.lineWidth = 1;
 
     const gridSize = 50; // pixels
@@ -517,10 +532,10 @@ export const CutContainerPage = {
       return;
     }
     ctx.save();
-    ctx.strokeStyle = '#A67C52';
-    ctx.lineWidth = 4;
-    ctx.setLineDash([]);  // Solid line
-    ctx.fillStyle = 'rgba(166, 124, 82, 0.05)';
+    ctx.strokeStyle = '#FFFFFF'; // White for High Contrast
+    ctx.lineWidth = 3;
+    ctx.setLineDash([15, 10]);  // Dashed line
+    // ctx.fillStyle = 'rgba(166, 124, 82, 0.05)'; // Remove fill or make it very subtle
 
     switch (config.shape) {
       case 'u_shape': this.drawUShapeContainer(ctx, config); break;
@@ -534,7 +549,7 @@ export const CutContainerPage = {
     const { widthX, depthZ } = config;
     const start = this.worldToCanvas(0, 0);
     const end = this.worldToCanvas(widthX, depthZ);
-    ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
+    // ctx.fillRect(start.x, start.y, end.x - start.x, end.y - start.y);
     ctx.strokeRect(start.x, start.y, end.x - start.x, end.y - start.y);
   },
 
@@ -550,7 +565,7 @@ export const CutContainerPage = {
       ctx.lineTo(p.x, p.y);
     }
     ctx.closePath();
-    ctx.fill();
+    // ctx.fill();
     ctx.stroke();
   },
 
@@ -589,7 +604,7 @@ export const CutContainerPage = {
       ctx.lineTo(p.x, p.y);
     }
     ctx.closePath();
-    ctx.fill();
+    // ctx.fill();
     ctx.stroke();
   },
 
@@ -602,9 +617,18 @@ export const CutContainerPage = {
     ctx.save();
     ctx.translate(center.x, center.y);
     ctx.rotate(zone.rotation);
-    ctx.strokeStyle = isSelected ? '#e91e63' : '#333';
-    ctx.lineWidth = isSelected ? 2 : 1;
-    ctx.fillStyle = isSelected ? 'rgba(233, 30, 99, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+
+    // High Visibility Colors
+    if (isSelected) {
+      ctx.strokeStyle = '#e91e63'; // Bright Pink
+      ctx.fillStyle = 'rgba(233, 30, 99, 0.3)';
+      ctx.lineWidth = 3;
+    } else {
+      ctx.strokeStyle = '#FFFF00'; // Pure Bright Yellow
+      ctx.fillStyle = 'rgba(255, 255, 0, 0.15)'; // Yellow tint
+      ctx.lineWidth = 3;
+    }
+
     ctx.fillRect(-canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
     ctx.strokeRect(-canvasWidth / 2, -canvasHeight / 2, canvasWidth, canvasHeight);
     ctx.restore();

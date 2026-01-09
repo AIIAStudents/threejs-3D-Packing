@@ -49,7 +49,7 @@
   color: white;
 }
 
-.zone-sidebar {
+.side-panel {
   width: 100%;
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
@@ -57,12 +57,23 @@
   border-left: 1px solid var(--glass-border);
   display: flex;
   flex-direction: column;
-  padding: 15px;
+  padding: 0;
+  /* Remove padding as header has it */
 }
 
-.zone-sidebar h3 {
-  color: var(--text-primary);
-  margin-top: 0;
+.panel-header {
+  padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.panel-header h3 {
+  margin: 0;
+  color: var(--accent-success, #10b981);
+  /* Green accent for Zone List */
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .zone-list {
@@ -94,8 +105,8 @@
 }
 
 canvas {
-  background: white;
-  /* Keep canvas white for drawing context unless updated to dark mode drawing */
+  background: #0f172a;
+  /* Dark background for deep ocean theme */
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
   border-radius: 4px;
 }
@@ -150,48 +161,61 @@ canvas {
 }
 
 .zone-stat {
+  display: none;
+  /* Deprecated */
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
   font-size: 0.85rem;
+}
+
+.stat-label {
   color: var(--text-secondary);
-  margin: 2px 0;
+  width: 60px;
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-family: monospace;
+  margin-left: auto;
+}
+
+.progress-bar-sm {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-sm .progress-fill {
+  background: var(--accent-blue);
+  height: 100%;
 }
 
 .zone-groups {
-  margin-top: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--glass-border);
-  padding-top: 5px;
 }
 
 .zone-groups span:first-child {
   font-size: 0.8rem;
   color: var(--text-muted);
-}
-
-.group-tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.group-tag {
-  background: rgba(59, 130, 246, 0.2);
-  color: var(--text-primary);
-  font-size: 0.75rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--accent-blue);
-}
-
-.no-groups-text {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-style: italic;
+  display: block;
+  margin-bottom: 4px;
 }
 
 .btn-delete {
-  background: none;
-  border: none;
-  padding: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  width: 20px;
+  /* Fixed small size for button */
+  height: 20px;
   border-radius: 4px;
   cursor: pointer;
   display: flex;
@@ -199,11 +223,23 @@ canvas {
   justify-content: center;
   color: var(--text-secondary);
   transition: all 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.btn-delete svg {
+  width: 14px;
+  /* Fixed size for icon */
+  height: 14px;
+  stroke-width: 2.5;
+  /* Make it slightly bolder */
 }
 
 .btn-delete:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.1);
   color: var(--accent-danger);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* Scrollbar */
@@ -211,7 +247,105 @@ canvas {
   width: 6px;
 }
 
+
 .zone-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
+}
+
+/* Success Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.success-modal {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  padding: 30px;
+  text-align: center;
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 300px;
+  width: 90%;
+}
+
+.modal-overlay.active .success-modal {
+  transform: scale(1);
+}
+
+/* Checkmark Animation */
+.checkmark-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.1);
+  border: 2px solid #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  position: relative;
+}
+
+.checkmark {
+  width: 30px;
+  height: 30px;
+  stroke: #10b981;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  stroke-dasharray: 50;
+  stroke-dashoffset: 50;
+  animation: drawCheck 0.5s ease forwards 0.3s;
+}
+
+@keyframes drawCheck {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.modal-title {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.btn-modal-ok {
+  background: var(--accent-blue, #3b82f6);
+  color: white;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.btn-modal-ok:hover {
+  background: var(--accent-blue-hover, #2563eb);
+  transform: translateY(-1px);
 }
