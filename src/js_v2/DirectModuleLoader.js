@@ -135,7 +135,12 @@ class DirectModuleLoader {
       <div class="welcome-screen" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #666;">
         <i class="fas fa-box-open" style="font-size: 4rem; margin-bottom: 20px; color: #ddd;"></i>
         <h2>歡迎使用 3D 裝箱系統</h2>
-        <p>請點擊左側選單開始。</p>
+        <p>請點擊左側選單開始新專案或管理設定。</p>
+        <div style="margin-top: 30px;">
+          <a href="/webgpu_test.html" class="btn btn-primary" style="padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
+            🚀 體驗 WebGPU 新引擎 (Beta)
+          </a>
+        </div>
       </div>
     `;
   }
