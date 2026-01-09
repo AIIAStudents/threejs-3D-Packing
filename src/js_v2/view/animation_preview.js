@@ -1,4 +1,4 @@
-import { AnimationViewer } from './animation_viewer.js';
+import { NewAnimationViewer as AnimationViewer } from './new_animation_viewer.js';
 
 /**
  * Animation Preview Page Controller
@@ -6,7 +6,7 @@ import { AnimationViewer } from './animation_viewer.js';
  */
 class AnimationPreview {
   constructor() {
-    this.API_BASE = '/api';
+    this.API_BASE = 'http://127.0.0.1:8888/api';
     this.viewer = null;
     this.packingData = null;
     this.currentSpeed = 1.0;

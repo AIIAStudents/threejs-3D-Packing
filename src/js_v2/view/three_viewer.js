@@ -45,18 +45,42 @@ export class ThreeViewer {
 
   setupScene() {
     this.scene = new THREE.Scene();
-    // Explicit Dark Background (Deep Slate) to fix white canvas issue
+    // Explicit Dark Background (Deep Slate)
     this.scene.background = new THREE.Color(0x0f172a);
 
-    // Subtle Grid Helper
-    // size, divisions, centerColor(Blue), gridColor(DarkGray)
-    const gridHelper = new THREE.GridHelper(10000, 100, 0x3b82f6, 0x334155);
-    gridHelper.position.y = -5; // Slightly below zero to avoid z-fighting
-    this.scene.add(gridHelper);
+    // Linear Fog
+    this.scene.fog = new THREE.Fog(0x0f172a, 40000, 100000);
 
-    // Axes helper
-    const axesHelper = new THREE.AxesHelper(500);
-    this.scene.add(axesHelper);
+    // Infinite Grid & Floor System
+    // 1. Reflective Floor
+    const planeGeo = new THREE.PlaneGeometry(100000, 100000);
+    const planeMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0f172a,
+      metalness: 0.2,
+      roughness: 0.1,
+      transparent: true,
+      opacity: 0.8,
+      reflectivity: 0.5,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.2
+    });
+    const floor = new THREE.Mesh(planeGeo, planeMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -20;
+    this.scene.add(floor);
+
+    // 2. Dual Grid
+    const gridMajor = new THREE.GridHelper(100000, 20, 0x3b82f6, 0x3b82f6);
+    gridMajor.position.y = -19;
+    gridMajor.material.opacity = 0.3;
+    gridMajor.material.transparent = true;
+    this.scene.add(gridMajor);
+
+    const gridMinor = new THREE.GridHelper(100000, 1000, 0x1e293b, 0x1e293b);
+    gridMinor.position.y = -19;
+    gridMinor.material.opacity = 0.1;
+    gridMinor.material.transparent = true;
+    this.scene.add(gridMinor);
   }
 
   setupCamera() {
@@ -69,32 +93,34 @@ export class ThreeViewer {
 
   setupRenderer() {
     // Standard Renderer settings
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true }); // fixed z-fighting
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.container.appendChild(this.renderer.domElement);
   }
 
   setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
+    this.controls.dampingFactor = 0.2; // Snappier
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 100;
-    this.controls.maxDistance = 15000;
+    this.controls.maxDistance = 20000;
     this.controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent going below ground
   }
 
   setupLights() {
-    // Ambient Light (Base visibility)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // 1. Ambient Light
+    const ambientLight = new THREE.AmbientLight(0x475569, 1.2);
     this.scene.add(ambientLight);
 
-    // Directional Light (Key Light - Sun)
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(2000, 4000, 2000);
+    // 2. Main Directional Light
+    const dirLight = new THREE.DirectionalLight(0xe0f2fe, 3.0);
+    dirLight.position.set(5000, 10000, 5000);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
@@ -106,10 +132,10 @@ export class ThreeViewer {
     dirLight.shadow.camera.bottom = -5000;
     this.scene.add(dirLight);
 
-    // Hemisphere Light (Sky/Ground fill)
-    // Sky: Soft Blue, Ground: Dark Slate
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.5);
-    this.scene.add(hemiLight);
+    // 3. Point Lights
+    const pointLight1 = new THREE.PointLight(0x3b82f6, 5, 5000);
+    pointLight1.position.set(-1000, 2000, -1000);
+    this.scene.add(pointLight1);
   }
 
   animate() {
@@ -306,12 +332,19 @@ export class ThreeViewer {
 
   getItemColor(item) {
     if (item.color) return item.color;
-    // Default to Cyan/Teal family for industrial look if no color
-    return '#06b6d4'; // Cyan 500
+    // Default fallback
+    return '#00d2ff';
   }
 
   getZoneColor(index) {
-    const colors = [0x3b82f6, 0xef4444, 0x10b981, 0xf59e0b, 0x8b5cf6];
+    // "Industrial Cyber" Palette
+    const colors = [
+      0x00d2ff, // Electric Blue
+      0x00ff9d, // Neon Green
+      0xff9f00, // Safety Orange
+      0xff0055, // Hot Pink
+      0xf6ff00  // Bright Yellow
+    ];
     return colors[index % colors.length];
   }
 
