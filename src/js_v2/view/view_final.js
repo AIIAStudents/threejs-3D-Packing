@@ -1,9 +1,13 @@
+
 /*
     File: view_final.js  
     Description: Logic for the packing result preview page
+    Last Updated: Consistent Group Coloring & UI Fixes
 */
 
 import { ThreeViewer } from './three_viewer.js';
+import { ColorManager } from '../utils/color_manager.js';
+import { buildInChunks } from '../utils/performance.js';
 
 export const ViewFinalPage = {
   API_BASE: 'http://127.0.0.1:8888/api',
@@ -12,7 +16,8 @@ export const ViewFinalPage = {
     packingResult: null,
     filteredItems: [],
     searchQuery: '',
-    filterType: 'all'
+    filterType: 'all',
+    visibleItemCount: 50 // New: Lazy loading limit
   },
 
   elements: {},
@@ -41,6 +46,9 @@ export const ViewFinalPage = {
     }
 
     try {
+      if (this.threeViewer) {
+        this.threeViewer.dispose();
+      }
       this.threeViewer = new ThreeViewer(container);
       this.threeViewer.init();  // Must call init() to set up scene
       console.log('✓ ThreeViewer initialized');
@@ -119,6 +127,13 @@ export const ViewFinalPage = {
       const data = await response.json();
       console.log('Packing result loaded:', data);
 
+      // DEBUG: Container configuration tracing
+      console.log('━━━━━━━━━━━ CONTAINER DEBUG ━━━━━━━━━━━');
+      console.log('[ViewFinal] API Response - data.container:', data.container);
+      console.log('[ViewFinal] Container shape from API:', data.container?.shape);
+      console.log('[ViewFinal] Container keys:', data.container ? Object.keys(data.container) : 'null');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
       // Store full data for later use
       this.state.fullData = data;
 
@@ -145,6 +160,9 @@ export const ViewFinalPage = {
       }
 
       console.log('Rendering with result:', this.state.packingResult);
+      // DEBUG: Final container check before rendering
+      console.log('[ViewFinal] Final packingResult.container:', this.state.packingResult.container);
+      console.log('[ViewFinal] Final container.shape:', this.state.packingResult.container?.shape);
       this.renderAll();
       this.populateSpaceSelector(data);
     } catch (error) {
@@ -188,7 +206,7 @@ export const ViewFinalPage = {
   },
 
 
-  render3DPreview() {
+  async render3DPreview() {
     if (!this.threeViewer) {
       console.warn('ThreeViewer not initialized');
       this.showPreviewError('3D渲染器未初始化');
@@ -203,7 +221,6 @@ export const ViewFinalPage = {
 
     try {
       // 1. Prepare Zones Map (ID -> Offset)
-      // We need to know where each zone starts in 3D space to offset the items
       const zoneOffsetMap = {};
       const zones = result.zones || this.state.fullData?.zones || [];
 
@@ -214,28 +231,37 @@ export const ViewFinalPage = {
         };
       });
 
-      // 2. Prepare Items with World Coordinates
-      // The API returns items grouped by space (zone).
-      // We need to flatten this list and add the zone offset to each item.
+      // 2. Prepare Items with World Coordinates (Chunked)
       let allItems = [];
       const spaces = this.state.fullData?.spaces || [];
 
+      // Flatten all items first (lightweight)
+      let rawItems = [];
       spaces.forEach(space => {
         if (space.result && space.result.items) {
           const zoneOffset = zoneOffsetMap[space.zone_id] || { x: 0, y: 0 };
-
-          const spaceItems = space.result.items.map(item => ({
-            ...item,
-            // Attach zone offset for the viewer to use
-            zoneOffset: zoneOffset
-          }));
-          allItems = allItems.concat(spaceItems);
+          // Attach zone offset to raw item container for processing
+          space.result.items.forEach(item => {
+            rawItems.push({ item, zoneOffset });
+          });
         }
+      });
+
+      // Process items in chunks to avoid UI freeze
+      // This maps raw data to viewer format and assigns colors
+      await buildInChunks(rawItems, 500, (chunk) => {
+        const processedChunk = chunk.map(({ item, zoneOffset }) => {
+          const newItem = { ...item, zoneOffset };
+          // Apply Color
+          newItem.color = ColorManager.getGroupColor(newItem.group_id);
+          return newItem;
+        });
+        allItems.push(...processedChunk);
       });
 
       const packingData = {
         container: result.container || this.state.fullData?.container || {},
-        items: allItems, // Use our processed items list
+        items: allItems,
         zones: zones
       };
 
@@ -245,8 +271,11 @@ export const ViewFinalPage = {
         zoneCount: packingData.zones.length
       });
 
-      this.threeViewer.loadPackingResult(packingData);
-      console.log('✓ 3D preview rendered successfully');
+      // Yield before heavy GPU upload
+      setTimeout(() => {
+        this.threeViewer.loadPackingResult(packingData);
+        console.log('✓ 3D preview rendered successfully');
+      }, 10);
 
     } catch (error) {
       console.error('Render error:', error);
@@ -318,6 +347,9 @@ export const ViewFinalPage = {
         items: spaceData.result?.items || [],
         zones: spaceData.result?.zones || []
       };
+
+      // Reset visible items count on new data
+      this.state.visibleItemCount = 50;
 
       // Re-render everything with new space data
       this.renderAll();
@@ -395,20 +427,42 @@ export const ViewFinalPage = {
       return;
     }
 
-    filtered.forEach(item => {
+    // --- LAZY LOADING OPTIMIZATION ---
+    // Only render the visible subset of items
+    const visibleItems = filtered.slice(0, this.state.visibleItemCount);
+
+    visibleItems.forEach(item => {
+      // Fix: Check multiple possible packed status properties
+      const isPacked = item.packed !== false && (item.packed === true || item.is_packed === true || item.x !== undefined);
+
       const itemEl = document.createElement('div');
-      itemEl.className = `item-card ${item.packed ? 'item-packed' : 'item-unpacked'}`;
+      itemEl.className = `item-card ${isPacked ? 'item-packed' : 'item-unpacked'}`;
       itemEl.innerHTML = `
         <div class="item-header">
-          <span class="item-id">${item.item_id || 'N/A'}</span>
-          <span class="item-status">${item.packed ? '✓ 已打包' : '✗ 未打包'}</span>
+          <span class="item-id">${item.item_id || item.id || 'N/A'}</span>
+          <span class="item-status">${isPacked ? '✓ 已打包' : '✗ 未打包'}</span>
         </div>
         <div class="item-details">
-          <span>尺寸: ${item.length} × ${item.width} × ${item.height}</span>
+          <span>尺寸: ${item.length || 'N/A'} × ${item.width || 'N/A'} × ${item.height || 'N/A'}</span>
         </div>
       `;
       this.elements.itemList.appendChild(itemEl);
     });
+
+    // Add "Load More" button if there are more items
+    if (filtered.length > this.state.visibleItemCount) {
+      const loadMoreBtn = document.createElement('button');
+      loadMoreBtn.className = 'btn btn-secondary btn-block mt-2';
+      loadMoreBtn.textContent = `載入更多 (${filtered.length - this.state.visibleItemCount} 剩餘)`;
+      loadMoreBtn.style.width = '100%';
+      loadMoreBtn.onclick = () => this.handleLoadMore();
+      this.elements.itemList.appendChild(loadMoreBtn);
+    }
+  },
+
+  handleLoadMore() {
+    this.state.visibleItemCount += 50;
+    this.renderItemList();
   },
 
   filterItems(items) {
@@ -434,11 +488,13 @@ export const ViewFinalPage = {
 
   handleSearch(query) {
     this.state.searchQuery = query;
+    this.state.visibleItemCount = 50; // Reset
     this.renderItemList();
   },
 
   handleFilter(type) {
     this.state.filterType = type;
+    this.state.visibleItemCount = 50; // Reset
     this.renderItemList();
   },
 
