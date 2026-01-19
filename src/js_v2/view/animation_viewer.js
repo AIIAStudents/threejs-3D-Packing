@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { RenderManager, QualityScaler } from './performance_utils.js';
 
 /**
- * AnimationViewer - 3D Animation Controller
- * Handles step-by-step animation of packing process
+ * AnimationViewer - Performance Optimized 3D Animation Controller
+ * Features: Render-on-Demand + Dynamic Quality Scaling + Lifecycle Management
  */
 export class AnimationViewer {
   constructor(container) {
@@ -28,22 +29,34 @@ export class AnimationViewer {
 
     // Event listeners
     this.listeners = {};
+
+    // Performance managers
+    this.renderManager = null;
+    this.qualityScaler = null;
+
+    // Lifecycle
+    this.isDisposed = false;
+    this._boundResizeHandler = null;
   }
 
   init() {
+    if (this.isDisposed) {
+      console.warn('[AnimationViewer] Cannot init disposed viewer');
+      return;
+    }
+
     this.setupScene();
     this.setupCamera();
     this.setupRenderer();
     this.setupLights();
     this.setupControls();
-    this.animate();
+    this.setupPerformanceManagers();
 
-    console.log('[AnimationViewer] Initialized');
+    console.log('[AnimationViewer] Initialized with render-on-demand');
   }
 
   setupScene() {
     this.scene = new THREE.Scene();
-    // Explicit Dark Background (Deep Slate)
     this.scene.background = new THREE.Color(0x0f172a);
 
     // Subtle Grid Helper
@@ -64,14 +77,15 @@ export class AnimationViewer {
   }
 
   setupRenderer() {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true }); // No alpha needed if we set BG
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2
     this.renderer.shadowMap.enabled = true;
     this.container.appendChild(this.renderer.domElement);
 
-    // Handle resize
-    window.addEventListener('resize', () => this.onWindowResize());
+    // Bind resize handler
+    this._boundResizeHandler = this.onWindowResize.bind(this);
+    window.addEventListener('resize', this._boundResizeHandler);
   }
 
   setupLights() {
@@ -91,18 +105,59 @@ export class AnimationViewer {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
+
+    // CRITICAL: Decouple controls events
+    this.controls.addEventListener('start', () => this.onInteractionStart());
+    this.controls.addEventListener('change', () => this.onControlsChange());
+    this.controls.addEventListener('end', () => this.onInteractionEnd());
   }
 
-  animate() {
-    requestAnimationFrame(() => this.animate());
+  setupPerformanceManagers() {
+    // Render-on-Demand Manager
+    this.renderManager = new RenderManager(() => this.render());
+
+    // Quality Scaler
+    this.qualityScaler = new QualityScaler(this.renderer);
+
+    // Initial render
+    this.renderManager.requestRender();
+  }
+
+  /**
+   * Interaction Handlers
+   */
+  onInteractionStart() {
+    console.log('[AnimationViewer] Interaction START - lowering quality');
+    this.qualityScaler.onInteractionStart(() => this.renderManager.requestRender());
+  }
+
+  onControlsChange() {
+    // Only mark dirty and request render - NO heavy work here
+    this.renderManager.requestRender();
+  }
+
+  onInteractionEnd() {
+    console.log('[AnimationViewer] Interaction END - restoring quality');
+    this.qualityScaler.onInteractionEnd(() => this.renderManager.requestRender());
+  }
+
+  /**
+   * Single render call (no continuous loop)
+   */
+  render() {
+    if (this.isDisposed) return;
+
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
   onWindowResize() {
+    if (this.isDisposed) return;
+
     this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+    this.renderManager.requestRender();
   }
 
   // Load animation data
@@ -129,6 +184,7 @@ export class AnimationViewer {
     this.fitCamera(data.container);
 
     console.log(`[AnimationViewer] Animation loaded: ${this.totalSteps} steps`);
+    this.renderManager.requestRender();
   }
 
   prepareAnimationSteps(items) {
@@ -144,7 +200,6 @@ export class AnimationViewer {
   }
 
   calculateStartPosition(item) {
-    // Start position: above the container
     const endPos = this.calculateEndPosition(item);
     return {
       x: endPos.x,
@@ -168,37 +223,158 @@ export class AnimationViewer {
 
   // Drawing methods
   drawContainer(config) {
+    const shape = config.shape || 'rect';
+
+    console.log('[AnimationViewer] Drawing container with shape:', shape, config);
+
+    switch (shape) {
+      case 'u_shape':
+        this.drawUShapeContainer(config);
+        break;
+      case 't_shape':
+        this.drawTShapeContainer(config);
+        break;
+      case 'rect':
+      default:
+        this.drawRectContainer(config);
+        break;
+    }
+  }
+
+  drawRectContainer(config) {
     const width = config.widthX || config.parameters?.widthX || 5800;
     const height = config.heightY || config.parameters?.heightY || 2400;
     const depth = config.depthZ || config.parameters?.depthZ || 2300;
 
-    console.log('[AnimationViewer] Drawing container:', { width, height, depth });
+    console.log('[AnimationViewer] Drawing rectangular container:', { width, height, depth });
 
     const geometry = new THREE.BoxGeometry(width, height, depth);
     geometry.translate(width / 2, height / 2, depth / 2);
 
-    // Create semi-transparent container body
+    // Semi-transparent container body
     const material = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
+      color: 0xc4a57b,
       transparent: true,
-      opacity: 0.05,
+      opacity: 0.1,
       side: THREE.DoubleSide
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(0, 0, 0); // Explicitly set to origin
+    mesh.position.set(0, 0, 0);
     this.scene.add(mesh);
-    this.containerMesh = mesh; // Store mesh instead of just lines for better visibility
+    this.containerMesh = mesh;
 
     const edges = new THREE.EdgesGeometry(geometry);
     const line = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.3 })
+      new THREE.LineBasicMaterial({ color: 0x8b6f47, linewidth: 2 })
     );
     line.position.set(0, 0, 0);
 
     this.scene.add(line);
-    // this.containerMesh = line; // We're using the mesh body now
+  }
 
+  drawUShapeContainer(config) {
+    const outerWidth = config.outerWidthX || config.parameters?.outerWidthX || 5800;
+    const outerDepth = config.outerDepthZ || config.parameters?.outerDepthZ || 2300;
+    const gapWidth = config.gapWidthX || config.parameters?.gapWidthX || 1000;
+    const gapDepth = config.gapDepthZ || config.parameters?.gapDepthZ || 800;
+    const height = config.heightY || config.parameters?.heightY || 2400;
+
+    console.log('[AnimationViewer] Drawing U-shape container:', { outerWidth, outerDepth, gapWidth, gapDepth, height });
+
+    // Create U-shape using Shape
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(outerWidth, 0);
+    shape.lineTo(outerWidth, outerDepth);
+    shape.lineTo((outerWidth + gapWidth) / 2, outerDepth);
+    shape.lineTo((outerWidth + gapWidth) / 2, outerDepth - gapDepth);
+    shape.lineTo((outerWidth - gapWidth) / 2, outerDepth - gapDepth);
+    shape.lineTo((outerWidth - gapWidth) / 2, outerDepth);
+    shape.lineTo(0, outerDepth);
+    shape.lineTo(0, 0);
+
+    const extrudeSettings = {
+      depth: height,
+      bevelEnabled: false
+    };
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    geometry.rotateX(Math.PI / 2);
+
+    // Semi-transparent U-shape body
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xc4a57b,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    this.scene.add(mesh);
+    this.containerMesh = mesh;
+
+    // Edges
+    const edges = new THREE.EdgesGeometry(geometry);
+    const line = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0x8b6f47, linewidth: 2 })
+    );
+    this.scene.add(line);
+  }
+
+  drawTShapeContainer(config) {
+    const topWidth = config.topWidthX || config.parameters?.topWidthX || 4000;
+    const bottomWidth = config.bottomWidthX || config.parameters?.bottomWidthX || 1500;
+    const topDepth = config.topDepthZ || config.parameters?.topDepthZ || 1500;
+    const bottomDepth = config.bottomDepthZ || config.parameters?.bottomDepthZ || 4000;
+    const height = config.heightY || config.parameters?.heightY || 2400;
+
+    console.log('[AnimationViewer] Drawing T-shape container:', { topWidth, bottomWidth, topDepth, bottomDepth, height });
+
+    // Create T-shape using Shape
+    const shape = new THREE.Shape();
+
+    // Calculate positions for T-shape
+    const leftEdge = (topWidth - bottomWidth) / 2;
+    const rightEdge = leftEdge + bottomWidth;
+
+    // Draw T-shape clockwise from bottom-left
+    shape.moveTo(leftEdge, 0);
+    shape.lineTo(rightEdge, 0);
+    shape.lineTo(rightEdge, bottomDepth);
+    shape.lineTo(topWidth, bottomDepth);
+    shape.lineTo(topWidth, bottomDepth + topDepth);
+    shape.lineTo(0, bottomDepth + topDepth);
+    shape.lineTo(0, bottomDepth);
+    shape.lineTo(leftEdge, bottomDepth);
+    shape.lineTo(leftEdge, 0);
+
+    const extrudeSettings = {
+      depth: height,
+      bevelEnabled: false
+    };
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    geometry.rotateX(Math.PI / 2);
+
+    // Semi-transparent T-shape body
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xc4a57b,
+      transparent: true,
+      opacity: 0.1,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    this.scene.add(mesh);
+    this.containerMesh = mesh;
+
+    // Edges
+    const edges = new THREE.EdgesGeometry(geometry);
+    const line = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0x8b6f47, linewidth: 2 })
+    );
+    this.scene.add(line);
   }
 
   drawZones(zones) {
@@ -214,8 +390,7 @@ export class AnimationViewer {
       const material = new THREE.MeshBasicMaterial({
         color: this.getZoneColor(index),
         transparent: true,
-        opacity: 0.1,
-        depthWrite: false
+        opacity: 0.1
       });
       const mesh = new THREE.Mesh(geometry, material);
 
@@ -225,21 +400,13 @@ export class AnimationViewer {
 
       mesh.position.set(centerX, centerY, centerZ);
 
-      // Add dashed edges for zones
-      const edges = new THREE.EdgesGeometry(geometry);
-      const line = new THREE.LineSegments(
-        edges,
-        new THREE.LineBasicMaterial({ color: this.getZoneColor(index), transparent: true, opacity: 0.4 })
-      );
-      mesh.add(line);
-
       this.scene.add(mesh);
       this.zonesMeshes.push(mesh);
     });
   }
 
   getZoneColor(index) {
-    const colors = [0x3b82f6, 0x10b981, 0xf97316, 0x8b5cf6];
+    const colors = [0xff6b9d, 0x6bcf7f, 0x6ba3ff, 0xffb66b];
     return colors[index % colors.length];
   }
 
@@ -271,6 +438,7 @@ export class AnimationViewer {
     this.itemsMeshes = [];
 
     this.emit('stepChange', { step: 0, total: this.totalSteps });
+    this.renderManager.requestRender();
   }
 
   nextStep() {
@@ -283,7 +451,6 @@ export class AnimationViewer {
 
   previousStep() {
     if (this.currentStep > 0) {
-      // Remove last item
       const lastMesh = this.itemsMeshes.pop();
       if (lastMesh) {
         this.scene.remove(lastMesh);
@@ -291,6 +458,7 @@ export class AnimationViewer {
 
       this.currentStep--;
       this.emit('stepChange', { step: this.currentStep, total: this.totalSteps });
+      this.renderManager.requestRender();
     }
   }
 
@@ -307,8 +475,7 @@ export class AnimationViewer {
       this.currentStep++;
       this.emit('stepChange', { step: this.currentStep, total: this.totalSteps });
 
-      // Schedule next step
-      const delay = 500 / this.speed; // Base delay 500ms
+      const delay = 500 / this.speed;
       this.animationInterval = setTimeout(() => this.playNextStep(), delay);
     });
   }
@@ -323,7 +490,6 @@ export class AnimationViewer {
     const item = step.item;
     const mesh = this.createItemMesh(item);
 
-    // Set start position
     mesh.position.set(step.startPosition.x, step.startPosition.y, step.startPosition.z);
     this.scene.add(mesh);
     this.itemsMeshes.push(mesh);
@@ -339,10 +505,10 @@ export class AnimationViewer {
     const item = step.item;
     const mesh = this.createItemMesh(item);
 
-    // Set final position directly (no animation)
     mesh.position.set(step.endPosition.x, step.endPosition.y, step.endPosition.z);
     this.scene.add(mesh);
     this.itemsMeshes.push(mesh);
+    this.renderManager.requestRender();
   }
 
   createItemMesh(item) {
@@ -354,32 +520,25 @@ export class AnimationViewer {
     const depth = max.z - min.z;
 
     const geometry = new THREE.BoxGeometry(width, height, depth);
-
-    // Holographic Style Material
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x06b6d4,      // Cyan 500
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x4caf50,
       transparent: true,
-      opacity: 0.9,
-      roughness: 0.1,
-      metalness: 0.1
+      opacity: 0.8
     });
-
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
-    mesh.receiveShadow = true;
 
-    // Add Bright White Edges
     const edges = new THREE.EdgesGeometry(geometry);
     const line = new THREE.LineSegments(
       edges,
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, linewidth: 2 })
+      new THREE.LineBasicMaterial({ color: 0x2e7d32 })
     );
     mesh.add(line);
 
     return mesh;
   }
 
-  // Simple tween animation
+  // Tween animation
   tweenPosition(object, targetPos, duration, onComplete) {
     const startPos = {
       x: object.position.x,
@@ -393,7 +552,7 @@ export class AnimationViewer {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Easing function (ease-in-out)
+      // Ease-in-out
       const eased = progress < 0.5
         ? 2 * progress * progress
         : 1 - Math.pow(-2 * progress + 2, 2) / 2;
@@ -401,6 +560,8 @@ export class AnimationViewer {
       object.position.x = startPos.x + (targetPos.x - startPos.x) * eased;
       object.position.y = startPos.y + (targetPos.y - startPos.y) * eased;
       object.position.z = startPos.z + (targetPos.z - startPos.z) * eased;
+
+      this.renderManager.requestRender();
 
       if (progress < 1) {
         requestAnimationFrame(animate);
@@ -447,49 +608,31 @@ export class AnimationViewer {
   fitCamera(container) {
     if (!container) return;
 
-    const width = container.widthX || 5800;
-    const height = container.heightY || 2400;
-    const depth = container.depthZ || 2300;
+    const width = container.widthX || container.parameters?.widthX || 5800;
+    const height = container.heightY || container.parameters?.heightY || 2400;
+    const depth = container.depthZ || container.parameters?.depthZ || 2300;
 
     const maxDim = Math.max(width, height, depth);
     const distance = maxDim * 1.5;
 
     this.camera.position.set(distance, distance * 0.7, distance);
     this.camera.lookAt(width / 2, height / 2, depth / 2);
+    this.renderManager.requestRender();
   }
 
   clearScene() {
     // Remove container
     if (this.containerMesh) {
       this.scene.remove(this.containerMesh);
-      // Also remove the line helper if it was added separately, but since we didn't store it in a separate var, 
-      // we need to be careful. In drawContainer, we added both.
-      // Let's rely on scene.clear() pattern or tracking all objects.
-      // For now, let's just clear all children of scene except lights/grid if we want to be thorough,
-      // but to stick to the pattern:
-
-      // Actually, my previous drawContainer added mesh AND line, but only stored one in this.containerMesh.
-      // This causes memory leaks/artifacts. Fixing clean up strategy.
-
-      while (this.scene.children.length > 0) {
-        this.scene.remove(this.scene.children[0]);
-      }
-      // Re-setup static scene elements (Lights + Grid)
-      this.setupLights();
-
-      const gridHelper = new THREE.GridHelper(10000, 100, 0x3b82f6, 0x334155);
-      gridHelper.position.y = -5;
-      this.scene.add(gridHelper);
-
-
       this.containerMesh = null;
-    } else {
-      // Just clear arrays
-      this.zonesMeshes.forEach(mesh => this.scene.remove(mesh));
-      this.itemsMeshes.forEach(mesh => this.scene.remove(mesh));
     }
 
+    // Remove zones
+    this.zonesMeshes.forEach(mesh => this.scene.remove(mesh));
     this.zonesMeshes = [];
+
+    // Remove items
+    this.itemsMeshes.forEach(mesh => this.scene.remove(mesh));
     this.itemsMeshes = [];
   }
 
@@ -505,5 +648,50 @@ export class AnimationViewer {
     if (this.listeners[event]) {
       this.listeners[event].forEach(callback => callback(data));
     }
+  }
+
+  /**
+   * CRITICAL: Dispose method for SPA lifecycle
+   */
+  dispose() {
+    console.log('[AnimationViewer] Disposing...');
+
+    this.isDisposed = true;
+    this.pause();
+
+    // Remove event listeners
+    if (this._boundResizeHandler) {
+      window.removeEventListener('resize', this._boundResizeHandler);
+      this._boundResizeHandler = null;
+    }
+
+    // Dispose controls
+    if (this.controls) {
+      this.controls.dispose();
+      this.controls = null;
+    }
+
+    // Dispose performance managers
+    if (this.qualityScaler) {
+      this.qualityScaler.dispose();
+      this.qualityScaler = null;
+    }
+
+    // Clear scene
+    this.clearScene();
+
+    // Dispose renderer
+    if (this.renderer) {
+      this.renderer.dispose();
+      if (this.renderer.domElement && this.renderer.domElement.parentNode) {
+        this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
+      }
+      this.renderer = null;
+    }
+
+    // Clear listeners
+    this.listeners = {};
+
+    console.log('[AnimationViewer] Disposed');
   }
 }

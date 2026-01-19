@@ -1,4 +1,5 @@
 import { NewAnimationViewer as AnimationViewer } from './new_animation_viewer.js';
+import { throttle } from '../utils/performance.js';
 
 /**
  * Animation Preview Page Controller
@@ -25,6 +26,7 @@ class AnimationPreview {
       utilization: document.getElementById('utilization')
     };
 
+    this.isDragging = false;
     this.init();
   }
 
@@ -49,6 +51,24 @@ class AnimationPreview {
       return;
     }
 
+    // Wait for canvas to have dimensions
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          if (!this.viewer) {
+            this.createViewer();
+          }
+          // Once initialized, we can likely stop observing if we only needed it for init, 
+          // but keeping it for resize handling is handled by window resize mostly.
+          // However, if the container itself resizes (dialog/split), this is good.
+        }
+      }
+    });
+
+    resizeObserver.observe(this.elements.canvas);
+  }
+
+  createViewer() {
     try {
       this.viewer = new AnimationViewer(this.elements.canvas);
       this.viewer.init();
@@ -56,6 +76,12 @@ class AnimationPreview {
       // Listen to animation events
       this.viewer.on('stepChange', (data) => this.onStepChange(data));
       this.viewer.on('animationComplete', () => this.onAnimationComplete());
+
+      // If data was already loaded, load it now
+      if (this.packingData) {
+        this.viewer.loadAnimation(this.packingData);
+        this.updateUI();
+      }
 
       console.log('✓ AnimationViewer initialized');
     } catch (error) {
@@ -82,12 +108,96 @@ class AnimationPreview {
       });
     });
 
-    // Progress bar click
-    this.elements.progressBar?.addEventListener('click', (e) => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const percent = (e.clientX - rect.left) / rect.width;
-      this.seekToPercent(percent);
-    });
+    // Progress bar Drag & Drop
+    const progressBar = this.elements.progressBar;
+    if (progressBar) {
+      // Use throttle for the Move event
+      let rafId = null;
+      let pendingPercent = null;
+      // Throttle UI updates to reduce DOM manipulation frequency
+      let lastUIUpdate = 0;
+      const updateUIInstantly = (percent) => {
+        if (!this.viewer) return;
+
+        // Throttle UI updates to ~60fps (16ms)
+        const now = performance.now();
+        if (now - lastUIUpdate < 16) return;
+        lastUIUpdate = now;
+
+        const targetStep = Math.floor(this.viewer.totalSteps * percent);
+        const progress = this.viewer.totalSteps > 0 ? (targetStep / this.viewer.totalSteps) * 100 : 0;
+
+        if (this.elements.progressFill) this.elements.progressFill.style.width = `${progress}%`;
+        if (this.elements.progressText) this.elements.progressText.textContent = `${Math.round(progress)}%`;
+        if (this.elements.currentStep) this.elements.currentStep.textContent = `${targetStep} / ${this.viewer.totalSteps}`;
+      };
+
+      const request3DUpdate = (percent) => {
+        pendingPercent = percent;
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            if (pendingPercent !== null) {
+              this.seekToPercent(pendingPercent);
+              pendingPercent = null;
+            }
+            rafId = null;
+          });
+        }
+      };
+
+      const onDragMove = (e) => {
+        if (!this.isDragging) return;
+        const rect = progressBar.getBoundingClientRect();
+        let percent = (e.clientX - rect.left) / rect.width;
+        percent = Math.max(0, Math.min(1, percent));
+
+        updateUIInstantly(percent);
+        request3DUpdate(percent);
+      };
+      const onDragStart = (e) => {
+        this.isDragging = true;
+        if (this.viewer) this.viewer.isDragging = true; // Suppress events during drag
+        this.viewer?.setInteractionState(true); // Low quality mode
+
+        // Immediate update on click
+        const rect = progressBar.getBoundingClientRect();
+        let percent = (e.clientX - rect.left) / rect.width;
+        percent = Math.max(0, Math.min(1, percent));
+
+        updateUIInstantly(percent);
+        this.seekToPercent(percent);
+
+        // Bind global listeners
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('mouseup', onDragEnd);
+      };
+
+      const onDragEnd = () => {
+        if (!this.isDragging) return;
+        this.isDragging = false;
+
+        // Cancel any pending RAF
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        // Re-enable events and emit final stepChange
+        if (this.viewer) {
+          this.viewer.isDragging = false;
+          this.viewer.emit('stepChange', {
+            step: this.viewer.currentStep,
+            total: this.viewer.totalSteps
+          });
+        }
+        this.viewer?.setInteractionState(false); // Restore quality
+
+        // Unbind global listeners
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+      };
+
+      progressBar.addEventListener('mousedown', onDragStart);
+    }
 
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
@@ -170,6 +280,8 @@ class AnimationPreview {
     };
 
     console.log('Processed packing data:', this.packingData);
+    // DEBUG: Verify container shape is preserved
+    console.log('[AnimationPreview] Processed container.shape:', this.packingData.container?.shape);
   }
 
   // Playback controls
@@ -254,7 +366,8 @@ class AnimationPreview {
         const dims = item.pose ?
           `${Math.round(item.pose.max.x - item.pose.min.x)}×${Math.round(item.pose.max.y - item.pose.min.y)}×${Math.round(item.pose.max.z - item.pose.min.z)}` :
           '-';
-        this.elements.currentItem.textContent = `${item.item_name || item.id} (${dims})`;
+        const itemName = item.item_name || item.item_id || item.id || 'Unknown';
+        this.elements.currentItem.textContent = `${itemName} (${dims})`;
       } else {
         this.elements.currentItem.textContent = '-';
       }
