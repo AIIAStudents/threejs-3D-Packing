@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { DynamicQualityScaler } from '../utils/performance.js';
 
 export class ThreeViewer {
   constructor(containerElement) {
@@ -16,6 +17,7 @@ export class ThreeViewer {
     this.animationId = null;
     this.renderRequested = false;
     this.isFullscreen = false;
+    this.qualityScaler = null;
 
     // Visibility states
     this.visibility = {
@@ -47,11 +49,23 @@ export class ThreeViewer {
   initRenderer() {
     this.setupCamera();
     this.setupRenderer();
+
+    // Initialize Quality Scaler for Performance
+    this.qualityScaler = new DynamicQualityScaler(
+      this.renderer,
+      this.scene, // Scene will be set next
+      this.camera,
+      () => this.requestRender()
+    );
+
     this.setupControls();
 
     // Minimal Scene for first frame
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0f172a);
+
+    // Update scaler reference with real scene
+    this.qualityScaler.scene = this.scene;
 
     // 2. Setup Worker (Immediate to avoid race condition)
     this.setupWorker();
@@ -166,6 +180,15 @@ export class ThreeViewer {
 
     // Render on interaction
     this.controls.addEventListener('change', () => this.requestRender());
+
+    // Performance: Degrading quality during interaction
+    this.controls.addEventListener('start', () => {
+      this.qualityScaler.onInteractStart();
+    });
+
+    this.controls.addEventListener('end', () => {
+      this.qualityScaler.onInteractEnd();
+    });
   }
 
   setupLights() {
@@ -616,12 +639,19 @@ export class ThreeViewer {
         new THREE.LineBasicMaterial({ color: this.getZoneColor(index), transparent: true, opacity: 0.5 })
       );
 
-      const centerX = cornerX + zoneWidth / 2;
-      const centerY = zoneHeight / 2;
-      const centerZ = cornerZ + zoneDepth / 2;
+      // FIX: zone.x and zone.y from DB are Center coordinates, not corners.
+      // cut_container_v2.js saves Center X/Y.
+      const centerX = zone.x || 0;
+      const centerZ = zone.y || 0; // zone.y maps to 3D Z-depth
+      const centerY = zoneHeight / 2; // Sits on floor (Y=0)
 
       mesh.position.set(centerX, centerY, centerZ);
       line.position.set(centerX, centerY, centerZ);
+
+      // FIX: Apply rotation (Y-axis)
+      const rotation = zone.rotation || 0;
+      mesh.rotation.y = rotation;
+      line.rotation.y = rotation;
 
       mesh.userData.isDynamic = true;
       line.userData.isDynamic = true;
@@ -702,7 +732,8 @@ export class ThreeViewer {
     // Fit Camera for the first time
     this.fitCameraToScene();
 
-    console.log('[ThreeViewer] InstancedMesh updated on GPU');
+    console.log('[ThreeViewer] InstancedMesh updated on GPU. Count:', count);
+
     this.requestRender();
   }
 
