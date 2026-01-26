@@ -190,7 +190,6 @@
 
 .modal-content {
   background: #1e293b;
-  /* Solid dark for modal to prevent too much transparency overlap */
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   width: 90%;
@@ -199,6 +198,8 @@
   overflow-y: auto;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.3s ease;
+  position: relative;
+  /* important for absolute positioning of close button */
 }
 
 @keyframes slideUp {
@@ -220,6 +221,8 @@
   justify-content: space-between;
   align-items: center;
   background: transparent;
+  padding-top: 25px;
+  /* Add space for close button */
 }
 
 .modal-header h3 {
@@ -232,233 +235,173 @@
 .modal-close {
   background: none;
   border: none;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   color: var(--text-secondary);
   cursor: pointer;
   line-height: 1;
-  padding: 0;
-  width: 32px;
-  height: 32px;
+  padding: 8px;
+  width: auto;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s;
+
+  /* Absolute positioning to top-right */
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
 }
 
 .modal-close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+  transform: rotate(90deg);
 }
 
 .modal-body {
   padding: 30px;
 }
 
-.modal-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.form-group input,
-.form-group select {
-  padding: 12px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  font-family: inherit;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  transition: all 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.form-hint {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  font-style: italic;
-  margin-top: 2px;
-}
-
-.form-section-title {
-  font-weight: 600;
-  color: var(--accent-blue);
-  font-size: 1rem;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--glass-border);
-  margin-top: 10px;
-  margin-bottom: 5px;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid var(--glass-border);
-}
-
-/* Loading and Error States */
-.loading-state,
-.error-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text-primary);
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top: 3px solid var(--accent-blue);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20px;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-.error-state .error-icon {
-  font-size: 3rem;
-  margin-bottom: 15px;
-  opacity: 0.7;
-  color: var(--accent-danger);
-}
-
-.error-state .error-message {
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-}
-
-.retry-btn {
-  margin-top: 10px;
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 15px 20px;
-  background: rgba(30, 41, 59, 0.6);
-  border-top: 1px solid var(--glass-border);
-}
-
-.page-btn {
-  padding: 6px 16px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
-  color: white;
-}
-
-.page-btn:disabled {
-  background: transparent;
-  color: var(--text-muted);
-  cursor: not-allowed;
-  border-color: transparent;
-}
-
-.page-info {
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-/* Empty State */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 40px;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.02);
-  border: 2px dashed var(--glass-border);
-  border-radius: 12px;
-  margin: 20px;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  opacity: 0.3;
-  color: var(--text-secondary);
-}
-
-.empty-state h3 {
-  color: var(--text-primary);
-  margin-bottom: 10px;
-  font-size: 1.2rem;
-}
-
-.empty-state p {
-  color: var(--text-secondary);
-  margin-bottom: 25px;
-  font-size: 0.95rem;
-}
-
-.empty-state .btn {
-  padding: 10px 24px;
-}
-
-/* Scrollbar */
-.items-table-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.items-table-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.items-table-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
+/* ... existing styles ... */
 
 .items-table-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* Edit and Delete Icons */
+.edit-icon,
+.delete-icon {
+  cursor: pointer;
+  font-size: 1.2rem;
+  margin: 0 6px;
+  transition: transform 0.2s, opacity 0.2s;
+  opacity: 0.8;
+  display: inline-block;
+}
+
+.edit-icon {
+  color: var(--accent-blue);
+}
+
+.edit-icon:hover {
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+.delete-icon {
+  color: var(--accent-danger);
+}
+
+.delete-icon:hover {
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+/* Modal Overlay (for edit and delete modals) */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Delete Confirmation Modal Styles (reuse from add_group.css) */
+.modal-confirm {
+  max-width: 480px;
+  text-align: center;
+  position: relative;
+}
+
+.modal-confirm .modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.modal-confirm .modal-header {
+  margin-bottom: 24px;
+  padding-top: 8px;
+  justify-content: center;
+  /* Center title */
+  border-bottom: none;
+  /* Remove border for clean look */
+}
+
+.modal-confirm .modal-title {
+  font-size: 1.5rem;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+}
+
+.modal-confirm .modal-body {
+  margin-bottom: 32px;
+  padding: 0 30px;
+}
+
+.modal-confirm .confirm-message {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.modal-confirm .modal-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  padding-top: 0;
+  border-top: none;
+  margin-bottom: 30px;
+}
+
+.modal-confirm .btn {
+  flex: 0 1 120px;
+  /* Fixed width buttons */
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  letter-spacing: 0.05em;
+}
+
+.modal-confirm .btn-secondary {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.modal-confirm .btn-secondary:hover {
+  background: rgba(100, 116, 139, 0.3);
+  border-color: var(--text-secondary);
+}
+
+.modal-confirm .btn-danger {
+  background: var(--accent-danger);
+  color: white;
+}
+
+.modal-confirm .btn-danger:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }

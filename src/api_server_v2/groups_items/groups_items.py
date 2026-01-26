@@ -178,6 +178,49 @@ def delete_item(item_id):
     finally:
         conn.close()
 
+@groups_items_api_blueprint.route('/items/<int:item_id>', methods=['PUT'])
+def update_item(item_id):
+    """Update item dimensions"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Check if item exists
+        item = conn.execute('SELECT * FROM items WHERE id = ?', (item_id,)).fetchone()
+        if not item:
+            return jsonify({'error': 'Item not found'}), 404
+        
+        # Update dimensions (preserve other fields if not provided)
+        length = data.get('length', item['length'])
+        width = data.get('width', item['width'])
+        height = data.get('height', item['height'])
+        
+        cursor.execute(
+            'UPDATE items SET length = ?, width = ?, height = ? WHERE id = ?',
+            (length, width, height, item_id)
+        )
+        conn.commit()
+        
+        return jsonify({
+            'id': item_id,
+            'length': length,
+            'width': width,
+            'height': height,
+            'message': 'Item updated successfully'
+        }), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+
+
 @groups_items_api_blueprint.route('/items/bulk', methods=['POST'])
 def create_items_bulk():
     """

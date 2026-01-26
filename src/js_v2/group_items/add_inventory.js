@@ -14,6 +14,13 @@ export const AddInventoryPage = {
     this.filterSelect = document.getElementById('filter-group');
     this.saveBtn = document.getElementById('save-changes-btn');
 
+    // Edit modal elements
+    this.editModal = document.getElementById('edit-item-modal');
+    this.editForm = document.getElementById('edit-item-form');
+
+    // Delete confirmation modal
+    this.deleteConfirmModal = document.getElementById('delete-item-confirm-modal');
+
     if (!this.itemsList) {
       console.error('❌ items-list element not found!');
       return;
@@ -26,6 +33,11 @@ export const AddInventoryPage = {
     document.getElementById('cancel-btn')?.addEventListener('click', () => this.closeModal());
     document.getElementById('refresh-btn')?.addEventListener('click', () => this.loadItems());
     this.saveBtn?.addEventListener('click', () => this.handleSaveChanges());
+
+    // Edit modal events
+    this.editForm?.addEventListener('submit', (e) => this.handleEditSubmit(e));
+    document.getElementById('modal-close-edit')?.addEventListener('click', () => this.closeEditModal());
+    document.getElementById('cancel-edit-btn')?.addEventListener('click', () => this.closeEditModal());
 
     this.form?.addEventListener('submit', (e) => this.handleSubmit(e));
     this.filterSelect?.addEventListener('change', (e) => {
@@ -161,6 +173,7 @@ export const AddInventoryPage = {
           <td>${item.width}</td>
           <td>${item.height}</td>
           <td>
+            <span class="edit-icon" data-id="${item.id}" title="編輯">✏️</span>
             <span class="delete-icon" data-id="${item.id}" title="刪除">🗑️</span>
           </td>
         </tr>
@@ -200,6 +213,14 @@ export const AddInventoryPage = {
         this.currentPage++;
         this.renderItems();
       }
+    });
+
+    // Add edit handlers
+    document.querySelectorAll('.edit-icon').forEach(icon => {
+      icon.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.openEditModal(id);
+      });
     });
 
     // Add delete handlers
@@ -321,39 +342,144 @@ export const AddInventoryPage = {
     }
   },
 
-  async deleteItem(id) {
-    if (!confirm('確定要刪除此物件嗎？')) return;
+  openEditModal(id) {
+    const item = this.items.find(i => i.id === parseInt(id));
+    if (!item) return;
 
+    this.currentEditingId = id;
+    document.getElementById('edit-item-id').value = item.item_id;
+    document.getElementById('edit-length').value = item.length;
+    document.getElementById('edit-width').value = item.width;
+    document.getElementById('edit-height').value = item.height;
+
+    this.editModal.classList.add('active');
+  },
+
+  closeEditModal() {
+    this.editModal.classList.remove('active');
+    this.currentEditingId = null;
+  },
+
+  async handleEditSubmit(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this.editForm);
+    const data = {
+      length: parseFloat(formData.get('length')),
+      width: parseFloat(formData.get('width')),
+      height: parseFloat(formData.get('height'))
+    };
+
+    try {
+      const response = await fetch(`${this.API_BASE}/items/${this.currentEditingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) throw new Error('更新失敗');
+
+      this.closeEditModal();
+
+      // Show Success Modal
+      const successModal = document.getElementById('success-modal');
+      const successTitle = successModal.querySelector('.modal-title');
+      const okBtn = document.getElementById('btn-modal-ok');
+
+      if (successModal && okBtn) {
+        successTitle.textContent = '更新成功';
+        successModal.classList.add('active');
+
+        const handleOk = () => {
+          successModal.classList.remove('active');
+          okBtn.removeEventListener('click', handleOk);
+          this.loadItems();
+        };
+
+        okBtn.addEventListener('click', handleOk);
+      } else {
+        alert('更新成功！');
+        this.loadItems();
+      }
+    } catch (error) {
+      console.error(error);
+      alert('更新失敗: ' + error.message);
+    }
+  },
+
+  async deleteItem(id) {
+    // Store ID for later use
+    this.pendingDeleteId = id;
+
+    // Show custom delete confirmation modal
+    if (this.deleteConfirmModal) {
+      this.deleteConfirmModal.classList.add('active');
+
+      const confirmBtn = document.getElementById('btn-delete-item-confirm');
+      const cancelBtn = document.getElementById('btn-delete-item-cancel');
+      const closeBtn = document.getElementById('modal-close-delete-item');
+
+      const handleConfirm = async () => {
+        await this.executeDeleteItem(this.pendingDeleteId);
+        this.closeDeleteItemModal();
+        cleanup();
+      };
+
+      const handleCancel = () => {
+        this.closeDeleteItemModal();
+        cleanup();
+      };
+
+      const cleanup = () => {
+        confirmBtn.removeEventListener('click', handleConfirm);
+        cancelBtn.removeEventListener('click', handleCancel);
+        closeBtn.removeEventListener('click', handleCancel);
+      };
+
+      confirmBtn.addEventListener('click', handleConfirm);
+      cancelBtn.addEventListener('click', handleCancel);
+      closeBtn.addEventListener('click', handleCancel);
+    }
+  },
+
+  closeDeleteItemModal() {
+    if (this.deleteConfirmModal) {
+      this.deleteConfirmModal.classList.remove('active');
+    }
+    this.pendingDeleteId = null;
+  },
+
+  async executeDeleteItem(id) {
     try {
       const response = await fetch(`${this.API_BASE}/items/${id}`, {
         method: 'DELETE'
       });
 
-      if (response.ok) {
-        // Show Success Modal
-        const successModal = document.getElementById('success-modal');
-        const successTitle = successModal.querySelector('.modal-title');
-        const okBtn = document.getElementById('btn-modal-ok');
+      if (!response.ok) throw new Error('刪除失敗');
 
-        if (successModal && okBtn) {
-          successTitle.textContent = '刪除成功';
-          successModal.classList.add('active');
+      // Show Success Modal
+      const successModal = document.getElementById('success-modal');
+      const successTitle = successModal.querySelector('.modal-title');
+      const okBtn = document.getElementById('btn-modal-ok');
 
-          const handleOk = () => {
-            successModal.classList.remove('active');
-            okBtn.removeEventListener('click', handleOk);
-            this.loadItems();
-          };
+      if (successModal && okBtn) {
+        successTitle.textContent = '刪除成功';
+        successModal.classList.add('active');
 
-          okBtn.addEventListener('click', handleOk);
-        } else {
-          alert('刪除成功！');
-          await this.loadItems();
-        }
+        const handleOk = () => {
+          successModal.classList.remove('active');
+          okBtn.removeEventListener('click', handleOk);
+          this.loadItems();
+        };
+
+        okBtn.addEventListener('click', handleOk);
+      } else {
+        alert('刪除成功！');
+        await this.loadItems();
       }
     } catch (error) {
       console.error(error);
-      alert('刪除失敗');
+      alert('刪除失敗: ' + error.message);
     }
   },
 

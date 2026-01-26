@@ -96,4 +96,56 @@
       <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
     </div>
   </div>
+
+  <!-- Edit Item Modal -->
+  <div id="edit-item-modal" class="modal-overlay">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close-edit">✕</button>
+      <div class="modal-header">
+        <h3 class="modal-title">✏️ 編輯物件尺寸</h3>
+      </div>
+      <div class="modal-body">
+        <form id="edit-item-form" class="modal-form">
+          <div class="form-group">
+            <label>物件編號</label>
+            <input type="text" id="edit-item-id" readonly disabled
+              style="background: rgba(100, 116, 139, 0.1); cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="edit-length">長度 (L) *</label>
+            <input type="number" id="edit-length" name="length" required step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label for="edit-width">寬度 (W) *</label>
+            <input type="number" id="edit-width" name="width" required step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label for="edit-height">高度 (H) *</label>
+            <input type="number" id="edit-height" name="height" required step="0.01" min="0">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-edit-btn">取消</button>
+            <button type="submit" class="btn btn-primary">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-item-confirm-modal" class="modal-overlay">
+    <div class="modal-content modal-confirm">
+      <button class="modal-close" id="modal-close-delete-item">✕</button>
+      <div class="modal-header">
+        <h3 class="modal-title">⚠️ 確認刪除</h3>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-message">確定要刪除此物件嗎？</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-delete-item-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-delete-item-confirm" class="btn btn-danger">刪除</button>
+      </div>
+    </div>
+  </div>
 </div>
