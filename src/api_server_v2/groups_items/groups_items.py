@@ -64,6 +64,45 @@ def delete_group(group_id):
     finally:
         conn.close()
 
+@groups_items_api_blueprint.route('/groups/<int:group_id>', methods=['PUT'])
+def update_group(group_id):
+    """Update a group's name and/or description"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        
+        # Check if group exists
+        group = conn.execute('SELECT * FROM groups WHERE id = ?', (group_id,)).fetchone()
+        if not group:
+            return jsonify({'error': 'Group not found'}), 404
+        
+        # Update fields (use existing values if not provided)
+        name = data.get('name', group['name'])
+        description = data.get('note', data.get('description', group['description']))
+        
+        cursor.execute(
+            'UPDATE groups SET name = ?, description = ? WHERE id = ?',
+            (name, description, group_id)
+        )
+        conn.commit()
+        
+        return jsonify({
+            'id': group_id,
+            'name': name,
+            'description': description,
+            'message': 'Group updated successfully'
+        }), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
 # ========== ITEMS ENDPOINTS ==========
 
 @groups_items_api_blueprint.route('/items', methods=['GET'])

@@ -41,6 +41,50 @@
     </div>
   </div>
 
+  <!-- Rename Group Modal -->
+  <div id="rename-group-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><span class="icon">✏️</span> 修改群組名稱</h3>
+        <button class="modal-close" id="modal-close-rename">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="rename-group-form" class="modal-form">
+          <div class="form-group">
+            <label for="rename-group-name">新名稱 *</label>
+            <input type="text" id="rename-group-name" name="name" required placeholder="輸入新的群組名稱">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-rename-btn">取消</button>
+            <button type="submit" class="btn btn-primary">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Note Group Modal -->
+  <div id="note-group-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3><span class="icon">📝</span> 新增備註</h3>
+        <button class="modal-close" id="modal-close-note">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="note-group-form" class="modal-form">
+          <div class="form-group">
+            <label for="group-note-text">備註內容</label>
+            <textarea id="group-note-text" name="note" rows="4" placeholder="輸入備註內容..."></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-note-btn">取消</button>
+            <button type="submit" class="btn btn-primary">儲存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Save Changes Button (Bottom Right) -->
   <div class="save-changes-container">
     <button id="save-changes-btn" class="btn btn-success">
@@ -59,6 +103,24 @@
     </div>
     <h3 class="modal-title">更新成功</h3>
     <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-confirm-modal" class="modal-overlay">
+  <div class="modal-content modal-confirm">
+    <button class="modal-close" id="modal-close-delete-confirm">✕</button>
+    <div class="modal-header">
+      <h3 class="modal-title">⚠️ 確認刪除</h3>
+    </div>
+    <div class="modal-body">
+      <p class="confirm-message">確定要刪除此群組嗎？</p>
+      <p class="confirm-warning">刪除群組會同時刪除該群組的所有物件！</p>
+    </div>
+    <div class="modal-actions">
+      <button id="btn-delete-cancel" class="btn btn-secondary">取消</button>
+      <button id="btn-delete-confirm" class="btn btn-danger">刪除</button>
+    </div>
   </div>
 </div>
 </div>

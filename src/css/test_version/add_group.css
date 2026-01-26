@@ -134,9 +134,14 @@
   border-radius: 16px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  /* Contain scrollbar */
+  /* 重要：移除 overflow: hidden，改用 visible，否則下拉選單會被切掉 */
+  overflow: visible;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* 用於鎖定層級的 class */
+.group-card.z-top {
+  z-index: 2000 !important;
 }
 
 .list-section h3 {
@@ -154,10 +159,11 @@
   padding: 24px;
 }
 
-.groups-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+/* Changed from grid to vertical list */
+.groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .group-card {
@@ -169,15 +175,20 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 120px;
+  gap: 12px;
+  width: 100%;
 }
 
 .group-card:hover {
-  transform: translateY(-4px);
+  transform: translateX(4px);
   background: rgba(30, 41, 59, 0.8);
   border-color: var(--accent-blue);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* 修正圖層問題：當下拉選單打開時，確保這張卡片疊在所有人上面 */
+.group-card:has(.dropdown.active) {
+  z-index: 1001;
 }
 
 .group-card::before {
@@ -196,8 +207,23 @@
   opacity: 1;
 }
 
+/* Group Card Header - Flex layout for top-right dropdown */
+.group-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.group-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .group-info h4 {
-  margin: 0 0 8px 0;
+  margin: 0;
   color: var(--text-primary);
   font-size: 1.2rem;
   font-weight: 600;
@@ -214,38 +240,156 @@
   display: inline-block;
 }
 
+/* Note Content - Display inline instead of tooltip */
+.group-note-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-blue);
+}
+
+.group-note-content .note-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.group-note-content .note-text {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Dropdown Menu */
 .group-actions {
-  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
-  opacity: 0;
-  /* Hide by default */
-  transform: translateY(10px);
-  transition: all 0.3s;
+  position: relative;
+  flex-shrink: 0;
 }
 
-.group-card:hover .group-actions {
-  opacity: 1;
-  transform: translateY(0);
+.dropdown {
+  position: relative;
 }
 
-.delete-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--accent-danger);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  padding: 8px 16px;
+.btn-icon {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 8px 12px;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 1.2rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  min-width: 40px;
+  height: 36px;
 }
 
-.delete-btn:hover {
-  background: var(--accent-danger);
-  color: white;
+.btn-icon:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--accent-blue);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 180px;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+  transition: all 0.2s;
+}
+
+.dropdown.active .dropdown-menu {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateY(0);
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.dropdown-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.dropdown-item:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+}
+
+.dropdown-item.delete-btn {
+  color: var(--accent-danger);
+}
+
+.dropdown-item.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-danger);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 4px 0;
+}
+
+/* Textarea Styling - Dark theme matching modal */
+.form-group textarea {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.3s;
+  min-height: 100px;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.form-group textarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 
 /* Empty State */
@@ -301,4 +445,107 @@
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(16, 185, 129, 0.5);
   background: #059669;
+}
+
+/* Delete Confirmation Modal Styles */
+.modal-confirm {
+  max-width: 480px;
+  text-align: center;
+  position: relative;
+}
+
+.modal-confirm .modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.modal-confirm .modal-close:hover {
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+.modal-confirm .modal-header {
+  margin-bottom: 24px;
+  padding-top: 8px;
+}
+
+.modal-confirm .modal-title {
+  font-size: 1.5rem;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+  /* 增加字距 */
+}
+
+.modal-confirm .modal-body {
+  margin-bottom: 32px;
+}
+
+.modal-confirm .confirm-message {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  /* 增加字距 */
+}
+
+.modal-confirm .confirm-warning {
+  font-size: 0.95rem;
+  color: var(--accent-danger);
+  margin: 0;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  /* 增加字距 */
+}
+
+.modal-confirm .modal-actions {
+  display: flex;
+  gap: 16px;
+  /* 增加按鈕之間的間距 */
+  justify-content: center;
+}
+
+.modal-confirm .btn {
+  flex: 1;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  letter-spacing: 0.05em;
+  /* 增加按鈕文字字距 */
+}
+
+.modal-confirm .btn-secondary {
+  background: rgba(100, 116, 139, 0.2);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+}
+
+.modal-confirm .btn-secondary:hover {
+  background: rgba(100, 116, 139, 0.3);
+  border-color: var(--text-secondary);
+}
+
+.modal-confirm .btn-danger {
+  background: var(--accent-danger);
+  color: white;
+}
+
+.modal-confirm .btn-danger:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }

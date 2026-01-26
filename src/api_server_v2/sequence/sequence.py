@@ -287,6 +287,11 @@ def get_latest_result():
         if container_row:
             params = json.loads(container_row['parameters'])
             container_data = params
+            # DEBUG: Log container configuration
+            print(f"[sequence.py] Container ID: {container_row['id']}")
+            print(f"[sequence.py] Raw parameters: {container_row['parameters'][:200]}...")
+            print(f"[sequence.py] Parsed shape: {params.get('shape', 'NOT FOUND')}")
+            print(f"[sequence.py] Container keys: {list(params.keys())}")
         
         # Fetch all zones for visualization
         zones_rows = conn.execute('SELECT * FROM zones').fetchall()
