@@ -531,7 +531,11 @@ export class ThreeViewer {
       opacity: 0.15,
       side: THREE.DoubleSide,
       metalness: 0.1,
-      roughness: 0.8
+      roughness: 0.8,
+      polygonOffset: true,
+      polygonOffsetFactor: 1, // Push container back
+      polygonOffsetUnits: 1,
+      depthWrite: false // Fix Z-fighting for transparent container
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -595,7 +599,11 @@ export class ThreeViewer {
       opacity: 0.15,
       side: THREE.DoubleSide,
       metalness: 0.1,
-      roughness: 0.8
+      roughness: 0.8,
+      polygonOffset: true,
+      polygonOffsetFactor: 1, // Push container back
+      polygonOffsetUnits: 1,
+      depthWrite: false
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -629,7 +637,11 @@ export class ThreeViewer {
         color: this.getZoneColor(index),
         transparent: true,
         opacity: 0.15,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        depthWrite: false, // Fix Z-fighting for zones
+        polygonOffset: true,
+        polygonOffsetFactor: 0.5, // Slightly push back, consistent with container hierarchy
+        polygonOffsetUnits: 0.5
       });
       const mesh = new THREE.Mesh(geometry, material);
 
@@ -698,7 +710,10 @@ export class ThreeViewer {
       metalness: 0.1,
       transparent: true, // If we want transparency
       opacity: 0.9,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      polygonOffset: true,
+      polygonOffsetFactor: -1, // Pull items forward
+      polygonOffsetUnits: -1
     });
 
     // 3. Create InstancedMesh
@@ -798,7 +813,10 @@ export class ThreeViewer {
       transparent: true,
       opacity: 0.05,
       side: THREE.BackSide,
-      depthWrite: false
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1
     });
     const container = new THREE.Mesh(geometry, material);
     const edges = new THREE.LineSegments(
