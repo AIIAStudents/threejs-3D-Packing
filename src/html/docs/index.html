@@ -1,0 +1,206 @@
+<!-- Docs Page Content Fragment for SPA -->
+<link rel="stylesheet" href="/src/css/test_version/docs/style.css">
+
+<div class="docs-page">
+  <header class="site-header">
+    <div class="container">
+      <h1 class="logo">3D Packer</h1>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h2 class="hero-title reveal" data-anim="fade-up">重新定義<br>空間規劃</h2>
+            <p class="hero-subtitle reveal" data-anim="fade-up" data-delay="100">從物件到動畫，一站式 3D 打包解決方案</p>
+          </div>
+          <div class="hero-visual reveal" data-anim="scale-in" data-delay="200">
+            <div class="visual-placeholder">
+              <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <rect x="50" y="100" width="120" height="120" fill="url(#grad1)" opacity="0.8" rx="8" />
+                <rect x="190" y="80" width="140" height="140" fill="url(#grad1)" opacity="0.6" rx="8" />
+                <rect x="100" y="240" width="180" height="100" fill="url(#grad1)" opacity="0.9" rx="8" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 1: Objects -->
+    <section class="content-section">
+      <div class="container">
+        <div class="section-layout split-layout">
+          <div class="section-text">
+            <h3 class="section-title reveal" data-anim="fade-up">物件管理</h3>
+            <p class="section-description reveal" data-anim="fade-up" data-delay="100">
+              精確定義每個物件的尺寸、重量與屬性。系統支援批量匯入，讓您快速建立完整的物件庫。智能分類與標籤系統，讓物件管理變得輕而易舉。
+            </p>
+            <ul class="feature-list reveal" data-anim="fade-up" data-delay="200">
+              <li>自訂物件尺寸與屬性</li>
+              <li>批量匯入與匯出</li>
+              <li>智能分類標籤</li>
+            </ul>
+          </div>
+          <div class="section-visual reveal" data-anim="slide-left" data-delay="150">
+            <div class="card">
+              <div class="card-gradient card-gradient-1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Groups -->
+    <section class="content-section bg-alt">
+      <div class="container">
+        <div class="section-layout split-layout reverse">
+          <div class="section-visual reveal" data-anim="slide-right" data-delay="150">
+            <div class="card">
+              <div class="card-gradient card-gradient-2"></div>
+            </div>
+          </div>
+          <div class="section-text">
+            <h3 class="section-title reveal" data-anim="fade-up">群組編排</h3>
+            <p class="section-description reveal" data-anim="fade-up" data-delay="100">
+              將相關物件組織成群組，建立邏輯關係。支援階層式結構，讓複雜的打包需求也能井然有序。拖拉即可調整群組關係，直覺又高效。
+            </p>
+            <ul class="feature-list reveal" data-anim="fade-up" data-delay="200">
+              <li>階層式群組結構</li>
+              <li>拖拉式介面操作</li>
+              <li>群組屬性繼承</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Space Planning -->
+    <section class="content-section">
+      <div class="container">
+        <div class="section-center">
+          <h3 class="section-title reveal" data-anim="fade-up">空間規劃</h3>
+          <p class="section-description reveal" data-anim="fade-up" data-delay="100">
+            定義容器尺寸與限制條件，系統自動計算最佳配置方案。支援多種容器類型，從標準貨櫃到客製化空間，全面滿足您的需求。
+          </p>
+          <div class="stagger-grid">
+            <div class="grid-card reveal" data-anim="fade-up" data-delay="0">
+              <div class="card-icon">📦</div>
+              <h4>容器定義</h4>
+              <p>自訂容器尺寸與承重限制</p>
+            </div>
+            <div class="grid-card reveal" data-anim="fade-up" data-delay="100">
+              <div class="card-icon">📐</div>
+              <h4>空間切割</h4>
+              <p>智能分割空間區域</p>
+            </div>
+            <div class="grid-card reveal" data-anim="fade-up" data-delay="200">
+              <div class="card-icon">⚖️</div>
+              <h4>重量平衡</h4>
+              <p>自動計算重心與平衡</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Packing Algorithm -->
+    <section class="content-section bg-alt">
+      <div class="container">
+        <div class="section-layout split-layout">
+          <div class="section-text">
+            <h3 class="section-title reveal" data-anim="fade-up">智能打包</h3>
+            <p class="section-description reveal" data-anim="fade-up" data-delay="100">
+              採用先進的演算法，自動計算最佳打包順序與位置。考慮物件優先級、重量分配與空間利用率，為您找出最優解。即時預覽打包結果，隨時調整策略。
+            </p>
+            <ul class="feature-list reveal" data-anim="fade-up" data-delay="200">
+              <li>多種演算法可選</li>
+              <li>即時空間利用率分析</li>
+              <li>優先級與約束條件</li>
+            </ul>
+          </div>
+          <div class="section-visual reveal" data-anim="slide-left" data-delay="150">
+            <div class="card">
+              <div class="card-gradient card-gradient-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: 3D Visualization -->
+    <section class="content-section">
+      <div class="container">
+        <div class="section-center">
+          <h3 class="section-title reveal" data-anim="fade-up">3D 動畫視覺化</h3>
+          <p class="section-description reveal" data-anim="fade-up" data-delay="100">
+            透過流暢的 3D 動畫，完整呈現打包過程。支援多角度檢視、逐步播放與互動操作。讓抽象的演算法結果，轉化為直覺易懂的視覺體驗。
+          </p>
+          <div class="visual-showcase reveal" data-anim="scale-in" data-delay="200">
+            <div class="showcase-placeholder">
+              <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#f093fb;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#f5576c;stop-opacity:1" />
+                  </linearGradient>
+                  <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#4facfe;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#00f2fe;stop-opacity:1" />
+                  </linearGradient>
+                </defs>
+                <rect x="50" y="50" width="200" height="300" fill="url(#grad2)" opacity="0.3" rx="12" />
+                <rect x="100" y="100" width="120" height="80" fill="url(#grad3)" opacity="0.8" rx="8" />
+                <rect x="250" y="120" width="100" height="100" fill="url(#grad3)" opacity="0.7" rx="8" />
+                <rect x="120" y="200" width="140" height="120" fill="url(#grad3)" opacity="0.9" rx="8" />
+                <rect x="380" y="80" width="180" height="240" fill="url(#grad2)" opacity="0.3" rx="12" />
+                <rect x="400" y="110" width="80" height="60" fill="url(#grad3)" opacity="0.8" rx="8" />
+                <rect x="400" y="190" width="120" height="90" fill="url(#grad3)" opacity="0.7" rx="8" />
+              </svg>
+            </div>
+          </div>
+          <div class="feature-grid reveal" data-anim="fade-up" data-delay="300">
+            <div class="feature-item">
+              <span class="feature-icon">🎬</span>
+              <span>動畫播放控制</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🔄</span>
+              <span>360° 旋轉檢視</span>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">📊</span>
+              <span>即時數據顯示</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-content reveal" data-anim="fade-up">
+          <h3 class="cta-title">準備好開始了嗎？</h3>
+          <p class="cta-description">立即體驗智能空間規劃的強大功能</p>
+          <button class="cta-button" onclick="window.location.hash='#/add-group'">開始使用</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 3D Packer. 智能空間規劃系統.</p>
+    </div>
+  </footer>
+</div>
