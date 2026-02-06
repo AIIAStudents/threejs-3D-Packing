@@ -3,110 +3,376 @@
         <h2>定義容器 & 配置</h2>
     </header>
 
-    <div class="define-container-content">
-        <!-- Form Section (Left) -->
-        <section class="form-section">
-            <form id="container-form" class="config-form">
-                <div class="form-section-inner">
-                    <h3>基礎設定</h3>
-                    <div class="form-group">
-                        <label>容器形狀</label>
-                        <select id="shape-select" name="shape">
-                            <option value="rect">矩形 (Rectangular)</option>
-                            <option value="u_shape">U 型 (U-Shape)</option>
-                            <option value="t_shape">T 型 (T-Shape)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-section-inner" id="dims-section">
-                    <h3>尺寸參數 (mm)</h3>
-                    <!-- Rect Inputs -->
-                    <div class="dims-group active" data-shape="rect">
-                        <div class="form-group">
-                            <label>寬度 (X)</label>
-                            <input type="number" name="widthX" value="5800" step="100">
-                        </div>
-                        <div class="form-group">
-                            <label>深度 (Z)</label>
-                            <input type="number" name="depthZ" value="2300" step="100">
-                        </div>
-                    </div>
-
-                    <!-- U-Shape Inputs -->
-                    <div class="dims-group" data-shape="u_shape">
-                        <div class="form-group"><label>外寬 (Outer X)</label><input type="number" name="outerWidthX"
-                                value="6000" step="100"></div>
-                        <div class="form-group"><label>外深 (Outer Z)</label><input type="number" name="outerDepthZ"
-                                value="3000" step="100"></div>
-                        <div class="form-group"><label>缺口寬 (Gap X)</label><input type="number" name="gapWidthX"
-                                value="2000" step="100"></div>
-                        <div class="form-group"><label>缺口深 (Gap Z)</label><input type="number" name="gapDepthZ"
-                                value="1000" step="100"></div>
-                    </div>
-
-                    <!-- T-Shape Inputs -->
-                    <div class="dims-group" data-shape="t_shape">
-                        <div class="form-group"><label>莖部寬 (Stem X)</label><input type="number" name="stemWidthX"
-                                value="2000" step="100"></div>
-                        <div class="form-group"><label>莖部深 (Stem Z)</label><input type="number" name="stemDepthZ"
-                                value="4000" step="100"></div>
-                        <div class="form-group"><label>橫樑寬 (Cross X)</label><input type="number" name="crossWidthX"
-                                value="4000" step="100"></div>
-                        <div class="form-group"><label>橫樑深 (Cross Z)</label><input type="number" name="crossDepthZ"
-                                value="1000" step="100"></div>
-                        <div class="form-group"><label>橫樑位置 (Cross Z Offset)</label><input type="number"
-                                name="crossOffsetZ" value="1500" step="100"></div>
-                    </div>
-
-                    <!-- Common Height -->
-                    <div class="form-group">
-                        <label>高度 (Y) [共用]</label>
-                        <input type="number" name="heightY" value="2400" step="100">
-                    </div>
-                </div>
-            </form>
-        </section>
-
-        <!-- Preview Section (Right) -->
-        <section class="preview-section">
-            <div class="preview-header">
-                <h3>即時 3D 預覽</h3>
+    <!-- Progress Bar -->
+    <div class="stepper-progress">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="step-indicators">
+            <div class="step-indicator active" data-step="1">
+                <div class="step-number">1</div>
+                <div class="step-label">定義方式</div>
             </div>
-            <div class="preview-container">
-                <div id="preview-3d"></div>
+            <div class="step-indicator" data-step="2">
+                <div class="step-number">2</div>
+                <div class="step-label">倉型模板</div>
             </div>
-            <div class="preview-info">
-                <div class="info-item">
-                    <span class="label">形狀：</span>
-                    <span id="info-shape">矩形</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">高度：</span>
-                    <span id="info-height">2400 mm</span>
-                </div>
+            <div class="step-indicator" data-step="3">
+                <div class="step-number">3</div>
+                <div class="step-label">尺寸輸入</div>
             </div>
-        </section>
-    </div>
-
-    <!-- Bottom Buttons -->
-    <div class="bottom-buttons">
-        <button id="save-changes-btn" class="btn btn-success">
-            <span class="icon">💾</span> 儲存變更
-        </button>
-        <button id="next-step-btn" class="btn btn-primary">
-            下一步 →
-        </button>
-        <!-- Success Modal -->
-        <div id="success-modal" class="modal-overlay">
-            <div class="success-modal">
-                <div class="checkmark-circle">
-                    <svg class="checkmark" viewBox="0 0 52 52">
-                        <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-                    </svg>
-                </div>
-                <h3 class="modal-title">更新成功</h3>
-                <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+            <div class="step-indicator" data-step="4">
+                <div class="step-number">4</div>
+                <div class="step-label">空間形狀</div>
+            </div>
+            <div class="step-indicator" data-step="5">
+                <div class="step-number">5</div>
+                <div class="step-label">預覽確認</div>
             </div>
         </div>
     </div>
+
+    <div class="define-container-content">
+        <!-- Step Container -->
+        <section class="wizard-container">
+            <!-- Step 1: Mode Selection -->
+            <div class="wizard-step active" data-step="1">
+                <h3 class="step-title">空間定義方式</h3>
+                <p class="step-description">選擇使用坪數或實際尺寸輸入，後續欄位會跟著變化</p>
+
+                <div class="mode-selection">
+                    <div class="mode-card" data-mode="ping">
+                        <div class="mode-icon">📐</div>
+                        <h4>以坪數輸入（推薦）</h4>
+                        <p>適合快速規劃與倉儲語境</p>
+                    </div>
+                    <div class="mode-card" data-mode="mm">
+                        <div class="mode-icon">📏</div>
+                        <h4>以尺寸輸入（進階）</h4>
+                        <p>適合已有圖面/精確尺寸</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Template Selection -->
+            <div class="wizard-step" data-step="2">
+                <h3 class="step-title">倉型模板</h3>
+                <p class="step-description">套用不同倉型的合理預設（可在下一步微調）</p>
+
+                <div class="template-selection">
+                    <div class="template-card" data-template="ecommerce">
+                        <div class="template-icon">📦</div>
+                        <h4>電商倉（Fulfillment）</h4>
+                        <div class="template-specs">
+                            <span>長寬比 2.5:1</span>
+                            <span>高度 4.5m</span>
+                            <span>可用 75%</span>
+                        </div>
+                        <p>人行揀貨為主</p>
+                    </div>
+                    <div class="template-card" data-template="3pl">
+                        <div class="template-icon">🚛</div>
+                        <h4>3PL 倉（第三方物流）</h4>
+                        <div class="template-specs">
+                            <span>長寬比 3:1</span>
+                            <span>高度 7m</span>
+                            <span>可用 80%</span>
+                        </div>
+                        <p>叉車 + 人</p>
+                    </div>
+                    <div class="template-card" data-template="manufacturing">
+                        <div class="template-icon">🏭</div>
+                        <h4>製造倉（工廠）</h4>
+                        <div class="template-specs">
+                            <span>長寬比 4:1</span>
+                            <span>高度 9m</span>
+                            <span>可用 85%</span>
+                        </div>
+                        <p>叉車/AGV</p>
+                    </div>
+                    <div class="template-card" data-template="custom">
+                        <div class="template-icon">⚙️</div>
+                        <h4>自訂（不套模板）</h4>
+                        <div class="template-specs">
+                            <span>自由設定</span>
+                        </div>
+                        <p>完全客製化</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Dimensions Input -->
+            <div class="wizard-step" data-step="3">
+                <h3 class="step-title">面積/尺寸輸入</h3>
+                <p class="step-description">輸入核心尺寸，系統會計算換算結果（mm）與可用面積</p>
+
+                <div class="dimensions-content">
+                    <!-- Ping Mode Inputs -->
+                    <div class="input-section ping-mode">
+                        <div class="form-group">
+                            <label>倉庫面積（坪）</label>
+                            <input type="number" id="area-ping" min="0.1" step="0.1" placeholder="例如：120">
+                        </div>
+
+                        <div class="form-group">
+                            <label>倉庫高度（公尺）</label>
+                            <input type="number" id="height-m" min="2.5" max="15" step="0.1" placeholder="例如：4.5">
+                        </div>
+
+                        <div class="form-group">
+                            <label>長寬比（長:寬）</label>
+                            <select id="aspect-ratio">
+                                <option value="1.5">近方形（1.5:1）</option>
+                                <option value="2.0">標準（2:1）</option>
+                                <option value="2.5" selected>電商常見（2.5:1）</option>
+                                <option value="3.0">狹長（3:1）</option>
+                                <option value="4.0">製造流向（4:1）</option>
+                                <option value="custom">自訂</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="custom-ratio-group" style="display: none;">
+                            <label>自訂長寬比（長:寬）</label>
+                            <input type="number" id="custom-ratio" min="1.1" max="10" step="0.1">
+                        </div>
+
+                        <div class="form-group">
+                            <label>可用面積比例</label>
+                            <input type="number" id="usable-ratio" min="0.5" max="1.0" step="0.01" value="0.75">
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="reserve-walkway">
+                                預留走道/消防線（快速扣 20%）
+                            </label>
+                        </div>
+
+                        <div class="conversion-preview">
+                            <h4>換算結果（即時）</h4>
+                            <div class="conversion-item">
+                                <span class="label">名目面積：</span>
+                                <span class="value" id="nominal-area">0 m²</span>
+                            </div>
+                            <div class="conversion-item">
+                                <span class="label">可用面積：</span>
+                                <span class="value" id="effective-area">0 m²</span>
+                            </div>
+                            <div class="conversion-item">
+                                <span class="label">換算尺寸：</span>
+                                <span class="value" id="converted-dims">0 × 0 × 0 mm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- MM Mode Inputs -->
+                    <div class="input-section mm-mode" style="display: none;">
+                        <div class="form-group">
+                            <label>長度 X（mm）</label>
+                            <input type="number" id="x-mm" min="1" step="1" placeholder="5800">
+                        </div>
+
+                        <div class="form-group">
+                            <label>深度 Z（mm）</label>
+                            <input type="number" id="z-mm" min="1" step="1" placeholder="7300">
+                        </div>
+
+                        <div class="form-group">
+                            <label>高度 Y（mm）</label>
+                            <input type="number" id="y-mm" min="1" step="1" placeholder="2400">
+                        </div>
+
+                        <div class="conversion-preview">
+                            <h4>尺寸摘要</h4>
+                            <div class="conversion-item">
+                                <span class="label">最終尺寸：</span>
+                                <span class="value" id="mm-dims-summary">0 × 0 × 0 mm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Shape Selection -->
+            <div class="wizard-step" data-step="4">
+                <h3 class="step-title">空間形狀</h3>
+                <p class="step-description">矩形為預設；非標準結構（T/U/L）建議用於既有建築限制</p>
+
+                <div class="shape-selection">
+                    <div class="shape-tier-group">
+                        <div class="shape-card primary" data-shape="rect">
+                            <div class="shape-icon">▭</div>
+                            <h4>標準矩形（推薦）</h4>
+                            <p>最佳空間利用率</p>
+                        </div>
+                    </div>
+
+                    <div class="shape-tier-divider">
+                        <span>進階選項（非標準結構）</span>
+                    </div>
+
+                    <div class="shape-tier-group advanced">
+                        <div class="shape-card" data-shape="t_shape">
+                            <div class="shape-icon">⊤</div>
+                            <h4>T 型</h4>
+                            <p>適合 T 型建築</p>
+                        </div>
+                        <div class="shape-card" data-shape="u_shape">
+                            <div class="shape-icon">⊔</div>
+                            <h4>U 型</h4>
+                            <p>適合 U 型建築</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Non-standard shape parameters (shown when T/U/L selected) -->
+                <div class="nonstandard-params" id="nonstandard-params" style="display: none;">
+                    <h4>非標準結構參數</h4>
+                    <p class="hint">注意：非標準結構會自動拆分為多個矩形子空間</p>
+
+                    <!-- T-Shape params -->
+                    <div class="shape-params" id="t-shape-params" style="display: none;">
+                        <div class="form-group">
+                            <label>底部寬 (Bottom X) mm</label>
+                            <input type="number" id="t-bottom-x" value="1500" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>底部深 (Bottom Z) mm</label>
+                            <input type="number" id="t-bottom-z" value="4000" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>頂部寬 (Top X) mm</label>
+                            <input type="number" id="t-top-x" value="4000" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>頂部深 (Top Z) mm</label>
+                            <input type="number" id="t-top-z" value="1500" step="100">
+                        </div>
+                    </div>
+
+                    <!-- U-Shape params -->
+                    <div class="shape-params" id="u-shape-params" style="display: none;">
+                        <div class="form-group">
+                            <label>外寬 (Outer X) mm</label>
+                            <input type="number" id="u-outer-x" value="6000" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>外深 (Outer Z) mm</label>
+                            <input type="number" id="u-outer-z" value="3000" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>缺口寬 (Gap X) mm</label>
+                            <input type="number" id="u-gap-x" value="2000" step="100">
+                        </div>
+                        <div class="form-group">
+                            <label>缺口深 (Gap Z) mm</label>
+                            <input type="number" id="u-gap-z" value="1000" step="100">
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Step 5: Preview & Confirm -->
+            <div class="wizard-step" data-step="5">
+                <h3 class="step-title">預覽與確認</h3>
+                <p class="step-description">確認最終參數並顯示 3D 預覽，按下儲存/完成才會寫入設定</p>
+
+                <div class="preview-layout">
+                    <!-- Summary Panel -->
+                    <div class="summary-panel">
+                        <h4>設定摘要</h4>
+
+                        <div class="summary-section">
+                            <h5>輸入模式與模板</h5>
+                            <div class="summary-item">
+                                <span class="label">定義方式：</span>
+                                <span class="value" id="summary-mode">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">倉型模板：</span>
+                                <span class="value" id="summary-template">-</span>
+                            </div>
+                        </div>
+
+                        <div class="summary-section" id="summary-area-section">
+                            <h5>面積與可用面積</h5>
+                            <div class="summary-item">
+                                <span class="label">輸入面積：</span>
+                                <span class="value" id="summary-input-area">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">名目面積：</span>
+                                <span class="value" id="summary-nominal">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">可用比例：</span>
+                                <span class="value" id="summary-ratio">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">可用面積：</span>
+                                <span class="value" id="summary-effective">-</span>
+                            </div>
+                        </div>
+
+                        <div class="summary-section">
+                            <h5>最終尺寸（mm）</h5>
+                            <div class="summary-item">
+                                <span class="label">長度 X：</span>
+                                <span class="value" id="summary-x">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">深度 Z：</span>
+                                <span class="value" id="summary-z">-</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">高度 Y：</span>
+                                <span class="value" id="summary-y">-</span>
+                            </div>
+                        </div>
+
+                        <div class="summary-section">
+                            <h5>形狀</h5>
+                            <div class="summary-item">
+                                <span class="label">空間形狀：</span>
+                                <span class="value" id="summary-shape">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3D Preview -->
+                    <div class="preview-3d-container">
+                        <div id="preview-3d"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="wizard-navigation">
+        <button id="btn-prev" class="btn btn-secondary" style="display: none;">
+            ← 上一步
+        </button>
+        <button id="btn-next" class="btn btn-primary">
+            下一步 →
+        </button>
+        <button id="btn-finish" class="btn btn-success" style="display: none;">
+            <span class="icon">💾</span> 儲存/完成
+        </button>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal-overlay">
+        <div class="success-modal">
+            <div class="checkmark-circle">
+                <svg class="checkmark" viewBox="0 0 52 52">
+                    <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                </svg>
+            </div>
+            <h3 class="modal-title">設定已儲存</h3>
+            <p>容器配置已成功儲存</p>
+            <button id="btn-modal-ok" class="btn-modal-ok">確定</button>
+        </div>
+    </div>
+</div>

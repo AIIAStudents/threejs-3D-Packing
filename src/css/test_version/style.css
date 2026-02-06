@@ -117,21 +117,21 @@ body {
 }
 
 .section-title {
-  padding: 12px 20px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  padding: 10px 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   /* Increased gap for better visual separation */
 }
 
 .section-title .icon {
-  font-size: 1.1rem;
-  width: 24px;
+  font-size: 1rem;
+  width: 20px;
   /* Fixed width for icon alignment */
   display: flex;
   justify-content: center;

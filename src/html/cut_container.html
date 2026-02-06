@@ -1,27 +1,252 @@
-<div class="page-container">
+<div class="space-planning-page">
   <header class="page-header">
-    <h2>切割容器 & 區域劃分</h2>
+    <h2>空間規劃 & 限制設定</h2>
     <div class="header-actions">
-      <!-- Canvas Controls -->
-      <button id="edit-toggle-btn" class="btn btn-outline">✏️ 編輯區域</button>
+      <button id="btn-generate" class="btn btn-primary">🔄 生成空間</button>
+      <button id="btn-reset" class="btn btn-outline">↺ 重置</button>
     </div>
   </header>
 
-  <div class="cut-workspace">
-    <!-- Canvas Section -->
+  <div class="planning-workspace">
+    <!-- Left Panel: Constraint Configuration -->
+    <aside class="constraints-panel">
+      <div class="panel-section">
+        <h3 class="section-title">
+          <span class="icon">🏗️</span>
+          建築限制
+        </h3>
+
+        <!-- Columns Configuration -->
+        <div class="constraint-group">
+          <div class="group-header">
+            <label class="group-label">柱體配置</label>
+          </div>
+
+          <div class="form-group">
+            <label>配置模式</label>
+            <select id="column-mode" class="form-select">
+              <option value="rule_based">規則式柱位（推薦）</option>
+              <option value="exception_based">自訂柱位（進階）</option>
+            </select>
+          </div>
+
+          <!-- Rule-based Column Parameters -->
+          <div id="rule-based-params" class="sub-params">
+            <div class="form-row">
+              <div class="form-group">
+                <label>柱寬 (mm)</label>
+                <input type="number" id="column-width" value="400" min="100" step="50">
+              </div>
+              <div class="form-group">
+                <label>柱深 (mm)</label>
+                <input type="number" id="column-depth" value="400" min="100" step="50">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>X 間距 (mm)</label>
+                <input type="number" id="spacing-x" value="6000" min="1000" step="100">
+              </div>
+              <div class="form-group">
+                <label>Z 間距 (mm)</label>
+                <input type="number" id="spacing-z" value="6000" min="1000" step="100">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>牆邊偏移 (mm)</label>
+              <input type="number" id="wall-offset" value="500" min="0" step="50">
+            </div>
+          </div>
+
+          <!-- Exception-based Column Parameters -->
+          <div id="exception-based-params" class="sub-params" style="display: none;">
+            <div class="custom-columns-list" id="custom-columns-list">
+              <p class="hint">點擊下方按鈕新增自訂柱位</p>
+            </div>
+            <button id="btn-add-column" class="btn btn-sm btn-outline">+ 新增柱位</button>
+          </div>
+        </div>
+
+        <!-- Wall Clearance -->
+        <div class="constraint-group">
+          <div class="group-header">
+            <label class="group-label">牆邊安全距離</label>
+          </div>
+          <div class="form-group">
+            <label>距離 (mm)</label>
+            <input type="number" id="wall-clearance" value="300" min="0" step="50">
+            <p class="hint">消防與安全規範要求的最小距離</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <h3 class="section-title">
+          <span class="icon">🚶</span>
+          動線限制
+        </h3>
+
+        <!-- Main Aisle -->
+        <div class="constraint-group">
+          <div class="group-header">
+            <label class="toggle-label">
+              <input type="checkbox" id="main-aisle-enabled" checked>
+              <span>主走道 / 消防通道</span>
+            </label>
+          </div>
+
+          <div id="main-aisle-params" class="sub-params">
+            <div class="form-group">
+              <label>寬度 (mm)</label>
+              <input type="number" id="main-aisle-width" value="2000" min="1000" step="100">
+            </div>
+
+            <div class="form-group">
+              <label>方向</label>
+              <select id="main-aisle-direction" class="form-select">
+                <option value="along_length">沿長度方向</option>
+                <option value="along_width">沿寬度方向</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>位置</label>
+              <select id="main-aisle-position" class="form-select">
+                <option value="center">中央</option>
+                <option value="offset_left">偏左 1/3</option>
+                <option value="offset_right">偏右 1/3</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Forklift Aisles -->
+        <div class="constraint-group">
+          <div class="group-header">
+            <label class="toggle-label">
+              <input type="checkbox" id="forklift-aisles-enabled">
+              <span>叉車動線（可選）</span>
+            </label>
+          </div>
+
+          <div id="forklift-aisles-params" class="sub-params" style="display: none;">
+            <div class="form-group">
+              <label>數量</label>
+              <input type="number" id="forklift-count" value="2" min="1" max="5" step="1">
+            </div>
+
+            <div class="form-group">
+              <label>寬度 (mm)</label>
+              <input type="number" id="forklift-width" value="1500" min="1000" step="100">
+            </div>
+
+            <div class="form-group">
+              <label>間距</label>
+              <select id="forklift-spacing" class="form-select">
+                <option value="auto">自動均分</option>
+                <option value="custom">自訂</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Visualization Canvas -->
     <section class="canvas-section">
-      <canvas id="cut-canvas" width="800" height="600"></canvas>
+      <div class="canvas-controls">
+        <div class="layer-toggles">
+          <label class="toggle-btn">
+            <input type="checkbox" id="show-columns" checked>
+            <span>柱子</span>
+          </label>
+          <label class="toggle-btn">
+            <input type="checkbox" id="show-aisles" checked>
+            <span>走道</span>
+          </label>
+          <label class="toggle-btn">
+            <input type="checkbox" id="show-clearance" checked>
+            <span>安全距</span>
+          </label>
+          <label class="toggle-btn">
+            <input type="checkbox" id="show-usable" checked>
+            <span>可用區</span>
+          </label>
+        </div>
+        <button id="btn-expand-canvas" class="btn-expand" title="放大檢視">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+          </svg>
+        </button>
+      </div>
+      <canvas id="planning-canvas" width="800" height="600"></canvas>
+      <div class="canvas-legend">
+        <div class="legend-item">
+          <span class="color-box" style="background: #6b7280;"></span>
+          <span>柱子</span>
+        </div>
+        <div class="legend-item">
+          <span class="color-box" style="background: #9ca3af;"></span>
+          <span>走道</span>
+        </div>
+        <div class="legend-item">
+          <span class="color-box" style="background: #d1d5db;"></span>
+          <span>安全距</span>
+        </div>
+        <div class="legend-item">
+          <span class="color-box" style="background: #3b82f6;"></span>
+          <span>可用空間</span>
+        </div>
+      </div>
     </section>
 
-    <!-- Side Panel -->
-    <aside class="side-panel">
-      <div class="panel-header">
-        <h3>區域列表</h3>
+    <!-- Right Panel: Results -->
+    <aside class="results-panel">
+      <div class="panel-section">
+        <h3 class="section-title">空間統計</h3>
+
+        <div class="stats-summary">
+          <div class="stat-item">
+            <span class="stat-label">總面積</span>
+            <span class="stat-value" id="total-area">0 m²</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">不可用面積</span>
+            <span class="stat-value" id="unusable-area">0 m²</span>
+          </div>
+          <div class="stat-item highlight">
+            <span class="stat-label">可用面積</span>
+            <span class="stat-value" id="usable-area">0 m²</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">利用率</span>
+            <span class="stat-value" id="utilization">0%</span>
+          </div>
+        </div>
+
+        <div class="breakdown">
+          <h4>不可用區域明細</h4>
+          <div class="breakdown-item">
+            <span>柱子</span>
+            <span id="columns-area">0 m²</span>
+          </div>
+          <div class="breakdown-item">
+            <span>走道</span>
+            <span id="aisles-area">0 m²</span>
+          </div>
+          <div class="breakdown-item">
+            <span>安全距</span>
+            <span id="clearance-area">0 m²</span>
+          </div>
+        </div>
       </div>
-      <div id="zone-card-container" class="zone-list">
-        <div class="empty-state">
-          <p>尚未建立區域</p>
-          <p class="hint">提示：點擊「編輯區域」後，在畫布上拖曳即可建立新區域。</p>
+
+      <div class="panel-section">
+        <h3 class="section-title">可用空間區塊</h3>
+        <div id="usable-blocks-list" class="blocks-list">
+          <p class="empty-state">尚未生成空間</p>
         </div>
       </div>
     </aside>
@@ -31,22 +256,83 @@
   <footer class="page-footer">
     <button id="btn-prev-step" class="btn btn-secondary">← 上一步</button>
     <div class="footer-right">
-      <button id="btn-finish" class="btn btn-success">儲存切割</button>
+      <button id="btn-save" class="btn btn-success">💾 儲存</button>
       <button id="btn-next-step" class="btn btn-primary">下一步 →</button>
     </div>
   </footer>
-  </footer>
 
-  <!-- Success Modal -->
-  <div id="success-modal" class="modal-overlay">
-    <div class="success-modal">
-      <div class="checkmark-circle">
-        <svg class="checkmark" viewBox="0 0 52 52">
-          <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-        </svg>
+  <!-- Expanded Canvas Modal -->
+  <div id="canvas-modal" class="canvas-modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>空間規劃預覽</h3>
+        <button id="btn-close-modal" class="btn-close-modal" title="關閉">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <h3 class="modal-title">更新成功</h3>
-      <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+      <div class="modal-body">
+        <canvas id="planning-canvas-expanded" width="1600" height="900"></canvas>
+      </div>
+      <div class="modal-footer">
+        <div class="canvas-legend">
+          <div class="legend-item">
+            <span class="color-box" style="background: #6b7280;"></span>
+            <span>柱子</span>
+          </div>
+          <div class="legend-item">
+            <span class="color-box" style="background: #9ca3af;"></span>
+            <span>走道</span>
+          </div>
+          <div class="legend-item">
+            <span class="color-box" style="background: #d1d5db;"></span>
+            <span>安全距</span>
+          </div>
+          <div class="legend-item">
+            <span class="color-box" style="background: #3b82f6;"></span>
+            <span>可用空間</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Custom Column Modal -->
+  <div id="column-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>新增自訂柱位</h3>
+        <button class="modal-close" id="btn-close-column-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="column-form" class="modal-form">
+          <div class="form-group">
+            <label>X 座標 (mm)</label>
+            <input type="number" id="column-x" value="3000" min="0" step="100" required>
+            <p class="hint">柱子中心點的 X 座標</p>
+          </div>
+          <div class="form-group">
+            <label>Z 座標 (mm)</label>
+            <input type="number" id="column-z" value="3000" min="0" step="100" required>
+            <p class="hint">柱子中心點的 Z 座標</p>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>柱寬 (mm)</label>
+              <input type="number" id="column-width-input" value="400" min="100" step="50" required>
+            </div>
+            <div class="form-group">
+              <label>柱深 (mm)</label>
+              <input type="number" id="column-depth-input" value="400" min="100" step="50" required>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-column">取消</button>
+            <button type="submit" class="btn btn-primary">確定</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </div>
