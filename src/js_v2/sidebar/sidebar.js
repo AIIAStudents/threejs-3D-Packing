@@ -63,7 +63,7 @@ export class Sidebar {
   }
 
   render() {
-    let html = '<div class="sidebar-header"><h3>3D Packer</h3></div><div class="sidebar-menu">';
+    let html = '<div class="sidebar-header" style="cursor: pointer;" data-home="true"><h3>3D Packer</h3></div><div class="sidebar-menu">';
 
     this.menuItems.forEach(section => {
       html += `
@@ -91,6 +91,14 @@ export class Sidebar {
   }
 
   addEventListeners() {
+    // Add click event for sidebar header (3D Packer logo)
+    const header = this.container.querySelector('.sidebar-header');
+    if (header) {
+      header.addEventListener('click', () => {
+        this.loadPage('/docs');
+      });
+    }
+
     this.container.querySelectorAll('.menu-item').forEach(item => {
       item.addEventListener('click', (e) => {
         const target = item.dataset.target;
@@ -119,8 +127,8 @@ export class Sidebar {
     let logicalPath = path;
 
     // Simple mapping for legacy HTML paths if they somehow persist in UI checks
-    if (path.includes('/src/html/assign_space.html')) logicalPath = '/assign-space';
-    if (path.includes('/src/html/define_container.html')) logicalPath = '/define-container';
+    if (path.includes('/assign_space.html')) logicalPath = '/assign-space';
+    if (path.includes('/define_container.html')) logicalPath = '/define-container';
 
     const items = this.container.querySelectorAll('.menu-item');
     let found = false;
@@ -133,7 +141,7 @@ export class Sidebar {
     });
 
     // If not found (maybe legacy path), try to fallback logic if needed
-    if (!found) {
+    if (!found && path !== '/' && path !== '') {
       console.warn(`[Sidebar] No menu item found for path: ${path}`);
     }
   }

@@ -8,37 +8,51 @@ import { Sidebar } from './sidebar/sidebar.js';
 class DirectModuleLoader {
   // Logical route to file path mapping
   static PATH_MAP = {
+    '/docs': {
+      html: '/src/html/docs/index.html',
+      js: '/src/js_v2/docs/main.js'
+    },
     '/add-group': {
-      html: '/src/html/add_group.html',
+      html: '/src/html/app/group/add_group.html',
       js: '/src/js_v2/group_items/add_group.js'
     },
     '/add-inventory': {
-      html: '/src/html/add_inventory.html',
+      html: '/src/html/app/group/add_inventory.html',
       js: '/src/js_v2/group_items/add_inventory.js'
     },
     '/define-container': {
-      html: '/src/html/define_container.html',
+      html: '/src/html/app/space/define_container.html',
       js: '/src/js_v2/container/define_container.js'
     },
     '/cut-container': {
-      html: '/src/html/cut_container.html',
-      js: '/src/js_v2/container/cut_container_v2.js'
+      html: '/src/html/app/space/cut_container.html',
+      js: '/src/js_v2/container/cut_container_v2.js',
+      exportName: 'SpacePlanningPage'
     },
     '/assign-space': {
-      html: '/src/html/assign_space.html',
+      html: '/src/html/app/space/assign_space.html',
       js: '/src/js_v2/assign/assign_space.js'
     },
     '/assign-sequence': {
-      html: '/src/html/assign_sequence.html',
+      html: '/src/html/app/space/assign_sequence.html',
       js: '/src/js_v2/assign/assign_sequence.js'
     },
     '/view-final': {
-      html: '/src/html/view_final.html',
+      html: '/src/html/app/preview/view_final.html',
       js: '/src/js_v2/view/view_final.js'
     },
     '/animation-preview': {
-      html: '/src/html/animation_preview.html',
+      html: '/src/html/app/preview/animation_preview.html',
       js: '/src/js_v2/view/animation_preview.js'
+    },
+    // Performance Demos
+    '/demo-worker': {
+      html: '/src/html/worker_demo.html',
+      js: '/src/js_v2/view/worker_demo.js'
+    },
+    '/demo-instanced': {
+      html: '/src/html/instanced_mesh_demo.html',
+      js: '/src/js_v2/view/instanced_mesh_demo.js'
     }
   };
 
@@ -84,8 +98,19 @@ class DirectModuleLoader {
    */
   async handlePath(path) {
     try {
+      console.log('[DirectModuleLoader] handlePath called with:', path);
       if (!path || path === '/') {
-        this.showWelcome();
+        // Load docs page as default instead of showing welcome screen
+        console.log('[DirectModuleLoader] Loading default docs page...');
+        const docsConfig = DirectModuleLoader.PATH_MAP['/docs'];
+        console.log('[DirectModuleLoader] docsConfig:', docsConfig);
+        if (docsConfig) {
+          await this.loadPage('/docs', docsConfig);
+          console.log('[DirectModuleLoader] Docs page loaded successfully');
+        } else {
+          console.warn('[DirectModuleLoader] No docs config found, showing welcome');
+          this.showWelcome();
+        }
         return;
       }
 
@@ -93,6 +118,7 @@ class DirectModuleLoader {
       // This fixes browser history navigation issues
       if (path.includes('/src/html/')) {
         const legacyMap = {
+          // Old paths (before restructure)
           '/src/html/add_group.html': '/add-group',
           '/src/html/add_inventory.html': '/add-inventory',
           '/src/html/define_container.html': '/define-container',
@@ -100,7 +126,18 @@ class DirectModuleLoader {
           '/src/html/assign_space.html': '/assign-space',
           '/src/html/assign_sequence.html': '/assign-sequence',
           '/src/html/view_final.html': '/view-final',
-          '/src/html/animation_preview.html': '/animation-preview'
+          '/src/html/animation_preview.html': '/animation-preview',
+          '/src/html/worker_demo.html': '/demo-worker',
+          '/src/html/instanced_mesh_demo.html': '/demo-instanced',
+          // New paths (after restructure)
+          '/src/html/app/group/add_group.html': '/add-group',
+          '/src/html/app/group/add_inventory.html': '/add-inventory',
+          '/src/html/app/space/define_container.html': '/define-container',
+          '/src/html/app/space/cut_container.html': '/cut-container',
+          '/src/html/app/space/assign_space.html': '/assign-space',
+          '/src/html/app/space/assign_sequence.html': '/assign-sequence',
+          '/src/html/app/preview/view_final.html': '/view-final',
+          '/src/html/app/preview/animation_preview.html': '/animation-preview'
         };
 
         const newRoute = legacyMap[path];
@@ -136,11 +173,7 @@ class DirectModuleLoader {
         <i class="fas fa-box-open" style="font-size: 4rem; margin-bottom: 20px; color: #ddd;"></i>
         <h2>歡迎使用 3D 裝箱系統</h2>
         <p>請點擊左側選單開始新專案或管理設定。</p>
-        <div style="margin-top: 30px;">
-          <a href="/webgpu_test.html" class="btn btn-primary" style="padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
-            🚀 體驗 WebGPU 新引擎 (Beta)
-          </a>
-        </div>
+
       </div>
     `;
   }
@@ -178,7 +211,7 @@ class DirectModuleLoader {
       console.log(`✓ HTML loaded: ${config.html}`);
 
       // Load JS module
-      await this.loadModule(config.js);
+      await this.loadModule(config.js, config);
 
     } catch (error) {
       console.error('Page load error:', error);
@@ -189,7 +222,7 @@ class DirectModuleLoader {
   /**
    * Load and initialize JavaScript module
    */
-  async loadModule(jsPath) {
+  async loadModule(jsPath, routeConfig = {}) {
     try {
       // Check cache
       if (this.moduleCache.has(jsPath)) {
@@ -203,7 +236,14 @@ class DirectModuleLoader {
 
       // Dynamic import
       const module = await import(/* @vite-ignore */ jsPath);
-      const PageModule = module.default || module[Object.keys(module)[0]];
+
+      // Use exportName if specified, otherwise fallback to default or first export
+      let PageModule;
+      if (routeConfig.exportName && module[routeConfig.exportName]) {
+        PageModule = module[routeConfig.exportName];
+      } else {
+        PageModule = module.default || module[Object.keys(module)[0]];
+      }
 
       this.moduleCache.set(jsPath, PageModule);
 
