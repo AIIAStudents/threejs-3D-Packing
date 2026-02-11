@@ -1,0 +1,96 @@
+<div class="page-container">
+  <header class="page-header">
+    <h2>分配物件至區域</h2>
+    <p class="subtitle">請將右側群組拖曳到左側對應的切割區域中進行分配。</p>
+  </header>
+
+  <div class="assign-content">
+    <!-- Left: Zones List (60%) -->
+    <section class="zones-section">
+      <h3>切割區域</h3>
+      <div id="zones-list" class="zones-list">
+        <div class="loading">載入區域中...</div>
+      </div>
+    </section>
+
+    <!-- Right: Groups Pool (40%) -->
+    <section class="groups-section">
+      <h3>群組列表 (拖曳)</h3>
+      <div id="groups-pool" class="groups-pool">
+        <div class="loading">載入群組中...</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bottom Buttons -->
+  <div class="bottom-buttons">
+    <button id="save-changes-btn" class="btn btn-success">
+      <span class="icon">💾</span> 儲存變更
+    </button>
+    <button id="next-step-btn" class="btn btn-primary">
+      下一步 →
+    </button>
+  </div>
+
+  <!-- Allocation Mode Selection Modal -->
+  <div id="allocation-modal" class="modal-overlay">
+    <div class="modal-content allocation-modal">
+      <div class="modal-header">
+        <h3>分配設定</h3>
+        <button class="modal-close" onclick="window.AssignSpace.closeAllocationModal()">×</button>
+      </div>
+      <form id="allocation-form">
+        <div class="form-group">
+          <label>分配模式</label>
+          <select id="allocation-mode" name="mode" required>
+            <option value="shared">共用模式 - 多個群組可共用此區域</option>
+            <option value="exclusive">獨占模式 - 此群組獨占整個區域</option>
+            <option value="percentage">百分比模式 - 指定使用區域的百分比</option>
+            <option value="priority_queue">優先序模式 - 依優先序排入</option>
+          </select>
+        </div>
+
+        <div id="percentage-input" class="form-group" style="display: none;">
+          <label>使用百分比 (%)</label>
+          <input type="number" id="allocation-percentage" name="percentage" min="1" max="100" step="1" />
+          <small>此群組將使用區域的指定百分比</small>
+        </div>
+
+        <div id="priority-input" class="form-group" style="display: none;">
+          <label>優先序</label>
+          <input type="number" id="allocation-priority" name="priority" min="1" step="1" />
+          <small>數字越小優先序越高</small>
+        </div>
+
+        <div class="form-group">
+          <label>備註（選填）</label>
+          <textarea id="allocation-notes" name="notes" rows="2" placeholder="輸入分配相關備註..."></textarea>
+        </div>
+
+        <div id="capacity-preview" class="capacity-preview" style="display: none;">
+          <div class="preview-label">容量預覽</div>
+          <div id="capacity-preview-content"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary"
+            onclick="window.AssignSpace.closeAllocationModal()">取消</button>
+          <button type="submit" class="btn btn-primary">確定分配</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="modal-overlay">
+    <div class="success-modal">
+      <div class="checkmark-circle">
+        <svg class="checkmark" viewBox="0 0 52 52">
+          <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+        </svg>
+      </div>
+      <h3 class="modal-title">更新成功</h3>
+      <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+    </div>
+  </div>
+</div>
