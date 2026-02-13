@@ -225,9 +225,14 @@ export const ViewFinalPage = {
       const zones = result.zones || this.state.fullData?.zones || [];
 
       zones.forEach(zone => {
+        // FIX: Store full transform data for Worker to handle rotation
+        // Zone X/Y are Center coordinates.
         zoneOffsetMap[zone.zone_id] = {
-          x: zone.x || 0,
-          y: zone.y || 0
+          cx: zone.x || 0,
+          cy: zone.y || 0,
+          rotation: zone.rotation || 0,
+          width: zone.length || 0, // X
+          depth: zone.width || 0   // Z
         };
       });
 
@@ -239,10 +244,10 @@ export const ViewFinalPage = {
       let rawItems = [];
       spaces.forEach(space => {
         if (space.result && space.result.items) {
-          const zoneOffset = zoneOffsetMap[space.zone_id] || { x: 0, y: 0 };
-          // Attach zone offset to raw item container for processing
+          const zoneOffset = zoneOffsetMap[space.zone_id] || { cx: 0, cy: 0, width: 0, depth: 0, rotation: 0 };
+          // Attach zone transform info to raw item container for processing
           space.result.items.forEach(item => {
-            rawItems.push({ item, zoneOffset });
+            rawItems.push({ item, zoneTransform: zoneOffset }); // Renamed to zoneTransform
           });
         }
       });
@@ -250,8 +255,9 @@ export const ViewFinalPage = {
       // Process items in chunks to avoid UI freeze
       // This maps raw data to viewer format and assigns colors
       await buildInChunks(rawItems, 500, (chunk) => {
-        const processedChunk = chunk.map(({ item, zoneOffset }) => {
-          const newItem = { ...item, zoneOffset };
+        const processedChunk = chunk.map(({ item, zoneTransform }) => {
+          // Pass zoneTransform to item so worker can use it
+          const newItem = { ...item, zoneTransform };
           // Apply Color
           newItem.color = ColorManager.getGroupColor(newItem.group_id);
           return newItem;
@@ -499,7 +505,7 @@ export const ViewFinalPage = {
   },
 
   handleBack() {
-    window.location.hash = '/src/html/assign_sequence.html';
+    window.location.hash = '/assign-sequence';
   },
 
   async handleRepack() {

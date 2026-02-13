@@ -1,3 +1,5 @@
+import { ColorManager } from '../utils/color_manager.js';
+
 export const AssignSequencePage = {
   API_BASE: 'http://127.0.0.1:8888/api',
   zones: [],
@@ -113,17 +115,23 @@ export const AssignSequencePage = {
 
     this.itemsContainer.innerHTML = items.map((item, index) => {
       const group = this.groups.find(g => g.id === item.group_id);
+      const groupColor = ColorManager.getGroupColor(item.group_id);
+
       return `
                 <div class="sortable-item" 
                      draggable="true" 
                      data-item-id="${item.id}"
-                     data-index="${index}">
+                     data-index="${index}"
+                     style="border-left: 5px solid ${groupColor}">
                     <span class="drag-handle">☰</span>
                     <div class="item-order">${index + 1}</div>
                     <div class="item-details">
                         <div class="item-name">${item.item_id}</div>
                         <div class="item-dims">L: ${item.length} × W: ${item.width} × H: ${item.height}</div>
-                        <div class="item-group">群組: ${group ? group.name : 'N/A'}</div>
+                        <div class="item-group">
+                            <span class="group-dot" style="background-color: ${groupColor}; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;"></span>
+                            群組: ${group ? group.name : 'N/A'}
+                        </div>
                     </div>
                 </div>
             `;
@@ -250,7 +258,7 @@ export const AssignSequencePage = {
 
       // Navigate to results view
       window.dispatchEvent(new CustomEvent('route-change', {
-        detail: { path: '/src/html/view_final.html' }
+        detail: { path: '/view-final' }
       }));
 
     } catch (error) {
@@ -261,7 +269,7 @@ export const AssignSequencePage = {
 
   goBack() {
     window.dispatchEvent(new CustomEvent('route-change', {
-      detail: { path: '/src/html/assign_space.html' }
+      detail: { path: '/assign-space' }
     }));
   }
 };

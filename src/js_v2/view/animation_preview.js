@@ -1,4 +1,4 @@
-import { NewAnimationViewer as AnimationViewer } from './new_animation_viewer.js';
+import { NewAnimationViewer as AnimationViewer } from './animation_viewer_v2.js';
 import { throttle } from '../utils/performance.js';
 
 /**

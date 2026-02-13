@@ -612,11 +612,15 @@ export class NewAnimationViewer {
       color: 0x3b82f6,
       metalness: 0.1,
       roughness: 0.05,
-      transmission: 0.9,
-      thickness: 10.0,
+      transmission: 0, // Disable expensive transmission to fix artifacts
+      thickness: 0,    // Not needed without transmission
       transparent: true,
-      opacity: 0.3,
-      side: THREE.BackSide
+      opacity: 0.25,   // Slightly lower opacity for clarity
+      side: THREE.BackSide,
+      depthWrite: false, // Prevents container from occluding items (Fixes z-fighting)
+      polygonOffset: true,
+      polygonOffsetFactor: 2.0, // Increased factor for safety
+      polygonOffsetUnits: 2.0
     });
 
     this.wireframeMaterial = new THREE.MeshBasicMaterial({
