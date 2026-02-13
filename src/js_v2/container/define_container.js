@@ -897,13 +897,13 @@ export const DefineContainerPage = {
           okBtn.removeEventListener('click', handleOk);
 
           // Navigate to next page
-          window.location.hash = '/src/html/cut_container.html';
+          window.location.hash = '/cut-container';
         };
 
         okBtn.addEventListener('click', handleOk);
       } else {
         alert('✓ 容器設定已儲存！');
-        window.location.hash = '/src/html/cut_container.html';
+        window.location.hash = '/cut-container';
       }
 
     } catch (error) {

@@ -1,4 +1,6 @@
 <link rel="stylesheet" href="/src/css/test_version/app/space/cut_container.css">
+<link rel="stylesheet" href="/src/css/test_version/app/space/secondary_editor.css">
+
 <div class="space-planning-page">
   <header class="page-header">
     <h2>空間規劃 & 限制設定</h2>
@@ -155,6 +157,78 @@
       </div>
     </aside>
 
+    <!-- Secondary Editing Toolbar (hidden by default) -->
+    <aside id="subdivision-toolbar" class="subdivision-toolbar">
+      <div class="toolbar-header">
+        <h3>進一步規劃空間</h3>
+        <p class="hint">點擊可用區域開始細分</p>
+      </div>
+
+      <div class="selected-region-info" id="selected-region-info" style="display: none;">
+        <h4>已選擇區域</h4>
+        <div class="region-stats">
+          <span>面積: <strong id="selected-area">0</strong> m²</span>
+          <span>尺寸: <strong id="selected-dimensions">0×0</strong> mm</span>
+        </div>
+      </div>
+
+      <div class="subdivision-tools" id="subdivision-tools" style="display: none;">
+        <div class="tool-group">
+          <label class="tool-label">分割方式</label>
+          <select id="split-mode" class="form-select">
+            <option value="equal">等分切割</option>
+            <option value="ratio">比例切割</option>
+            <option value="manual">手動拖曳</option>
+          </select>
+        </div>
+
+        <div id="equal-split-params" class="tool-params">
+          <div class="form-group">
+            <label>方向</label>
+            <select id="equal-direction" class="form-select">
+              <option value="horizontal">水平分割</option>
+              <option value="vertical">垂直分割</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>分成幾等份</label>
+            <input type="number" id="equal-parts" value="2" min="2" max="10">
+          </div>
+          <button id="btn-apply-equal" class="btn btn-primary">套用等分</button>
+        </div>
+
+        <div id="ratio-split-params" class="tool-params" style="display: none;">
+          <div class="form-group">
+            <label>方向</label>
+            <select id="ratio-direction" class="form-select">
+              <option value="horizontal">水平分割</option>
+              <option value="vertical">垂直分割</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>左側/上側比例 (%)</label>
+            <input type="number" id="ratio-percent" value="50" min="10" max="90" step="5">
+          </div>
+          <button id="btn-apply-ratio" class="btn btn-primary">套用比例</button>
+        </div>
+
+        <div id="manual-split-params" class="tool-params" style="display: none;">
+          <p class="hint">在畫布上拖曳以建立分割線</p>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="snap-to-grid" checked>
+              吸附格線 (100mm)
+            </label>
+          </div>
+        </div>
+
+        <div class="tool-actions">
+          <button id="btn-clear-splits" class="btn btn-secondary">清除切割</button>
+          <button id="btn-deselect" class="btn btn-secondary">取消選擇</button>
+        </div>
+      </div>
+    </aside>
+
     <!-- Center: Visualization Canvas -->
     <section class="canvas-section">
       <div class="canvas-controls">
@@ -205,7 +279,7 @@
 
     <!-- Right Panel: Results -->
     <aside class="results-panel">
-      <div class="panel-section">
+      <div id="statistics-section" class="panel-section">
         <h3 class="section-title">空間統計</h3>
 
         <div class="stats-summary">
@@ -244,10 +318,18 @@
         </div>
       </div>
 
-      <div class="panel-section">
+      <div id="usable-blocks-section" class="panel-section" style="display: none;">
         <h3 class="section-title">可用空間區塊</h3>
-        <div id="usable-blocks-list" class="blocks-list">
-          <p class="empty-state">尚未生成空間</p>
+        <div id="zones-list" class="zones-list">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Regions List for Secondary Editing -->
+      <div class="panel-section" id="secondary-regions-panel" style="display: none;">
+        <h3 class="section-title">空間列表</h3>
+        <div id="regions-list" class="regions-list">
+          <!-- Dynamically populated during secondary editing -->
         </div>
       </div>
     </aside>
@@ -257,8 +339,18 @@
   <footer class="page-footer">
     <button id="btn-prev-step" class="btn btn-secondary">← 上一步</button>
     <div class="footer-right">
-      <button id="btn-save" class="btn btn-success">💾 儲存</button>
-      <button id="btn-next-step" class="btn btn-primary">下一步 →</button>
+      <!-- Normal mode buttons -->
+      <div id="normal-mode-buttons">
+        <button id="btn-save" class="btn btn-success">💾 儲存</button>
+        <button id="btn-next-step" class="btn btn-primary">下一步 →</button>
+      </div>
+
+      <!-- Edit mode buttons (hidden by default) -->
+      <div id="edit-mode-buttons" style="display: none;">
+        <button id="btn-cancel-edit" class="btn btn-secondary">取消編輯</button>
+        <button id="btn-reset-subdivisions" class="btn btn-outline">重設細分</button>
+        <button id="btn-apply-subdivisions" class="btn btn-success">套用細分並繼續</button>
+      </div>
     </div>
   </footer>
 

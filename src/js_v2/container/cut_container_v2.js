@@ -139,12 +139,12 @@ export const SpacePlanningPage = {
     this.elements.clearanceArea = document.getElementById('clearance-area');
     this.elements.usableBlocksList = document.getElementById('usable-blocks-list');
 
-    // Actions
+    // Action buttons
     this.elements.btnGenerate = document.getElementById('btn-generate');
     this.elements.btnReset = document.getElementById('btn-reset');
-    this.elements.btnPrevStep = document.getElementById('btn-prev-step');
     this.elements.btnSave = document.getElementById('btn-save');
     this.elements.btnNextStep = document.getElementById('btn-next-step');
+    this.elements.btnPrevStep = document.getElementById('btn-prev-step');
 
     // Modal
     this.elements.btnExpandCanvas = document.getElementById('btn-expand-canvas');
@@ -260,19 +260,41 @@ export const SpacePlanningPage = {
     }
 
     // Navigation
-    if (this.elements.btnPrevStep) {
-      this.elements.btnPrevStep.addEventListener('click', () => {
-        window.location.hash = '/define-container?edit=true';
-      });
-    }
 
     if (this.elements.btnSave) {
       this.elements.btnSave.addEventListener('click', () => this.saveSpaces());
     }
-
+    // Next step button
     if (this.elements.btnNextStep) {
       this.elements.btnNextStep.addEventListener('click', () => {
-        window.location.hash = '/assign-space';
+        // Always enter secondary edit mode first
+        // User can skip by clicking "Apply & Continue" without making changes
+        this.enterSecondaryEditMode();
+      });
+    }
+
+    // Previous step button
+    if (this.elements.btnPrevStep) {
+      this.elements.btnPrevStep.addEventListener('click', (event) => {
+        // Check if edit mode buttons are visible to determine mode
+        const editButtons = document.getElementById('edit-mode-buttons');
+        const isInEditMode = editButtons && editButtons.style.display !== 'none';
+
+        if (isInEditMode) {
+          // In edit mode - exit to normal mode (STAY on same page)
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (window.SecondaryRegionEditor && window.SecondaryRegionEditor.exitEditMode) {
+            window.SecondaryRegionEditor.exitEditMode();
+          }
+
+          console.log('[SpacePlanning] Exited edit mode, staying on cut-container page');
+          return; // Stop here, don't navigate
+        } else {
+          // Normal mode - navigate to previous page
+          window.location.hash = '/define-container';
+        }
       });
     }
 
@@ -1286,6 +1308,75 @@ export const SpacePlanningPage = {
     }, 50);
   },
 
+  exitSecondaryEditMode() {
+    console.log('[SpacePlanning] Exiting secondary edit mode...');
+
+    // Hide subdivision toolbar
+    const subdivisionToolbar = document.getElementById('subdivision-toolbar');
+    if (subdivisionToolbar) {
+      subdivisionToolbar.style.display = 'none';
+      console.log('[SpacePlanning] Hidden subdivision toolbar');
+    }
+
+    // Show normal panels (use class selector, not ID)
+    const configPanel = document.querySelector('.constraints-panel');
+    if (configPanel) {
+      configPanel.style.display = 'block';
+      console.log('[SpacePlanning] Showed constraints panel');
+    }
+
+    // Hide secondary regions panel, show results panel
+    const secondaryRegionsPanel = document.getElementById('secondary-regions-panel');
+    if (secondaryRegionsPanel) {
+      secondaryRegionsPanel.style.display = 'none';
+    }
+
+    const resultsPanel = document.querySelector('.results-panel');
+    if (resultsPanel) {
+      resultsPanel.style.display = 'block';
+      console.log('[SpacePlanning] Showed results panel');
+
+      // Show Statistics Section
+      const statsSection = document.getElementById('statistics-section');
+      if (statsSection) statsSection.style.display = 'block';
+
+      // Hide Usable Blocks Section in normal mode
+      const blocksSection = document.getElementById('usable-blocks-section');
+      if (blocksSection) blocksSection.style.display = 'none';
+    }
+
+    // Show/hide footer buttons
+    const normalButtons = document.getElementById('normal-mode-buttons');
+    const editButtons = document.getElementById('edit-mode-buttons');
+    if (normalButtons) normalButtons.style.display = 'flex';
+    if (editButtons) editButtons.style.display = 'none';
+
+    // Restore header text
+    const header = document.querySelector('.page-header h2');
+    if (header) {
+      header.textContent = '空間規劃 & 限制設定';
+    }
+
+    // Show generate/reset buttons
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnReset = document.getElementById('btn-reset');
+    if (btnGenerate) btnGenerate.style.display = 'inline-block';
+    if (btnReset) btnReset.style.display = 'inline-block';
+
+    // Redraw canvas and update UI to restore proper layout
+    // Use setTimeout to ensure UI has updated before redrawing
+    console.log('[SpacePlanning] Scheduling canvas redraw after exiting edit mode...');
+    setTimeout(() => {
+      console.log('[SpacePlanning] Redrawing canvas now...');
+      this.redraw();
+
+      // Update statistics and usable blocks list
+      console.log('[SpacePlanning] Updating UI after exit...');
+      this.updateStatistics();
+      this.updateUsableBlocksList();
+    }, 100);
+  },
+
   closeExpandedView() {
     if (!this.elements.canvasModal) return;
 
@@ -1517,13 +1608,76 @@ export const SpacePlanningPage = {
 
     const offsetX = (canvas.width - containerWidth * scale) / 2;
     const offsetY = (canvas.height - containerHeight * scale) / 2;
-
     return {
       x: worldX * scale + offsetX,
       y: worldY * scale + offsetY,
       width: worldW * scale,
       height: worldH * scale
     };
+  },
+
+  // ============================================================
+  // SECONDARY EDITING MODE
+  // ============================================================
+
+  enterSecondaryEditMode() {
+    console.log('[SpacePlanning] Entering secondary edit mode...');
+
+    // Check if we have usable regions
+    const usableRegions = this.state.zones.filter(z => z.type === 'usable');
+    if (usableRegions.length === 0) {
+      alert('請先生成可用空間');
+      return;
+    }
+
+    // Hide constraints panel, show subdivision toolbar
+    const constraintsPanel = document.querySelector('.constraints-panel');
+    const subdivisionToolbar = document.getElementById('subdivision-toolbar');
+    const resultsPanel = document.querySelector('.results-panel');
+
+    if (constraintsPanel) constraintsPanel.style.display = 'none';
+    if (subdivisionToolbar) subdivisionToolbar.style.display = 'block';
+
+    // Show results panel but hide statistics/blocks inside (secondary-regions-panel is also inside)
+    if (resultsPanel) {
+      resultsPanel.style.display = 'block';
+
+      // Hide Statistics Section
+      const statsSection = document.getElementById('statistics-section');
+      if (statsSection) statsSection.style.display = 'none';
+
+      // Hide Usable Blocks Section
+      const blocksSection = document.getElementById('usable-blocks-section');
+      if (blocksSection) blocksSection.style.display = 'none';
+    }
+
+    // Switch button groups
+    const normalButtons = document.getElementById('normal-mode-buttons');
+    const editButtons = document.getElementById('edit-mode-buttons');
+
+    if (normalButtons) normalButtons.style.display = 'none';
+    if (editButtons) editButtons.style.display = 'flex';
+
+    // Update header
+    const header = document.querySelector('.page-header h2');
+    if (header) {
+      header.textContent = '進一步規劃空間';
+    }
+
+    // Hide generate/reset buttons
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnReset = document.getElementById('btn-reset');
+    if (btnGenerate) btnGenerate.style.display = 'none';
+    if (btnReset) btnReset.style.display = 'none';
+
+    // Initialize secondary editor
+    if (window.SecondaryRegionEditor) {
+      window.SecondaryRegionEditor.init();
+      window.SecondaryRegionEditor.state.mode = 'editing';
+      window.SecondaryRegionEditor.renderCanvas();
+    }
+
+    console.log('[SpacePlanning] Secondary edit mode activated');
   }
 };
 
