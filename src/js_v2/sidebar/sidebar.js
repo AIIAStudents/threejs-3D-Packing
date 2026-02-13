@@ -65,10 +65,21 @@ export class Sidebar {
   render() {
     let html = '<div class="sidebar-header" style="cursor: pointer;" data-home="true"><h3>3D Packer</h3></div><div class="sidebar-menu">';
 
+    // Define docs routes for each section
+    const docsRoutes = {
+      'group-flow': '/docs/group-flow',
+      'space-planning': '/docs/space-config',
+      'animation-section': '/docs/animation-preview'
+    };
+
     this.menuItems.forEach(section => {
+      const docsTarget = docsRoutes[section.id] || '';
+      const cursorStyle = docsTarget ? 'cursor: pointer;' : '';
+      const dataAttr = docsTarget ? `data-docs-target="${docsTarget}"` : '';
+
       html += `
         <div class="menu-section">
-          <div class="section-title">
+          <div class="section-title" style="${cursorStyle}" ${dataAttr}>
             <span class="icon">${section.icon}</span>
             <span>${section.title}</span>
           </div>
@@ -99,6 +110,17 @@ export class Sidebar {
       });
     }
 
+    // Add click events for section titles (docs pages)
+    this.container.querySelectorAll('.section-title[data-docs-target]').forEach(title => {
+      title.addEventListener('click', (e) => {
+        const target = title.dataset.docsTarget;
+        if (target) {
+          this.loadPage(target);
+        }
+      });
+    });
+
+    // Add click events for menu items (functional pages)
     this.container.querySelectorAll('.menu-item').forEach(item => {
       item.addEventListener('click', (e) => {
         const target = item.dataset.target;

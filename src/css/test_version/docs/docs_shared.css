@@ -1,0 +1,463 @@
+/* Docs Shared Styles - Apple-Style Scrolling Narrative */
+/* Deep Ocean Glass Theme */
+
+/* ==================== Layout ==================== */
+.docs-page {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar */
+.docs-page::-webkit-scrollbar {
+  width: 8px;
+}
+
+.docs-page::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.docs-page::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.docs-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ==================== Sections ==================== */
+.docs-section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  position: relative;
+}
+
+.docs-section.compact {
+  min-height: auto;
+  padding: 60px 40px;
+}
+
+/* ==================== Hero Section ==================== */
+.hero-section {
+  background: transparent;
+  padding: 60px 40px;
+  min-height: 70vh;
+}
+
+.hero-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 80px;
+}
+
+.hero-text {
+  flex: 1;
+  max-width: 500px;
+}
+
+.hero-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+  font-weight: 400;
+}
+
+.hero-visual {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.hero-box {
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(139, 92, 246, 0.1));
+  border-radius: 16px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+.hero-box.large {
+  width: 140px;
+  height: 140px;
+}
+
+/* ==================== Glass Cards ==================== */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* ==================== Features Grid ==================== */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.feature-card {
+  text-align: center;
+}
+
+.feature-icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.feature-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 10px 0;
+}
+
+.feature-description {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ==================== Workflow Steps ==================== */
+.workflow-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.workflow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 24px;
+  background: rgba(30, 41, 59, 0.4);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--accent-blue);
+}
+
+.step-number {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.step-content h3 {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.step-content p {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ==================== Sticky Section ==================== */
+.sticky-section {
+  position: relative;
+  min-height: 200vh;
+  padding: 0;
+}
+
+.sticky-content {
+  position: sticky;
+  top: 10vh;
+  height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.sticky-inner {
+  max-width: 800px;
+  text-align: center;
+}
+
+.sticky-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 16px 0;
+}
+
+.sticky-description {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ==================== Tips Section ==================== */
+.tips-container {
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.tips-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.tip-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--accent-success);
+}
+
+.tip-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tip-content h4 {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.tip-content p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ==================== CTA Section ==================== */
+.cta-section {
+  text-align: center;
+  background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(59, 130, 246, 0.05) 100%);
+}
+
+.cta-content {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.cta-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.cta-description {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0 0 28px 0;
+  line-height: 1.6;
+}
+
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 40px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+  text-decoration: none;
+}
+
+.cta-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 28px rgba(59, 130, 246, 0.5);
+}
+
+/* ==================== Reveal Animations ==================== */
+.reveal-element {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  will-change: transform, opacity;
+}
+
+.reveal-element.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delays for multiple elements */
+.reveal-element:nth-child(1) {
+  transition-delay: 0s;
+}
+
+.reveal-element:nth-child(2) {
+  transition-delay: 0.1s;
+}
+
+.reveal-element:nth-child(3) {
+  transition-delay: 0.2s;
+}
+
+.reveal-element:nth-child(4) {
+  transition-delay: 0.3s;
+}
+
+/* ==================== Section Headers ==================== */
+.section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.docs-page .section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 10px 0;
+  letter-spacing: -0.01em;
+}
+
+.section-subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ==================== Reduced Motion ==================== */
+@media (prefers-reduced-motion: reduce) {
+  .docs-page {
+    scroll-behavior: auto;
+  }
+
+  .reveal-element {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .glass-card:hover,
+  .cta-button:hover {
+    transform: none;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==================== Responsive ==================== */
+@media (max-width: 768px) {
+  .hero-content {
+    flex-direction: column;
+    gap: 40px;
+    text-align: center;
+  }
+
+  .hero-text {
+    max-width: 100%;
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .hero-visual {
+    justify-content: center;
+  }
+
+  .hero-box {
+    width: 80px;
+    height: 80px;
+  }
+
+  .hero-box.large {
+    width: 100px;
+    height: 100px;
+  }
+
+  .docs-section {
+    padding: 60px 24px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-step {
+    flex-direction: column;
+  }
+
+  .sticky-title {
+    font-size: 1.5rem;
+  }
+
+  .docs-page .section-title {
+    font-size: 1.5rem;
+  }
+}

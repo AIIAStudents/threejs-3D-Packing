@@ -1,0 +1,25 @@
+/* Animation Preview - Apple Style (Purple Accent) */
+
+.apple-page.animation-preview {
+  --page-accent: #8b5cf6;
+  --page-accent-rgb: 139, 92, 246;
+}
+
+/* Accent Glow */
+.animation-preview .apple-glow::before {
+  background: radial-gradient(circle, rgba(var(--page-accent-rgb), 0.1) 0%, transparent 70%);
+}
+
+/* CTA Button */
+.animation-preview .apple-cta {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.animation-preview .apple-cta:hover {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+}
+
+/* Accent Text */
+.animation-preview .apple-accent-text {
+  color: var(--page-accent);
+}

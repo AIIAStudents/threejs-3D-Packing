@@ -12,6 +12,18 @@ class DirectModuleLoader {
       html: '/src/html/docs/index.html',
       js: '/src/js_v2/docs/main.js'
     },
+    '/docs/group-flow': {
+      html: '/src/html/docs/group_flow.html',
+      js: '/src/js_v2/docs/scroll_reveal.js'
+    },
+    '/docs/space-config': {
+      html: '/src/html/docs/space_config.html',
+      js: '/src/js_v2/docs/scroll_reveal.js'
+    },
+    '/docs/animation-preview': {
+      html: '/src/html/docs/animation_preview_docs.html',
+      js: '/src/js_v2/docs/scroll_reveal.js'
+    },
     '/add-group': {
       html: '/src/html/app/group/add_group.html',
       js: '/src/js_v2/group_items/add_group.js'
@@ -27,7 +39,8 @@ class DirectModuleLoader {
     '/cut-container': {
       html: '/src/html/app/space/cut_container.html',
       js: '/src/js_v2/container/cut_container_v2.js',
-      exportName: 'SpacePlanningPage'
+      exportName: 'SpacePlanningPage',
+      additionalModules: ['/src/js_v2/container/secondary_region_editor.js']
     },
     '/assign-space': {
       html: '/src/html/app/space/assign_space.html',
@@ -213,6 +226,13 @@ class DirectModuleLoader {
       // Load JS module
       await this.loadModule(config.js, config);
 
+      // Load additional modules if specified
+      if (config.additionalModules && Array.isArray(config.additionalModules)) {
+        for (const modulePath of config.additionalModules) {
+          await this.loadModule(modulePath, { isAdditional: true });
+        }
+      }
+
     } catch (error) {
       console.error('Page load error:', error);
       throw error; // Re-throw to be caught by handlePath
@@ -224,10 +244,13 @@ class DirectModuleLoader {
    */
   async loadModule(jsPath, routeConfig = {}) {
     try {
+      const isAdditionalModule = routeConfig.isAdditional || false;
+
       // Check cache
       if (this.moduleCache.has(jsPath)) {
         const PageModule = this.moduleCache.get(jsPath);
-        if (PageModule && PageModule.init) {
+        // Only re-init main modules, not additional ones
+        if (PageModule && PageModule.init && !isAdditionalModule) {
           PageModule.init();
           console.log(`✓ Module re-initialized from cache: ${jsPath}`);
         }
@@ -247,9 +270,12 @@ class DirectModuleLoader {
 
       this.moduleCache.set(jsPath, PageModule);
 
-      if (PageModule && PageModule.init) {
+      // Only auto-init main modules, not additional modules
+      if (PageModule && PageModule.init && !isAdditionalModule) {
         PageModule.init();
         console.log(`✓ Module loaded and initialized: ${jsPath}`);
+      } else if (isAdditionalModule) {
+        console.log(`✓ Additional module loaded (not auto-initialized): ${jsPath}`);
       } else {
         console.warn(`⚠️ Module loaded but no init function: ${jsPath}`);
       }
