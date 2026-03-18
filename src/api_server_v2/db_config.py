@@ -3,6 +3,7 @@ import os
 
 # Path relative to the project root (where start_servers.py is run)
 DB_PATH = 'src/db_v2/session_data.db'
+SHARED_DATABASE_PATH = DB_PATH  # alias — all modules import this name
 
 def get_db_connection():
     # Helper to ensure DB directory exists
