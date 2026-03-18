@@ -1,11 +1,11 @@
 /*
-    File: view_final.css
-    Description: Styles for the packing result preview page - Deep Ocean Glass Theme
+    File: packing_results_page.css
+    Description: Styles for the packing results page - Deep Ocean Glass Theme
 */
 
 /* Use variables from style.css */
 
-.view-final-page {
+.packing-results-page {
   display: flex;
   flex-direction: column;
   gap: 20px;

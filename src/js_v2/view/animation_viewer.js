@@ -3,11 +3,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DynamicQualityScaler } from '../utils/performance.js';
 
 /**
- * NewAnimationViewer
+ * AnimationViewer
  * Implements the "Immersive Dark Glass" visual style with step-by-step animation control.
- * Replaces the old AnimationViewer.
  */
-export class NewAnimationViewer {
+export class AnimationViewer {
   constructor(container) {
     this.container = container;
     this.scene = null;
@@ -84,7 +83,7 @@ export class NewAnimationViewer {
     // Animation Loop
     this.requestRender();
 
-    console.log('[NewAnimationViewer] Initialized with Immersive Dark Theme');
+    console.log('[AnimationViewer] Initialized with Immersive Dark Theme');
   }
 
   setupScene() {
@@ -291,7 +290,7 @@ export class NewAnimationViewer {
   // --- API Methods ---
 
   loadAnimation(data) {
-    console.log('[NewAnimationViewer] Loading Data:', data);
+    console.log('[AnimationViewer] Loading Data:', data);
     this.reset();
 
     // 1. Create Container
@@ -312,26 +311,78 @@ export class NewAnimationViewer {
   }
 
   calculatePosition(item) {
-    if (!item.pose) return { x: 0, y: 0, z: 0 };
-    const { min, max } = item.pose;
-    // Apply zone offsets if needed (assuming pre-calculated in data preprocessing)
-    const offsetX = item.zoneOffset ? item.zoneOffset.x : 0;
-    const offsetZ = item.zoneOffset ? item.zoneOffset.y : 0;
+    let localCenterX, localCenterY, localCenterZ;
+    let min, max;
+
+    if (item.pose && item.pose.min && item.pose.max) {
+      min = item.pose.min;
+      max = item.pose.max;
+      localCenterX = (min.x + max.x) / 2;
+      localCenterY = (min.y + max.y) / 2;
+      localCenterZ = (min.z + max.z) / 2;
+    } else if (item.position && (item.dimensions || (item.length && item.width && item.height))) {
+      const pos = item.position;
+      const dim = item.dimensions || { x: item.length, y: item.height, z: item.width };
+      localCenterX = pos.x + (dim.x / 2);
+      localCenterY = pos.y + (dim.y / 2);
+      localCenterZ = pos.z + (dim.z / 2);
+    } else {
+      return { x: 0, y: 0, z: 0 };
+    }
+    
+    // Handle both zoneOffset (legacy/simple) and zoneTransform (new/full)
+    const transform = item.zoneTransform || (item.zoneOffset ? { cx: item.zoneOffset.x, cy: item.zoneOffset.y } : null);
+    
+    if (transform) {
+      const tWidth = transform.width || 0;
+      const tDepth = transform.depth || 0;
+      
+      // Relative to zone center
+      const relX = localCenterX - (tWidth / 2);
+      const relZ = localCenterZ - (tDepth / 2);
+      
+      const rotation = transform.rotation || 0;
+      const cos = Math.cos(rotation);
+      const sin = Math.sin(rotation);
+      
+      const rotX = relX * cos - relZ * sin;
+      const rotZ = relX * sin + relZ * cos;
+      
+      return {
+        x: (transform.cx || 0) + rotX,
+        y: localCenterY,
+        z: (transform.cy || 0) + rotZ
+      };
+    }
 
     return {
-      x: (min.x + max.x) / 2 + offsetX,
-      y: (min.y + max.y) / 2,
-      z: (min.z + max.z) / 2 + offsetZ
+      x: localCenterX,
+      y: localCenterY,
+      z: localCenterZ
     };
   }
 
   calculateSize(item) {
-    if (!item.pose) return { w: 100, h: 100, d: 100 };
-    return {
-      w: item.pose.max.x - item.pose.min.x,
-      h: item.pose.max.y - item.pose.min.y,
-      d: item.pose.max.z - item.pose.min.z
-    };
+    if (item.pose && item.pose.min && item.pose.max) {
+      return {
+        w: item.pose.max.x - item.pose.min.x,
+        h: item.pose.max.y - item.pose.min.y,
+        d: item.pose.max.z - item.pose.min.z
+      };
+    } else if (item.dimensions) {
+      return {
+        w: item.dimensions.x,
+        h: item.dimensions.y,
+        d: item.dimensions.z
+      };
+    } else if (item.length !== undefined && item.width !== undefined && item.height !== undefined) {
+      return {
+        w: item.length,
+        h: item.height,
+        d: item.width
+      };
+    }
+    return { w: 100, h: 100, d: 100 };
   }
 
   reset() {
@@ -343,13 +394,9 @@ export class NewAnimationViewer {
     this.itemsMap.clear();
     this.animatedItems = [];
 
-    // Reset container if exists
-    // (Optional: keep container, clear only items. For now clear all dynamic items)
-    // Actually better to fully clear logic scene objects:
-    if (this.containerMesh) {
-      this.scene.remove(this.containerMesh);
-      this.containerMesh = null;
-    }
+    // FIX: DO NOT remove containerMesh here. 
+    // The container should persist during reset and replay.
+    // If we need to change the container, loading new data will handle it.
 
     this.emit('stepChange', { step: 0, total: this.totalSteps || 0 });
   }
@@ -397,6 +444,11 @@ export class NewAnimationViewer {
     const startY = targetY + 800;
 
     mesh.position.set(step.position.x, startY, step.position.z);
+    
+    // Apply Rotation (Y-axis)
+    if (step.item.zoneTransform) {
+      mesh.rotation.y = step.item.zoneTransform.rotation || 0;
+    }
 
     // Conditional shadow casting (only for large items)
     const volume = step.size.w * step.size.h * step.size.d;
@@ -577,6 +629,12 @@ export class NewAnimationViewer {
 
     mesh.scale.set(step.size.w, step.size.h, step.size.d);
     mesh.position.set(step.position.x, step.position.y, step.position.z);
+    
+    // Apply Rotation (Y-axis)
+    if (step.item.zoneTransform) {
+      mesh.rotation.y = step.item.zoneTransform.rotation || 0;
+    }
+
     mesh.userData = { isLanded: true, targetY: step.position.y }; // Already there
 
     // Conditional shadow casting (only for large items)
@@ -604,8 +662,8 @@ export class NewAnimationViewer {
   createGlassContainer(config) {
     const shape = config.shape || 'rect';
 
-    console.log('[NewAnimationViewer] Creating container - shape:', shape);
-    console.log('[NewAnimationViewer] Config:', config);
+    console.log('[AnimationViewer] Creating container - shape:', shape);
+    console.log('[AnimationViewer] Config:', config);
 
     // Prepare Materials
     this.glassMaterial = new THREE.MeshPhysicalMaterial({
@@ -645,11 +703,12 @@ export class NewAnimationViewer {
   }
 
   createRectGlassContainer(config) {
-    const width = config.widthX || config.parameters?.widthX || 5800;
-    const height = config.heightY || config.parameters?.heightY || 2400;
-    const depth = config.depthZ || config.parameters?.depthZ || 2300;
+    const params = config.parameters || config;
+    const width = params.widthX || 5800;
+    const height = params.heightY || 2400;
+    const depth = params.depthZ || 2300;
 
-    console.log('[NewAnimationViewer] Drawing RECT container:', { width, height, depth });
+    console.log('[AnimationViewer] Drawing RECT container:', { width, height, depth });
 
     const geometry = new THREE.BoxGeometry(width, height, depth);
     geometry.translate(width / 2, height / 2, depth / 2);
@@ -666,13 +725,14 @@ export class NewAnimationViewer {
   }
 
   createUShapeGlassContainer(config) {
-    const outerWidth = config.outerWidthX || config.parameters?.outerWidthX || 5800;
-    const outerDepth = config.outerDepthZ || config.parameters?.outerDepthZ || 2300;
-    const gapWidth = config.gapWidthX || config.parameters?.gapWidthX || 1000;
-    const gapDepth = config.gapDepthZ || config.parameters?.gapDepthZ || 800;
-    const height = config.heightY || config.parameters?.heightY || 2400;
+    const params = config.parameters || config;
+    const outerWidth = params.outerWidthX || 5800;
+    const outerDepth = params.outerDepthZ || 2300;
+    const gapWidth = params.gapWidthX || 1000;
+    const gapDepth = params.gapDepthZ || 800;
+    const height = params.heightY || 2400;
 
-    console.log('[NewAnimationViewer] Drawing U-SHAPE container:', { outerWidth, outerDepth, gapWidth, gapDepth, height });
+    console.log('[AnimationViewer] Drawing U-SHAPE container:', { outerWidth, outerDepth, gapWidth, gapDepth, height });
 
     // Create U-shape using THREE.Shape
     const shape = new THREE.Shape();
@@ -709,13 +769,14 @@ export class NewAnimationViewer {
   }
 
   createTShapeGlassContainer(config) {
-    const topWidth = config.topWidthX || config.parameters?.topWidthX || 4000;
-    const bottomWidth = config.bottomWidthX || config.parameters?.bottomWidthX || 1500;
-    const topDepth = config.topDepthZ || config.parameters?.topDepthZ || 1500;
-    const bottomDepth = config.bottomDepthZ || config.parameters?.bottomDepthZ || 4000;
-    const height = config.heightY || config.parameters?.heightY || 2400;
+    const params = config.parameters || config;
+    const topWidth = params.topWidthX || 4000;
+    const bottomWidth = params.bottomWidthX || 1500;
+    const topDepth = params.topDepthZ || 1500;
+    const bottomDepth = params.bottomDepthZ || 4000;
+    const height = params.heightY || 2400;
 
-    console.log('[NewAnimationViewer] Drawing T-SHAPE container:', { topWidth, bottomWidth, topDepth, bottomDepth, height });
+    console.log('[AnimationViewer] Drawing T-SHAPE container:', { topWidth, bottomWidth, topDepth, bottomDepth, height });
 
     // Create T-shape using THREE.Shape
     const shape = new THREE.Shape();
@@ -772,9 +833,10 @@ export class NewAnimationViewer {
   fitCamera(container) {
     if (!container) return;
 
-    const width = container.widthX || 5800;
-    const height = container.heightY || 2400;
-    const depth = container.depthZ || 2300;
+    const params = container.parameters || container;
+    const width = params.widthX || 5800;
+    const height = params.heightY || 2400;
+    const depth = params.depthZ || 2300;
 
     const maxDim = Math.max(width, height, depth);
     const distance = maxDim * 1.5;

@@ -1,81 +1,65 @@
-import { ColorManager } from '../utils/color_manager.js';
+import { assignSequenceService } from '../../frontend/contexts/packing/application/assign-sequence-service.js';
 
 export const AssignSequencePage = {
-  API_BASE: 'http://127.0.0.1:8888/api',
   zones: [],
   items: [],
   groups: [],
   currentZoneId: null,
   draggedItemIndex: null,
+  draggedGroupId: null,
 
   async init() {
-    console.log('AssignSequencePage init');
-
     this.zoneSelect = document.getElementById('zone-select');
     this.itemsContainer = document.getElementById('items-container');
     this.itemCount = document.getElementById('item-count');
     this.btnExecutePacking = document.getElementById('btn-execute-packing');
     this.btnPrev = document.getElementById('btn-prev');
 
-    if (!this.zoneSelect) return;
+    if (!this.zoneSelect) {
+      return;
+    }
 
-    // Event listeners
     this.zoneSelect.addEventListener('change', () => this.onZoneChange());
     this.btnExecutePacking?.addEventListener('click', () => this.executePacking());
     this.btnPrev?.addEventListener('click', () => this.goBack());
+
+    if (this.itemsContainer) {
+      this.itemsContainer.style.display = 'flex';
+      this.itemsContainer.style.flexDirection = 'row';
+      this.itemsContainer.style.flexWrap = 'wrap';
+      this.itemsContainer.style.alignContent = 'flex-start';
+      this.itemsContainer.style.gap = '15px';
+      this.itemsContainer.style.padding = '10px';
+      this.itemsContainer.style.overflowY = 'auto';
+    }
 
     await this.loadData();
   },
 
   async loadData() {
     try {
-      // Load zones
-      const zonesResponse = await fetch(`${this.API_BASE}/zones`);
-      this.zones = await zonesResponse.json();
-
-      // Load zone assignments
-      const assignmentsResponse = await fetch(`${this.API_BASE}/zone-assignments`);
-      const assignments = await assignmentsResponse.json();
-
-      // Load groups
-      const groupsResponse = await fetch(`${this.API_BASE}/groups`);
-      this.groups = await groupsResponse.json();
-
-      // Load items
-      const itemsResponse = await fetch(`${this.API_BASE}/items`);
-      this.items = await itemsResponse.json();
-
-      // Build zone selector
-      this.renderZoneSelector(assignments);
-
+      const data = await assignSequenceService.loadData();
+      this.zones = data.zones;
+      this.items = data.items;
+      this.groups = data.groups;
+      this.renderZoneSelector();
     } catch (error) {
       console.error('Failed to load data:', error);
-      this.zoneSelect.innerHTML = '<option value="">載入失敗</option>';
+      this.zoneSelect.innerHTML = '<option value="">Failed to load zones</option>';
     }
   },
 
-  renderZoneSelector(assignments) {
-    // Find zones that have groups assigned
-    const assignedZones = this.zones.filter(zone => {
-      return assignments.some(a => a.zone_id === zone.id);
-    });
-
-    if (assignedZones.length === 0) {
-      this.zoneSelect.innerHTML = '<option value="">尚無已分配的空間</option>';
-      return;
-    }
-
-    this.zoneSelect.innerHTML = '<option value="">請選擇空間...</option>' +
-      assignedZones.map(zone =>
-        `<option value="${zone.id}">空間 ${zone.label}</option>`
-      ).join('');
+  renderZoneSelector() {
+    const zoneOptions = assignSequenceService.buildZoneSelectorState(this.zones);
+    this.zoneSelect.innerHTML = '<option value="">Select a zone...</option>' +
+      zoneOptions.map((zone) => `<option value="${zone.value}">${zone.label}</option>`).join('');
   },
 
   async onZoneChange() {
-    this.currentZoneId = parseInt(this.zoneSelect.value);
+    this.currentZoneId = this.zoneSelect.value;
 
     if (!this.currentZoneId) {
-      this.itemsContainer.innerHTML = '<div class="empty-state"><p>請選擇上方的空間以編輯物件順序</p></div>';
+      this.itemsContainer.innerHTML = '<div class="empty-state"><p>Select a zone to view its sequence.</p></div>';
       return;
     }
 
@@ -84,88 +68,98 @@ export const AssignSequencePage = {
 
   async loadZoneItems() {
     try {
-      // Get groups assigned to this zone
-      const assignmentsResponse = await fetch(`${this.API_BASE}/zone-assignments`);
-      const assignments = await assignmentsResponse.json();
+      const sequenceViewState = assignSequenceService.buildSequenceViewState(this.currentZoneId, {
+        zones: this.zones,
+        items: this.items,
+        groups: this.groups
+      });
 
-      const zoneAssignments = assignments.filter(a => a.zone_id === this.currentZoneId);
-      const groupIds = zoneAssignments.map(a => a.group_id);
-
-      // Get items from those groups
-      const zoneItems = this.items
-        .filter(item => groupIds.includes(item.group_id))
-        .sort((a, b) => (a.item_order || 0) - (b.item_order || 0));
-
-      this.renderItems(zoneItems);
-
+      console.log(`[AssignSequence] Zone ${this.currentZoneId} assigned groups:`, sequenceViewState.groupIds);
+      this.renderItems(sequenceViewState);
     } catch (error) {
       console.error('Failed to load zone items:', error);
-      this.itemsContainer.innerHTML = '<div class="empty-state"><p>載入失敗</p></div>';
+      this.itemsContainer.innerHTML = `<div class="empty-state"><p>Failed to load items: ${error.message}</p></div>`;
     }
   },
 
-  renderItems(items) {
-    if (items.length === 0) {
-      this.itemsContainer.innerHTML = '<div class="empty-state"><p>此空間尚無物件</p></div>';
-      this.itemCount.textContent = '0 個物件';
+  renderItems(sequenceViewState) {
+    if (sequenceViewState.itemCount === 0) {
+      this.itemsContainer.innerHTML = '<div class="empty-state"><p>No items are assigned to this zone.</p></div>';
+      this.itemCount.textContent = '0 items';
       return;
     }
 
-    this.itemCount.textContent = `${items.length} 個物件`;
+    this.itemCount.textContent = `${sequenceViewState.itemCount} items`;
 
-    this.itemsContainer.innerHTML = items.map((item, index) => {
-      const group = this.groups.find(g => g.id === item.group_id);
-      const groupColor = ColorManager.getGroupColor(item.group_id);
+    this.itemsContainer.innerHTML = sequenceViewState.itemCards.map((item) => `
+      <div class="sortable-item"
+           draggable="true"
+           data-item-id="${item.id}"
+           data-group-id="${item.groupId}"
+           data-index="${item.orderLabel - 1}"
+           style="
+             width: calc(25% - 12px);
+             min-width: 220px;
+             height: 80px;
+             border-left: 5px solid ${item.groupColor};
+             display: flex;
+             flex-direction: row;
+             align-items: center;
+             padding: 10px;
+             box-sizing: border-box;
+           ">
+        <span class="drag-handle" style="margin-right: 10px;">::</span>
+        <div class="item-order" style="margin-right: 15px;">${item.orderLabel}</div>
+        <div class="item-details" style="flex: 1; overflow: hidden;">
+          <div class="item-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.itemId}</div>
+          <div class="item-dims" style="font-size: 0.8rem;">L x W x H: ${item.dimensionText}</div>
+          <div class="item-group" style="font-size: 0.8rem;">
+            <span class="group-dot" style="background-color: ${item.groupColor}; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;"></span>
+            ${item.groupName}
+          </div>
+        </div>
+      </div>
+    `).join('');
 
-      return `
-                <div class="sortable-item" 
-                     draggable="true" 
-                     data-item-id="${item.id}"
-                     data-index="${index}"
-                     style="border-left: 5px solid ${groupColor}">
-                    <span class="drag-handle">☰</span>
-                    <div class="item-order">${index + 1}</div>
-                    <div class="item-details">
-                        <div class="item-name">${item.item_id}</div>
-                        <div class="item-dims">L: ${item.length} × W: ${item.width} × H: ${item.height}</div>
-                        <div class="item-group">
-                            <span class="group-dot" style="background-color: ${groupColor}; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px;"></span>
-                            群組: ${group ? group.name : 'N/A'}
-                        </div>
-                    </div>
-                </div>
-            `;
-    }).join('');
-
-    // Add drag-drop event listeners
     this.attachDragListeners();
   },
 
   attachDragListeners() {
     const items = this.itemsContainer.querySelectorAll('.sortable-item');
 
-    items.forEach(item => {
-      item.addEventListener('dragstart', (e) => this.onDragStart(e));
-      item.addEventListener('dragover', (e) => this.onDragOver(e));
-      item.addEventListener('drop', (e) => this.onDrop(e));
-      item.addEventListener('dragend', (e) => this.onDragEnd(e));
+    items.forEach((item) => {
+      item.addEventListener('dragstart', (event) => this.onDragStart(event));
+      item.addEventListener('dragover', (event) => this.onDragOver(event));
+      item.addEventListener('drop', (event) => this.onDrop(event));
+      item.addEventListener('dragend', (event) => this.onDragEnd(event));
     });
   },
 
-  onDragStart(e) {
-    const item = e.currentTarget;
-    this.draggedItemIndex = parseInt(item.dataset.index);
+  onDragStart(event) {
+    const item = event.currentTarget;
+    this.draggedItemIndex = parseInt(item.dataset.index, 10);
+    this.draggedGroupId = item.dataset.groupId;
     item.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', item.innerHTML);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', item.dataset.itemId || '');
   },
 
-  onDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+  onDragOver(event) {
+    event.preventDefault();
+    const overItem = event.target.closest('.sortable-item');
 
-    const afterElement = this.getDragAfterElement(e.clientY);
+    if (overItem && overItem.dataset.groupId !== this.draggedGroupId) {
+      event.dataTransfer.dropEffect = 'none';
+      return;
+    }
+
+    event.dataTransfer.dropEffect = 'move';
+    const afterElement = this.getDragAfterElement(event.clientY, event.clientX);
     const draggingItem = document.querySelector('.dragging');
+
+    if (!draggingItem) {
+      return;
+    }
 
     if (afterElement == null) {
       this.itemsContainer.appendChild(draggingItem);
@@ -174,102 +168,80 @@ export const AssignSequencePage = {
     }
   },
 
-  onDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
+  onDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
   },
 
-  onDragEnd(e) {
-    const item = e.currentTarget;
+  onDragEnd(event) {
+    const item = event.currentTarget;
     item.classList.remove('dragging');
-
-    // Update order in UI and save
     this.updateItemOrder();
   },
 
-  getDragAfterElement(y) {
-    const draggableElements = [...this.itemsContainer.querySelectorAll('.sortable-item:not(.dragging)')];
+  getDragAfterElement(y, x) {
+    const draggableElements = [
+      ...this.itemsContainer.querySelectorAll(`.sortable-item:not(.dragging)[data-group-id="${this.draggedGroupId}"]`)
+    ];
 
     return draggableElements.reduce((closest, child) => {
       const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
+      const offsetX = x - box.left - box.width / 2;
+      const offsetY = y - box.top - box.height / 2;
 
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      } else {
-        return closest;
+      if (offsetY < 0 && offsetY > closest.offsetY) {
+        return { offsetY, offsetX, element: child };
       }
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
+      if (offsetY >= 0 && offsetY < 40 && offsetX < 0 && offsetX > closest.offsetX) {
+        return { offsetY, offsetX, element: child };
+      }
+
+      return closest;
+    }, {
+      offsetY: Number.NEGATIVE_INFINITY,
+      offsetX: Number.NEGATIVE_INFINITY
+    }).element;
   },
 
   async updateItemOrder() {
     const sortedItems = [...this.itemsContainer.querySelectorAll('.sortable-item')];
     const updates = sortedItems.map((item, index) => ({
-      id: parseInt(item.dataset.itemId),
+      id: parseInt(item.dataset.itemId, 10),
       item_order: index
     }));
 
-    // Update UI immediately
     sortedItems.forEach((item, index) => {
       const orderBadge = item.querySelector('.item-order');
-      if (orderBadge) orderBadge.textContent = index + 1;
+      if (orderBadge) {
+        orderBadge.textContent = index + 1;
+      }
       item.dataset.index = index;
     });
 
-    // Save to database
     try {
-      const response = await fetch(`${this.API_BASE}/items/reorder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updates })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save order');
-      }
-
-      console.log('Item order saved successfully');
-
+      await assignSequenceService.saveItemOrder(updates);
     } catch (error) {
       console.error('Failed to save order:', error);
-      alert('儲存順序失敗，請重試');
+      alert('Failed to save item order.');
     }
   },
 
   async executePacking() {
-    if (!confirm('確定要執行打包嗎？這將根據目前的順序進行最佳化計算。')) {
+    if (!confirm('Execute packing with the current item order?')) {
       return;
     }
 
     try {
-      const response = await fetch(`${this.API_BASE}/sequence/execute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Packing execution failed');
-      }
-
-      const result = await response.json();
-      alert('打包完成！');
-
-      // Navigate to results view
-      window.dispatchEvent(new CustomEvent('route-change', {
-        detail: { path: '/view-final' }
-      }));
-
+      await assignSequenceService.executePacking();
+      alert('Packing executed successfully.');
+      window.location.hash = '/view-final';
     } catch (error) {
       console.error('Packing execution error:', error);
-      alert('打包執行失敗: ' + error.message);
+      alert(`Packing execution failed: ${error.message}`);
     }
   },
 
   goBack() {
-    window.dispatchEvent(new CustomEvent('route-change', {
-      detail: { path: '/assign-space' }
-    }));
+    window.location.hash = '/assign-space';
   }
 };

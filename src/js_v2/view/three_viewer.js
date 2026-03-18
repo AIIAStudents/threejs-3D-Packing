@@ -311,8 +311,12 @@ export class ThreeViewer {
     const config = this.containerConfig;
     if (!config) return zone;
 
-    const halfW = (zone.length || zone.width) / 2;
-    const halfH = (zone.width || zone.height) / 2;
+    const params = config.parameters || config;
+    const widthX = params.widthX || 0;
+    const depthZ = params.depthZ || 0;
+
+    const halfW = (zone.length || 0) / 2;
+    const halfH = (zone.width || 0) / 2;
 
     // Check if zone is within bounds
     const corners = [
@@ -323,32 +327,26 @@ export class ThreeViewer {
     ];
 
     const allInside = corners.every(c => this.isPointInContainer(c.x, c.y));
-
-    if (allInside) {
-      return zone; // Already within bounds
-    }
+    if (allInside) return zone;
 
     console.warn('[ThreeViewer] Zone extends outside container, clamping:', zone);
-
     const clampedZone = { ...zone };
-    const zoneWidth = zone.length || zone.width || 1000;
-    const zoneDepth = zone.width || zone.height || 1000;
 
     switch (config.shape) {
       case 'u_shape': {
-        const { outerWidthX, outerDepthZ, gapWidthX, gapDepthZ } = config;
-        const gapLeft = (outerWidthX - gapWidthX) / 2;
-        const gapRight = (outerWidthX + gapWidthX) / 2;
-        const gapTop = outerDepthZ - gapDepthZ;
+        const { outerWidthX, outerDepthZ, gapWidthX, gapDepthZ } = params;
+        const gapLeft = ((outerWidthX || 0) - (gapWidthX || 0)) / 2;
+        const gapRight = ((outerWidthX || 0) + (gapWidthX || 0)) / 2;
+        const gapTop = (outerDepthZ || 0) - (gapDepthZ || 0);
 
         // Clamp to outer bounds
-        clampedZone.x = Math.max(halfW, Math.min(outerWidthX - halfW, zone.x));
-        clampedZone.y = Math.max(halfH, Math.min(outerDepthZ - halfH, zone.y));
+        clampedZone.x = Math.max(halfW, Math.min((outerWidthX || 0) - halfW, zone.x));
+        clampedZone.y = Math.max(halfH, Math.min((outerDepthZ || 0) - halfH, zone.y));
 
         // CRITICAL FIX: Only move zone if its CENTER is in the gap
         const centerInGap = (
           zone.x >= gapLeft && zone.x <= gapRight &&
-          zone.y >= gapTop && zone.y <= outerDepthZ
+          zone.y >= gapTop && zone.y <= (outerDepthZ || 0)
         );
 
         if (centerInGap) {
@@ -361,19 +359,19 @@ export class ThreeViewer {
       }
 
       case 't_shape': {
-        const { topWidthX, topDepthZ, bottomWidthX, bottomDepthZ } = config;
-        const bottomLeft = (topWidthX - bottomWidthX) / 2;
-        const bottomRight = bottomLeft + bottomWidthX;
+        const { topWidthX, topDepthZ, bottomWidthX, bottomDepthZ } = params;
+        const bottomLeft = ((topWidthX || 0) - (bottomWidthX || 0)) / 2;
+        const bottomRight = bottomLeft + (bottomWidthX || 0);
 
         // CRITICAL FIX: Check if zone center is in valid T-shape region
         const centerInBottom = (
-          zone.y >= 0 && zone.y <= bottomDepthZ &&
+          zone.y >= 0 && zone.y <= (bottomDepthZ || 0) &&
           zone.x >= bottomLeft && zone.x <= bottomRight
         );
 
         const centerInTop = (
-          zone.y > bottomDepthZ && zone.y <= bottomDepthZ + topDepthZ &&
-          zone.x >= 0 && zone.x <= topWidthX
+          zone.y > (bottomDepthZ || 0) && zone.y <= (bottomDepthZ || 0) + (topDepthZ || 0) &&
+          zone.x >= 0 && zone.x <= (topWidthX || 0)
         );
 
         if (centerInBottom) {
@@ -399,7 +397,6 @@ export class ThreeViewer {
 
       case 'rect':
       default: {
-        const { widthX, depthZ } = config;
         clampedZone.x = Math.max(halfW, Math.min(widthX - halfW, zone.x));
         clampedZone.y = Math.max(halfH, Math.min(depthZ - halfH, zone.y));
         break;
@@ -415,31 +412,35 @@ export class ThreeViewer {
     if (!config) return false;
 
     switch (config.shape) {
-      case 'rect':
-        return x >= 0 && x <= config.widthX && y >= 0 && y <= config.depthZ;
+      case 'rect': {
+        const params = config.parameters || config;
+        return x >= 0 && x <= (params.widthX || 0) && y >= 0 && y <= (params.depthZ || 0);
+      }
 
       case 'u_shape': {
-        const { outerWidthX, outerDepthZ, gapWidthX, gapDepthZ } = config;
-        if (x < 0 || x > outerWidthX || y < 0 || y > outerDepthZ) return false;
-        const gapLeft = (outerWidthX - gapWidthX) / 2;
-        const gapRight = (outerWidthX + gapWidthX) / 2;
-        const gapTop = outerDepthZ - gapDepthZ;
-        if (x >= gapLeft && x <= gapRight && y >= gapTop && y <= outerDepthZ) {
+        const params = config.parameters || config;
+        const { outerWidthX, outerDepthZ, gapWidthX, gapDepthZ } = params;
+        if (x < 0 || x > (outerWidthX || 0) || y < 0 || y > (outerDepthZ || 0)) return false;
+        const gapLeft = ((outerWidthX || 0) - (gapWidthX || 0)) / 2;
+        const gapRight = ((outerWidthX || 0) + (gapWidthX || 0)) / 2;
+        const gapTop = (outerDepthZ || 0) - (gapDepthZ || 0);
+        if (x >= gapLeft && x <= gapRight && y >= gapTop && y <= (outerDepthZ || 0)) {
           return false; // In gap
         }
         return true;
       }
 
       case 't_shape': {
-        const { topWidthX, topDepthZ, bottomWidthX, bottomDepthZ } = config;
-        const bottomLeft = (topWidthX - bottomWidthX) / 2;
-        const bottomRight = bottomLeft + bottomWidthX;
+        const params = config.parameters || config;
+        const { topWidthX, topDepthZ, bottomWidthX, bottomDepthZ } = params;
+        const bottomLeft = ((topWidthX || 0) - (bottomWidthX || 0)) / 2;
+        const bottomRight = bottomLeft + (bottomWidthX || 0);
 
-        if (y >= 0 && y <= bottomDepthZ) {
+        if (y >= 0 && y <= (bottomDepthZ || 0)) {
           return x >= bottomLeft && x <= bottomRight;
         }
-        if (y > bottomDepthZ && y <= bottomDepthZ + topDepthZ) {
-          return x >= 0 && x <= topWidthX;
+        if (y > (bottomDepthZ || 0) && y <= (bottomDepthZ || 0) + (topDepthZ || 0)) {
+          return x >= 0 && x <= (topWidthX || 0);
         }
         return false;
       }
@@ -717,37 +718,38 @@ export class ThreeViewer {
     });
 
     // 3. Create InstancedMesh
+    console.log(`[ThreeViewer] Creating InstancedMesh for ${count} items...`);
     this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
-    this.instancedMesh.instanceMatrix.array = matrices;
-    this.instancedMesh.instanceMatrix.needsUpdate = true; // Just set, but array replacement usually needs 'needsUpdate'
+    
+    // Safety: Ensure we have enough buffer size
+    if (this.instancedMesh.instanceMatrix.array.length >= matrices.length) {
+      this.instancedMesh.instanceMatrix.array.set(matrices);
+      this.instancedMesh.instanceMatrix.needsUpdate = true;
+    } else {
+      console.error('[ThreeViewer] Matrix buffer size mismatch');
+    }
 
     // 4. Instance Colors
     if (this.instancedMesh.instanceColor) {
-      this.instancedMesh.instanceColor.array = colors;
-      this.instancedMesh.instanceColor.needsUpdate = true;
+      if (this.instancedMesh.instanceColor.array.length >= colors.length) {
+        this.instancedMesh.instanceColor.array.set(colors);
+        this.instancedMesh.instanceColor.needsUpdate = true;
+      }
     } else {
-      // Init buffer if not auto-created (Three r128+ usually does if count passed)
-      // But setting .array directly requires attribute to exist.
-      // It's safer to use setColorAt loop if we weren't doing zero-copy, 
-      // but for zero-copy we replace the buffer attribute.
-      // InstancedMesh constructor creates the attribute.
       const colorAttribute = new THREE.InstancedBufferAttribute(colors, 3);
-      this.instancedMesh.geometry.setAttribute('instanceColor', colorAttribute); // Or assign to property?
-      // Actually Three.js `instanceColor` property is the attribute.
+      this.instancedMesh.geometry.setAttribute('instanceColor', colorAttribute);
       this.instancedMesh.instanceColor = colorAttribute;
     }
 
     // Cast/Receive Shadow
     this.instancedMesh.castShadow = true;
     this.instancedMesh.receiveShadow = true;
-    this.instancedMesh.frustumCulled = false; // Optimization: avoid per-instance cull, just cull processing
+    this.instancedMesh.frustumCulled = false; 
 
     this.scene.add(this.instancedMesh);
-
-    // Fit Camera for the first time
     this.fitCameraToScene();
 
-    console.log('[ThreeViewer] InstancedMesh updated on GPU. Count:', count);
+    console.log('[ThreeViewer] InstancedMesh successfully added to scene');
 
     this.requestRender();
   }

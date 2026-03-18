@@ -86,17 +86,29 @@ def execute_packing(items_data: List[Dict], groups_data: List[Dict], container_d
     volume_utilization = (used_volume / total_volume) if total_volume > 0 else 0
     
     # 4. Build result objects
+    item_group_map = {item.id: item.group_id for item in items}
+
     packed_objects = [
         PackedObject(
             item_id=p.item_id,
             pose=p.pose,
-            zone_id=p.zone_id
+            zone_id=p.zone_id,
+            group_id=item_group_map.get(p.item_id),
+            length=item_dims_map[p.item_id].x if p.item_id in item_dims_map else 0,
+            width=item_dims_map[p.item_id].z if p.item_id in item_dims_map else 0,  # X=Length, Z=Width
+            height=item_dims_map[p.item_id].y if p.item_id in item_dims_map else 0  # Y=Height
         )
         for p in placements
     ]
     
     unpacked_objects = [
-        UnpackedObject(item_id=item_id)
+        UnpackedObject(
+            item_id=item_id,
+            group_id=item_group_map.get(item_id),
+            length=item_dims_map[item_id].x if item_id in item_dims_map else 0,
+            width=item_dims_map[item_id].z if item_id in item_dims_map else 0,
+            height=item_dims_map[item_id].y if item_id in item_dims_map else 0
+        )
         for item_id in unplaced_ids
     ]
     

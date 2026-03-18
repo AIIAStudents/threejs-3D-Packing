@@ -1,3 +1,12 @@
+"""
+[DEPRECATED] Sequence API Blueprint
+WARNING: This module is deprecated and its blueprint has been unregistered.
+It relies on the legacy 'items' table schema which is now a view (DDD Phase 1).
+It will be removed completely in Phase 3. Please use the v2 assignment_api instead.
+"""
+import warnings
+warnings.warn("sequence.py is deprecated and will be removed in Phase 3.", DeprecationWarning, stacklevel=2)
+
 from flask import Blueprint, jsonify, request
 import json
 from datetime import datetime

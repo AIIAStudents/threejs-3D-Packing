@@ -69,6 +69,11 @@ class PackedObject:
     is_packed: Literal[True] = True
     pose: Box3 = field(default_factory=lambda: Box3(min=Vec3(), max=Vec3()))
     zone_id: Optional[str] = None
+    group_id: Optional[str] = None
+    # Added for UI display
+    length: float = 0.0
+    width: float = 0.0
+    height: float = 0.0
 
 
 @dataclass
@@ -77,6 +82,11 @@ class UnpackedObject:
     item_id: str
     is_packed: Literal[False] = False
     reason: str = 'NO_SPACE_AVAILABLE'
+    group_id: Optional[str] = None
+    # Added for UI display
+    length: float = 0.0
+    width: float = 0.0
+    height: float = 0.0
 
 
 @dataclass

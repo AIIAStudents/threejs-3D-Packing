@@ -32,17 +32,38 @@ function buildGeometry(items, maxCount) {
   for (let i = 0; i < count; i++) {
     const item = items[i];
 
-    // Validate pose data
-    if (!item || !item.pose || !item.pose.min || !item.pose.max) {
+    // SUPPORT: pose (Legacy) or position/dimensions (API) or direct properties (Fallback)
+    let min, max, w, h, d;
+    
+    if (item.pose && item.pose.min && item.pose.max) {
+      min = item.pose.min;
+      max = item.pose.max;
+      w = max.x - min.x;
+      h = max.y - min.y;
+      d = max.z - min.z;
+    } else if (item.position && item.dimensions) {
+      // API format: item.position = {x,y,z}, item.dimensions = {x,y,z}
+      // Note: In API/Packer space, position is already the min corner.
+      min = item.position;
+      w = item.dimensions.x;
+      h = item.dimensions.y;
+      d = item.dimensions.z;
+      max = { x: min.x + w, y: min.y + h, z: min.z + d };
+    } else if (item.length !== undefined && item.width !== undefined && item.height !== undefined) {
+      // Direct mapped properties from API
+      w = item.length;
+      h = item.height;
+      d = item.width;
+      min = item.position || { x: 0, y: 0, z: 0 };
+      max = { x: min.x + w, y: min.y + h, z: min.z + d };
+    } else {
       continue; // Skip invalid
     }
 
-    const { min, max } = item.pose;
-
-    // Dimensions
-    const w = max.x - min.x;
-    const h = max.y - min.y;
-    const d = max.z - min.z;
+    if (isNaN(w) || isNaN(h) || isNaN(d)) {
+      console.warn('[GeometryWorker] NaN dimensions for item:', item.item_id);
+      continue;
+    }
 
     // Center Logic:
     // Three.js BoxGeometry(1,1,1) is centered at (0,0,0).
