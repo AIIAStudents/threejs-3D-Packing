@@ -1,17 +1,29 @@
 /* assign_space.js - Enhanced allocation with capacity checking */
 
-import { CapacityChecker } from './capacity_checker.js';
+import { assignSpaceService } from '../../frontend/contexts/allocation/application/assign-space-service.js';
+
+function getZoneTag(status) {
+  if (status === 'error') {
+    return { label: 'High', color: '#ef4444' };
+  }
+
+  if (status === 'warning') {
+    return { label: 'Medium', color: '#eab308' };
+  }
+
+  return { label: 'Low', color: '#22c55e' };
+}
 
 export const AssignSpacePage = {
-  API_BASE: 'http://127.0.0.1:8888/api',
-
   state: {
     groups: [],
-    regions: [],  // Renamed from zones for clarity
-    allocations: [],  // Array of allocation records (not simple object)
+    regions: [],
+    allocations: [],
+    items: [],
     draggedGroupId: null,
     validationResult: null,
-    efficiencyFactor: 0.85
+    efficiencyFactor: 0.85,
+    assignments: {}
   },
 
   async init() {
@@ -21,8 +33,6 @@ export const AssignSpacePage = {
     this.groupsPool = document.getElementById('groups-pool');
     this.saveBtn = document.getElementById('save-changes-btn');
     this.nextBtn = document.getElementById('next-step-btn');
-
-    // Modal elements
     this.allocationModal = document.getElementById('allocation-modal');
     this.allocationForm = document.getElementById('allocation-form');
     this.allocationModeSelect = document.getElementById('allocation-mode');
@@ -34,109 +44,22 @@ export const AssignSpacePage = {
       return;
     }
 
-    // Event listeners for buttons
     this.saveBtn?.addEventListener('click', () => this.handleSaveChanges());
     this.nextBtn?.addEventListener('click', () => this.handleNextStep());
-
-    // Modal event listeners
     this.setupModalListeners();
 
-    // Load data
-    await this.loadGroups();
-    await this.loadZones();
-
+    await this.loadAssignmentDataFromServer();
     this.render();
 
-    // Expose to window for HTML onclick handlers
     window.AssignSpace = this;
   },
 
-  async loadGroups() {
-    try {
-      const response = await fetch(`${this.API_BASE}/groups`);
-      if (response.ok) {
-        this.state.groups = await response.json();
-        console.log('Loaded groups:', this.state.groups);
-      } else {
-        throw new Error('Failed to load groups');
-      }
-    } catch (error) {
-      console.error('Error loading groups:', error);
-      // Fallback to mock data
-      this.state.groups = [
-        { id: 1, name: '群組 A', color: '#667eea' },
-        { id: 2, name: '群組 B', color: '#764ba2' }
-      ];
-    }
-  },
-
-  async loadZones() {
-    try {
-      // First, try to load regions with subdivisions from secondary editor
-      const regionsWithSubdivisions = localStorage.getItem('usableRegionsWithSubdivisions');
-
-      if (regionsWithSubdivisions) {
-        const regions = JSON.parse(regionsWithSubdivisions);
-        console.log('[AssignSpace] Loaded regions with subdivisions:', regions);
-
-        // Flatten: use child regions if they exist, otherwise use parent
-        this.state.regions = regions.flatMap(region => {
-          if (region.has_subdivisions && region.child_regions && region.child_regions.length > 0) {
-            console.log(`[AssignSpace] Using ${region.child_regions.length} child regions for ${region.id}`);
-            return region.child_regions;
-          }
-          return [region];
-        });
-
-        console.log('[AssignSpace] Total allocatable regions:', this.state.regions.length);
-
-        // Initialize assignments
-        this.state.assignments = {};
-        this.state.regions.forEach(region => {
-          this.state.assignments[region.id] = [];
-        });
-        return;
-      }
-
-      // Fallback: try usableRegions (legacy)
-      const storedRegions = localStorage.getItem('usableRegions');
-      if (storedRegions) {
-        this.state.regions = JSON.parse(storedRegions);
-        console.log('[AssignSpace] Loaded regions from usableRegions:', this.state.regions);
-
-        // Initialize assignments
-        this.state.assignments = {};
-        this.state.regions.forEach(region => {
-          this.state.assignments[region.id] = [];
-        });
-        return;
-      }
-
-      // Fallback: try generatedZones
-      const storedZones = localStorage.getItem('generatedZones');
-      if (storedZones) {
-        const allZones = JSON.parse(storedZones);
-        this.state.regions = allZones.filter(zone => zone.type === 'usable');
-        console.log('[AssignSpace] Loaded regions from generatedZones:', this.state.regions);
-
-        // Initialize assignments
-        this.state.assignments = {};
-        this.state.regions.forEach(region => {
-          this.state.assignments[region.id] = [];
-        });
-        return;
-      }
-
-      // No regions found
-      console.warn('[AssignSpace] No regions found in localStorage');
-      this.state.regions = [];
-      this.state.assignments = {};
-
-    } catch (error) {
-      console.error('Error loading regions:', error);
-      this.state.regions = [];
-      this.state.assignments = {};
-    }
+  async loadAssignmentDataFromServer() {
+    const initialState = await assignSpaceService.loadInitialState();
+    this.state.groups = initialState.groups;
+    this.state.regions = initialState.regions;
+    this.state.items = initialState.items;
+    this.state.assignments = initialState.assignments;
   },
 
   render() {
@@ -148,9 +71,9 @@ export const AssignSpacePage = {
     if (!this.state.regions || this.state.regions.length === 0) {
       this.zonesList.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📦</div>
-          <div class="empty-state-text">尚無切割區域</div>
-          <div class="empty-state-hint">請先完成「空間規劃」步驟</div>
+          <div class="empty-state-icon">[]</div>
+          <div class="empty-state-text">No regions available</div>
+          <div class="empty-state-hint">Define or cut container space before assigning groups.</div>
         </div>
       `;
       return;
@@ -158,68 +81,111 @@ export const AssignSpacePage = {
 
     this.zonesList.innerHTML = '';
 
-    this.state.regions.forEach(region => {
+    this.state.regions.forEach((region) => {
       const zoneCard = document.createElement('div');
       zoneCard.className = 'zone-card';
       zoneCard.dataset.zoneId = region.id;
 
-      // Calculate stats (temporary: still using assignments for compatibility)
       const assignedGroups = this.state.assignments?.[region.id] || [];
+      const usageSnapshot = assignSpaceService.getRegionUsageSnapshot(
+        region,
+        assignedGroups,
+        this.state.items
+      );
+      const zoneTag = getZoneTag(usageSnapshot.status);
 
-      // Use metrics if available, otherwise fallback to legacy format
-      const metrics = region.metrics || {};
-      const area_m2 = metrics.area_m2 || ((region.width * region.height) / 1000000);
-      const volume_m3 = metrics.volume_mm3 ? (metrics.volume_mm3 / 1e9) : ((region.width * region.height * region.depth) / 1e9);
+      zoneCard.style.border = `2px solid ${zoneTag.color}`;
 
-      // Build assigned groups HTML
       let assignedHTML = '';
-      assignedGroups.forEach(groupId => {
-        const group = this.state.groups.find(g => g.id == groupId);
-        if (group) {
-          assignedHTML += `
-            <div class="assigned-group">
-              <span>${group.name}</span>
-              <span class="remove-btn" data-group-id="${groupId}" data-zone-id="${region.id}">×</span>
-            </div>
-          `;
+      assignedGroups.forEach((assignment) => {
+        const groupId = typeof assignment === 'object' ? assignment.id : assignment;
+        const group = this.state.groups.find((entry) => entry.id == groupId);
+        if (!group) {
+          return;
         }
+
+        const mode = typeof assignment === 'object' ? assignment.mode : 'shared';
+        const value = typeof assignment === 'object' ? assignment.value : null;
+        const modeLabels = {
+          shared: 'Shared',
+          exclusive: 'Exclusive',
+          percentage: 'Percentage',
+          priority_queue: 'Priority'
+        };
+
+        const valueInput = mode === 'percentage'
+          ? `<input type="number" class="percent-input" data-group-id="${groupId}" data-zone-id="${region.id}" value="${value ?? 50}" min="1" max="100" style="width: 70px; text-align: right;" /> %`
+          : mode === 'priority_queue'
+            ? `<input type="number" class="priority-input" data-group-id="${groupId}" data-zone-id="${region.id}" value="${value ?? 1}" min="1" style="width: 70px; text-align: right;" />`
+            : '';
+
+        assignedHTML += `
+          <div class="assigned-group">
+            <span>${group.name} (${modeLabels[mode] || mode})</span>
+            <span>${valueInput}</span>
+            <span class="remove-btn" data-group-id="${groupId}" data-zone-id="${region.id}" style="margin-left: 10px; cursor: pointer; color: #ef4444; font-weight: bold;">x</span>
+          </div>
+        `;
       });
 
       zoneCard.innerHTML = `
         <div class="zone-card-header">
-          <div class="zone-title">${region.name || region.label || `區域 ${region.id}`}</div>
+          <div class="zone-title">
+            ${region.name || region.label || `Zone ${region.id}`}
+            <span style="background: ${zoneTag.color}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-left: 8px;">
+              ${zoneTag.label} (${usageSnapshot.utilization.toFixed(1)}%)
+            </span>
+          </div>
           <div class="zone-stats">
             <div class="zone-stat">
-              <span>📏</span>
-              <span>${area_m2.toFixed(2)} m²</span>
+              <span>Area</span>
+              <span>${usageSnapshot.areaM2.toFixed(2)} m2</span>
             </div>
             <div class="zone-stat">
-              <span>📦</span>
-              <span>體積: ${volume_m3.toFixed(2)} m³</span>
+              <span>Volume</span>
+              <span>${usageSnapshot.volumeM3.toFixed(2)} m3</span>
             </div>
             <div class="zone-stat">
-              <span>👥</span>
-              <span>已分配: ${assignedGroups.length}</span>
+              <span>Groups</span>
+              <span>${assignedGroups.length}</span>
             </div>
           </div>
         </div>
-        <div class="zone-content" data-zone-id="${region.id}">
-          ${assignedHTML || '<div class="empty-hint">拖曳群組到此處</div>'}
+        <div class="zone-content" data-zone-id="${region.id}" style="display: flex; flex-direction: column; gap: 8px;">
+          ${assignedHTML || '<div class="empty-hint">Drop a group here to create an allocation.</div>'}
         </div>
       `;
 
-      // Drag and drop events
       const zoneContent = zoneCard.querySelector('.zone-content');
-      zoneContent.addEventListener('dragover', (e) => this.handleDragOver(e, region.id));
-      zoneContent.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-      zoneContent.addEventListener('drop', (e) => this.handleDrop(e, region.id));
+      zoneContent.addEventListener('dragover', (event) => this.handleDragOver(event, region.id));
+      zoneContent.addEventListener('dragleave', (event) => this.handleDragLeave(event));
+      zoneContent.addEventListener('drop', (event) => this.handleDrop(event, region.id));
 
-      // Remove button events
-      zoneCard.querySelectorAll('.remove-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const groupId = parseInt(e.target.dataset.groupId);
-          const zoneId = parseInt(e.target.dataset.zoneId);
+      zoneCard.querySelectorAll('.remove-btn').forEach((button) => {
+        button.addEventListener('click', (event) => {
+          const groupId = parseInt(event.target.dataset.groupId, 10);
+          const zoneId = event.target.dataset.zoneId;
           this.unassignGroup(groupId, zoneId);
+        });
+      });
+
+      zoneCard.querySelectorAll('.percent-input, .priority-input').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          const groupId = parseInt(event.target.dataset.groupId, 10);
+          const zoneId = event.target.dataset.zoneId;
+          const newValue = parseFloat(event.target.value);
+          const assignment = this.state.assignments[zoneId]?.find((entry) => (entry.id || entry) === groupId);
+
+          if (assignment && typeof assignment === 'object') {
+            this.state.assignments = assignSpaceService.updateAssignmentValue(
+              this.state.assignments,
+              zoneId,
+              groupId,
+              newValue
+            );
+            console.log(`Updated group ${groupId} value to ${newValue}`);
+            this.render();
+          }
         });
       });
 
@@ -231,9 +197,9 @@ export const AssignSpacePage = {
     if (this.state.groups.length === 0) {
       this.groupsPool.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <div class="empty-state-text">尚無群組</div>
-          <div class="empty-state-hint">請先完成「新增群組」步驟</div>
+          <div class="empty-state-icon">[]</div>
+          <div class="empty-state-text">No groups found</div>
+          <div class="empty-state-hint">Create groups before assigning space.</div>
         </div>
       `;
       return;
@@ -241,7 +207,7 @@ export const AssignSpacePage = {
 
     this.groupsPool.innerHTML = '';
 
-    this.state.groups.forEach(group => {
+    this.state.groups.forEach((group) => {
       const isAssigned = this.isGroupAssigned(group.id);
 
       const groupCard = document.createElement('div');
@@ -249,104 +215,92 @@ export const AssignSpacePage = {
       groupCard.draggable = !isAssigned;
       groupCard.dataset.groupId = group.id;
 
-      // Count items in this group (would need API call in real implementation)
-      const itemCount = '?'; // Placeholder
-
       groupCard.innerHTML = `
         <div class="group-name">${group.name}</div>
         <div class="group-info">
-          <span>📦 物件數: ${itemCount}</span>
-          ${isAssigned ? '<span>✓ 已分配</span>' : '<span>← 拖曳分配</span>'}
+          <span>Items: ?</span>
+          ${isAssigned ? '<span>Already assigned</span>' : '<span>Ready to assign</span>'}
         </div>
       `;
 
       if (!isAssigned) {
-        groupCard.addEventListener('dragstart', (e) => this.handleDragStart(e, group.id));
-        groupCard.addEventListener('dragend', (e) => this.handleDragEnd(e));
+        groupCard.addEventListener('dragstart', (event) => this.handleDragStart(event, group.id));
+        groupCard.addEventListener('dragend', (event) => this.handleDragEnd(event));
       }
 
       this.groupsPool.appendChild(groupCard);
     });
   },
 
-  // Drag and Drop Handlers
-  handleDragStart(e, groupId) {
+  handleDragStart(event, groupId) {
     this.state.draggedGroupId = groupId;
-    e.target.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', groupId);
+    event.target.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', groupId);
   },
 
-  handleDragEnd(e) {
-    e.target.classList.remove('dragging');
+  handleDragEnd(event) {
+    event.target.classList.remove('dragging');
   },
 
-  handleDragOver(e, zoneId) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const zoneCard = e.currentTarget.closest('.zone-card');
+  handleDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    const zoneCard = event.currentTarget.closest('.zone-card');
     if (zoneCard) {
       zoneCard.classList.add('drag-over');
     }
   },
 
-  handleDragLeave(e) {
-    const zoneCard = e.currentTarget.closest('.zone-card');
+  handleDragLeave(event) {
+    const zoneCard = event.currentTarget.closest('.zone-card');
     if (zoneCard) {
       zoneCard.classList.remove('drag-over');
     }
   },
 
-  handleDrop(e, regionId) {
-    e.preventDefault();
-    const zoneCard = e.currentTarget.closest('.zone-card');
+  handleDrop(event, regionId) {
+    event.preventDefault();
+    const zoneCard = event.currentTarget.closest('.zone-card');
     if (zoneCard) {
       zoneCard.classList.remove('drag-over');
     }
 
-    const groupId = parseInt(e.dataTransfer.getData('text/plain'));
+    const groupId = parseInt(event.dataTransfer.getData('text/plain'), 10);
     if (!groupId || this.isGroupAssigned(groupId)) {
       return;
     }
 
-    // Open allocation modal instead of direct assignment
     this.openAllocationModal(groupId, regionId);
   },
 
-  // Modal Management
   setupModalListeners() {
-    // Mode change listener
-    this.allocationModeSelect?.addEventListener('change', (e) => {
-      this.handleModeChange(e.target.value);
+    this.allocationModeSelect?.addEventListener('change', (event) => {
+      this.handleModeChange(event.target.value);
     });
 
-    // Form submit
-    this.allocationForm?.addEventListener('submit', (e) => {
-      this.submitAllocation(e);
+    this.allocationForm?.addEventListener('submit', (event) => {
+      this.submitAllocation(event);
     });
 
-    // Close on overlay click
-    this.allocationModal?.addEventListener('click', (e) => {
-      if (e.target === this.allocationModal) {
+    this.allocationModal?.addEventListener('click', (event) => {
+      if (event.target === this.allocationModal) {
         this.closeAllocationModal();
       }
     });
 
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.allocationModal?.classList.contains('active')) {
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this.allocationModal?.classList.contains('active')) {
         this.closeAllocationModal();
       }
     });
   },
 
   openAllocationModal(groupId, regionId) {
-    // Store pending allocation
     this.pendingAllocation = { groupId, regionId };
 
-    // Get group and region info
-    const group = this.state.groups.find(g => g.id == groupId);
-    const region = this.state.regions.find(r => r.id == regionId);
+    const group = this.state.groups.find((entry) => entry.id == groupId);
+    const region = this.state.regions.find((entry) => entry.id == regionId);
 
     if (!group || !region) {
       console.error('Group or region not found');
@@ -355,11 +309,8 @@ export const AssignSpacePage = {
 
     console.log(`[AssignSpace] Opening allocation modal for group ${group.name} to region ${region.name || region.id}`);
 
-    // Reset form
     this.allocationForm?.reset();
-    this.handleModeChange('shared'); // Default mode
-
-    // Show modal
+    this.handleModeChange('shared');
     this.allocationModal?.classList.add('active');
   },
 
@@ -369,90 +320,55 @@ export const AssignSpacePage = {
     this.allocationForm?.reset();
   },
 
-  handleModeChange(mode) {
-    // Show/hide conditional inputs
-    if (mode === 'percentage') {
-      this.percentageInput.style.display = 'block';
-      this.priorityInput.style.display = 'none';
+  handleModeChange() {
+    if (this.percentageInput) {
+      this.percentageInput.style.display = 'none';
 
-      // Add input listener for real-time preview
       const percentInput = document.getElementById('allocation-percentage');
       if (percentInput && !percentInput.dataset.listenerAdded) {
         percentInput.addEventListener('input', () => this.updateCapacityPreview());
         percentInput.dataset.listenerAdded = 'true';
       }
-    } else if (mode === 'priority_queue') {
-      this.percentageInput.style.display = 'none';
-      this.priorityInput.style.display = 'block';
-    } else {
-      this.percentageInput.style.display = 'none';
+    }
+
+    if (this.priorityInput) {
       this.priorityInput.style.display = 'none';
     }
 
-    // Update preview when mode changes
     this.updateCapacityPreview();
   },
 
   updateCapacityPreview() {
-    if (!this.pendingAllocation) return;
+    if (!this.pendingAllocation) {
+      return;
+    }
 
     const { groupId, regionId } = this.pendingAllocation;
     const mode = this.allocationModeSelect?.value || 'shared';
     const percentageValue = document.getElementById('allocation-percentage')?.value;
+    const { regionResult } = assignSpaceService.buildPreviewValidation({
+      assignments: this.state.assignments,
+      regions: this.state.regions,
+      groups: this.state.groups,
+      groupId,
+      regionId,
+      mode,
+      percentageValue,
+      efficiencyFactor: this.state.efficiencyFactor
+    });
 
-    // Build temp allocation
-    const tempAllocation = {
-      allocation_id: `preview_${Date.now()}`,
-      region_id: regionId,
-      group_id: groupId,
-      allocation_mode: mode,
-      amount: {},
-      notes: ''
-    };
-
-    if (mode === 'percentage' && percentageValue) {
-      tempAllocation.amount.percent_of_region = parseFloat(percentageValue) / 100;
-    }
-
-    // Build temp allocations array
-    const tempAllocations = [];
-    for (const rId in this.state.assignments) {
-      this.state.assignments[rId].forEach(gId => {
-        tempAllocations.push({
-          allocation_id: `existing_${rId}_${gId}`,
-          region_id: rId,
-          group_id: gId,
-          allocation_mode: 'shared',
-          amount: {},
-          notes: ''
-        });
-      });
-    }
-    tempAllocations.push(tempAllocation);
-
-    // Run validation
-    const validation = CapacityChecker.validate(
-      this.state.regions,
-      this.state.groups,
-      tempAllocations,
-      { efficiency_factor: this.state.efficiencyFactor }
-    );
-
-    // Show preview
     const previewDiv = document.getElementById('capacity-preview');
     const previewContent = document.getElementById('capacity-preview-content');
 
-    if (!previewDiv || !previewContent) return;
-
-    const region = this.state.regions.find(r => r.id == regionId);
-    const regionResult = validation.per_region[regionId];
+    if (!previewDiv || !previewContent) {
+      return;
+    }
 
     if (!regionResult || regionResult.status === 'ok') {
       previewDiv.style.display = 'none';
       return;
     }
 
-    // Show preview with status
     previewDiv.style.display = 'block';
     previewDiv.className = 'capacity-preview';
 
@@ -462,19 +378,19 @@ export const AssignSpacePage = {
       previewDiv.classList.add('preview-warning');
     }
 
-    const statusIcon = regionResult.status === 'error' ? '❌' : '⚠';
+    const statusIcon = regionResult.status === 'error' ? '!' : 'i';
     previewContent.innerHTML = `
       <div style="display: flex; align-items: start; gap: 8px;">
         <span style="font-size: 1.2rem;">${statusIcon}</span>
         <div>
-          ${regionResult.messages.map(msg => `<div>• ${msg}</div>`).join('')}
+          ${regionResult.messages.map((message) => `<div>- ${message}</div>`).join('')}
         </div>
       </div>
     `;
   },
 
-  submitAllocation(e) {
-    e.preventDefault();
+  submitAllocation(event) {
+    event.preventDefault();
 
     if (!this.pendingAllocation) {
       console.error('No pending allocation');
@@ -482,185 +398,118 @@ export const AssignSpacePage = {
     }
 
     const { groupId, regionId } = this.pendingAllocation;
-
-    // Get form data
     const formData = new FormData(this.allocationForm);
     const mode = formData.get('mode');
     const percentage = formData.get('percentage');
     const priority = formData.get('priority');
     const notes = formData.get('notes');
-
-    // Create temporary allocation for validation
-    const tempAllocation = {
-      allocation_id: `alloc_${Date.now()}`,
-      region_id: regionId,
-      group_id: groupId,
-      allocation_mode: mode,
-      amount: {},
-      notes: notes || ''
-    };
-
-    if (mode === 'percentage' && percentage) {
-      tempAllocation.amount.percent_of_region = parseFloat(percentage) / 100;
-    } else if (mode === 'priority_queue' && priority) {
-      tempAllocation.amount.priority = parseInt(priority);
-    }
-
-    // Build temporary allocations array for validation
-    const tempAllocations = [];
-
-    // Add existing assignments (convert to allocation format)
-    for (const rId in this.state.assignments) {
-      this.state.assignments[rId].forEach(gId => {
-        tempAllocations.push({
-          allocation_id: `existing_${rId}_${gId}`,
-          region_id: rId,
-          group_id: gId,
-          allocation_mode: 'shared', // Assume shared for existing
-          amount: {},
-          notes: ''
-        });
-      });
-    }
-
-    // Add new allocation
-    tempAllocations.push(tempAllocation);
-
-    // Run capacity validation
-    const validation = CapacityChecker.validate(
-      this.state.regions,
-      this.state.groups,
-      tempAllocations,
-      { efficiency_factor: this.state.efficiencyFactor }
-    );
+    const { validation, summary } = assignSpaceService.validateNewAssignment({
+      assignments: this.state.assignments,
+      regions: this.state.regions,
+      groups: this.state.groups,
+      groupId,
+      regionId,
+      mode,
+      percentage,
+      priority,
+      notes,
+      efficiencyFactor: this.state.efficiencyFactor
+    });
 
     console.log('[AssignSpace] Validation result:', validation);
 
-    // Check for errors
     if (validation.status === 'error') {
-      const summary = CapacityChecker.getSummary(validation);
-      let errorMsg = '❌ 無法分配：\n\n';
+      let errorMessage = 'Allocation failed:\n\n';
 
-      summary.details.forEach(detail => {
+      (summary?.details || []).forEach((detail) => {
         if (detail.status === 'error') {
-          errorMsg += `• ${detail.messages.join('\n• ')}\n`;
+          errorMessage += `- ${detail.messages.join('\n- ')}\n`;
         }
       });
 
-      alert(errorMsg);
-      return; // Block allocation
+      alert(errorMessage);
+      return;
     }
 
-    // Show warning if needed
     if (validation.status === 'warning') {
-      const summary = CapacityChecker.getSummary(validation);
-      let warnMsg = '⚠ 警告：\n\n';
-
-      summary.details.forEach(detail => {
-        if (detail.status === 'warning') {
-          warnMsg += `• ${detail.messages.join('\n• ')}\n`;
-        }
-      });
-
-      warnMsg += '\n是否繼續分配？';
-
-      if (!confirm(warnMsg)) {
-        return; // User cancelled
-      }
+      console.warn('[AssignSpace] Capacity warning:', validation);
     }
 
-    // Create allocation record (simplified - using assignments for now)
-    if (!this.state.assignments[regionId]) {
-      this.state.assignments[regionId] = [];
-    }
+    const allocationResult = assignSpaceService.addAssignment(this.state.assignments, {
+      regionId,
+      groupId,
+      mode
+    });
 
-    // Check if already assigned
-    if (this.state.assignments[regionId].includes(groupId)) {
-      alert('此群組已分配到此區域');
+    if (!allocationResult.added) {
+      alert('This group is already assigned to the selected region.');
       this.closeAllocationModal();
       return;
     }
 
-    // Add to assignments (temporary structure)
-    this.state.assignments[regionId].push(groupId);
-
-    console.log(`[AssignSpace] ✓ Allocated group ${groupId} to region ${regionId} with mode ${mode}`);
-
-    // Store validation result
+    this.state.assignments = allocationResult.assignments;
     this.state.validationResult = validation;
 
-    // Close modal and refresh
+    console.log(`[AssignSpace] Allocated group ${groupId} to region ${regionId} with mode ${mode}`);
+
     this.closeAllocationModal();
     this.render();
   },
 
+  rebalancePercentages(regionId, fixedGroupId = null, fixedValue = null) {
+    this.state.assignments = assignSpaceService.updateAssignmentValue(
+      this.state.assignments,
+      regionId,
+      fixedGroupId,
+      fixedValue
+    );
+  },
+
   unassignGroup(groupId, zoneId) {
     if (this.state.assignments[zoneId]) {
-      this.state.assignments[zoneId] = this.state.assignments[zoneId].filter(id => id !== groupId);
+      this.state.assignments = assignSpaceService.removeAssignment(
+        this.state.assignments,
+        zoneId,
+        groupId
+      );
       console.log('Unassigned group', groupId, 'from zone', zoneId);
       this.render();
     }
   },
 
   removeAllocation(allocationId) {
-    // TODO: Implement when using allocations array
     console.log('Remove allocation:', allocationId);
   },
 
   isGroupAssigned(groupId) {
-    for (const zoneId in this.state.assignments) {
-      if (this.state.assignments[zoneId].includes(groupId)) {
-        return true;
-      }
-    }
-    return false;
+    return assignSpaceService.isGroupAssigned(this.state.assignments, groupId);
   },
 
-  // Save and Navigation
   async handleSaveChanges() {
-    try {
-      console.log('Saving assignments:', this.state.assignments);
+    console.log('Saving assignments:', this.state.assignments);
 
-      const response = await fetch(`${this.API_BASE}/zone-assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignments: this.state.assignments })
-      });
+    const saveResult = await assignSpaceService.saveAssignments(this.state.assignments);
+    const isSuccessFromAPI = saveResult.savedToApi;
+    const modal = document.getElementById('success-modal');
+    const successTitle = modal?.querySelector('.modal-title');
+    const okBtn = document.getElementById('btn-modal-ok');
 
-      if (!response.ok) {
-        throw new Error('Failed to save assignments');
-      }
+    if (modal && okBtn && successTitle) {
+      successTitle.textContent = isSuccessFromAPI ? 'Saved successfully' : 'Saved locally only';
+      modal.classList.add('active');
 
-      const result = await response.json();
-      console.log('Save result:', result);
+      const handleOk = () => {
+        modal.classList.remove('active');
+        okBtn.removeEventListener('click', handleOk);
+      };
 
-      // Show Success Modal
-      const modal = document.getElementById('success-modal');
-      const successTitle = modal.querySelector('.modal-title');
-      const okBtn = document.getElementById('btn-modal-ok');
-
-      if (modal && okBtn) {
-        successTitle.textContent = '更新成功';
-        modal.classList.add('active');
-
-        const handleOk = () => {
-          modal.classList.remove('active');
-          okBtn.removeEventListener('click', handleOk);
-        };
-
-        okBtn.addEventListener('click', handleOk);
-      } else {
-        alert('✓ 分配已儲存成功！');
-      }
-
-    } catch (error) {
-      console.error('Error saving assignments:', error);
-      alert('❌ 儲存失敗：' + error.message);
+      okBtn.addEventListener('click', handleOk);
+    } else {
+      alert(isSuccessFromAPI ? 'Assignments saved successfully.' : 'Assignments saved locally only.');
     }
   },
 
   async handleNextStep() {
-    // Just navigate to next step, don't save
     window.location.hash = '/assign-sequence';
   }
 };

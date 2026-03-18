@@ -120,7 +120,13 @@ export const CapacityChecker = {
     }
 
     // Check volume capacity
-    const regionVolume = region.metrics?.volume_mm3 || 0;
+    let regionVolume = region.metrics?.volume_mm3 || 0;
+    
+    // Fallback to dimensions if metrics are missing
+    if (regionVolume === 0 && region.length && region.width && region.height) {
+      regionVolume = region.length * region.width * region.height;
+    }
+    
     const availableVolume = regionVolume * efficiency;
 
     let totalDemandVolume = 0;
