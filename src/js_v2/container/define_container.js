@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { throttle, DynamicQualityScaler } from '../utils/performance.js';
+import { apiClient } from '../../frontend/app/api/api-client.js';
+import { storageAdapter } from '../../frontend/app/storage/storage-adapter.js';
 
 export const DefineContainerPage = {
-  API_BASE: 'http://127.0.0.1:8888/api',
-
   // Three.js
   scene: null,
   camera: null,
@@ -499,10 +499,7 @@ export const DefineContainerPage = {
 
   loadSavedConfig() {
     try {
-      const saved = localStorage.getItem('containerConfig');
-      if (saved) {
-        return JSON.parse(saved);
-      }
+      return storageAdapter.getJSON('containerConfig', null);
     } catch (error) {
       console.warn('Failed to load saved config:', error);
     }
@@ -868,19 +865,11 @@ export const DefineContainerPage = {
       }
 
       // Save to localStorage
-      localStorage.setItem('containerConfig', JSON.stringify(config));
+      storageAdapter.setJSON('containerConfig', config);
 
       // Save to database
       try {
-        const response = await fetch(`${this.API_BASE}/containers`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ parameters: JSON.stringify(config) })
-        });
-
-        if (!response.ok) {
-          console.warn('Failed to save to database, but saved to localStorage');
-        }
+        await apiClient.post('/api/v2/containers/', config);
       } catch (error) {
         console.warn('API error, but saved to localStorage:', error);
       }

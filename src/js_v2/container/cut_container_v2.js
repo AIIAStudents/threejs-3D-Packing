@@ -2,7 +2,8 @@
 // Space Planning Page - Constraint-Based Generation
 // Replaces manual drawing with automatic space generation
 
-const API_BASE_URL = 'http://localhost:8888';
+import { spacePlanningPersistenceService } from '../../frontend/contexts/space-design/application/space-planning-persistence-service.js';
+import { secondaryRegionEditorBridge } from '../../frontend/contexts/space-design/infrastructure/secondary-region-editor-bridge.js';
 
 export const SpacePlanningPage = {
   state: {
@@ -76,23 +77,48 @@ export const SpacePlanningPage = {
     this.bindDOM();
     this.addEventListeners();
 
+    // Fix 3: Always disconnect old observer and re-observe on every init()
+    // (SPA routing calls init() each time, but isInitialized stays true)
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+
     if (!this.isInitialized) {
-      window.addEventListener('resize', () => {
+      // Store the bound function so we can remove it later if needed
+      this._handleWindowResize = () => {
         this.resizeCanvas();
         this.requestRender();
-      });
+      };
+      window.addEventListener('resize', this._handleWindowResize);
       this.isInitialized = true;
+    }
+
+    // Re-create ResizeObserver every init so it observes the current canvas parent
+    if (this.elements.canvas && this.elements.canvas.parentElement) {
+      this._resizeObserver = new ResizeObserver(() => {
+        if (this.resizeCanvas()) {
+          this.requestRender();
+        }
+      });
+      this._resizeObserver.observe(this.elements.canvas.parentElement);
     }
 
     // Move modal to body level to ensure it can cover sidebar
     if (this.elements.canvasModal && this.elements.canvasModal.parentElement) {
       document.body.appendChild(this.elements.canvasModal);
-      console.log('[SpacePlanning] Moved modal to body level');
     }
 
     await this.loadData();
-    this.resizeCanvas();
-    this.requestRender();
+
+    // Fix 4: Double rAF — browser needs two frames to complete SPA layout
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (this.resizeCanvas()) {
+          this.requestRender();
+        }
+      });
+    });
   },
 
   bindDOM() {
@@ -285,9 +311,7 @@ export const SpacePlanningPage = {
           event.preventDefault();
           event.stopPropagation();
 
-          if (window.SecondaryRegionEditor && window.SecondaryRegionEditor.exitEditMode) {
-            window.SecondaryRegionEditor.exitEditMode();
-          }
+          secondaryRegionEditorBridge.exitEditMode();
 
           console.log('[SpacePlanning] Exited edit mode, staying on cut-container page');
           return; // Stop here, don't navigate
@@ -352,42 +376,20 @@ export const SpacePlanningPage = {
   },
 
   async loadData() {
-    // Load container config
-    const storedConfig = localStorage.getItem('containerConfig');
-    if (storedConfig) {
-      try {
-        this.state.containerConfig = JSON.parse(storedConfig);
-        console.log('[SpacePlanning] Loaded container config:', this.state.containerConfig);
-      } catch (e) {
-        console.warn('Failed to parse container config:', e);
-      }
+    const initialState = spacePlanningPersistenceService.loadInitialState(this.state.constraints);
+    this.state.containerConfig = initialState.containerConfig;
+    this.state.constraints = initialState.constraints;
+    if (this.state.containerConfig) {
+      console.log('[SpacePlanning] Loaded container config:', this.state.containerConfig);
+    }
+    this.syncConstraintsToUI();
+    if (initialState.hasSavedConstraints) {
+      console.log('[SpacePlanning] Loaded saved constraints');
     }
 
-    // Load saved constraints if available
-    const storedConstraints = localStorage.getItem('spaceConstraints');
-    if (storedConstraints) {
-      try {
-        const saved = JSON.parse(storedConstraints);
-        this.state.constraints = { ...this.state.constraints, ...saved };
-        this.syncConstraintsToUI();
-        console.log('[SpacePlanning] Loaded saved constraints');
-      } catch (e) {
-        console.warn('Failed to parse constraints:', e);
-      }
-    }
-
-    // Load saved zones if available
-    const storedZones = localStorage.getItem('generatedZones');
-    if (storedZones) {
-      try {
-        this.state.zones = JSON.parse(storedZones);
-        this.updateStatistics();
-        this.updateUsableBlocksList();
-        console.log('[SpacePlanning] Loaded saved zones');
-      } catch (e) {
-        console.warn('Failed to parse zones:', e);
-      }
-    }
+    // Always start with clean zones — never restore stale data from previous session/shape
+    this.state.zones = [];
+    spacePlanningPersistenceService.clearGeneratedZones();
   },
 
   syncConstraintsToUI() {
@@ -732,12 +734,129 @@ export const SpacePlanningPage = {
         x: widthX - clearance / 2,
         y: depthZ / 2,
         width: clearance,
-        height: depthZ,
-        depth: heightY || 2400,
-        metadata: { reason: '牆邊安全距 (右)' }
       });
     }
-    // TODO: Handle T-shape and U-shape clearance
+    else if (config.shape === 't_shape') {
+      const topW = config.t_top_x || config.widthX;
+      const topD = config.t_top_z || (config.depthZ * 0.4);
+      const botW = config.t_bottom_x || (config.widthX * 0.4);
+      const botD = config.t_bottom_z || (config.depthZ * 0.6);
+      const botLeft = (topW - botW) / 2;
+      const hY = config.heightY || 2400;
+
+      // 1. 莖部底端（底牆）— 寬度是莖部 botW
+      this.state.zones.push({
+        id: 'clearance_stem_bottom', type: 'unusable_clearance',
+        x: topW / 2, y: clearance / 2,
+        width: botW, height: clearance, depth: hY,
+        metadata: { reason: '牆邊安全距 (下)' }
+      });
+
+      // 2. 橫桿頂端（頂牆）— 全寬 topW
+      this.state.zones.push({
+        id: 'clearance_cross_top', type: 'unusable_clearance',
+        x: topW / 2, y: botD + topD - clearance / 2,
+        width: topW, height: clearance, depth: hY,
+        metadata: { reason: '牆邊安全距 (上)' }
+      });
+
+      // 3. 橫桿左牆 — 僅橫桿段高度 topD
+      this.state.zones.push({
+        id: 'clearance_cross_left', type: 'unusable_clearance',
+        x: clearance / 2, y: botD + topD / 2,
+        width: clearance, height: topD, depth: hY,
+        metadata: { reason: '牆邊安全距 (橫桿左)' }
+      });
+
+      // 4. 橫桿右牆 — 僅橫桿段高度 topD
+      this.state.zones.push({
+        id: 'clearance_cross_right', type: 'unusable_clearance',
+        x: topW - clearance / 2, y: botD + topD / 2,
+        width: clearance, height: topD, depth: hY,
+        metadata: { reason: '牆邊安全距 (橫桿右)' }
+      });
+
+      // 5. 莖部左牆 — 莖部段高度 botD，貼莖部左邊
+      this.state.zones.push({
+        id: 'clearance_stem_left', type: 'unusable_clearance',
+        x: botLeft + clearance / 2, y: botD / 2,
+        width: clearance, height: botD, depth: hY,
+        metadata: { reason: '牆邊安全距 (莖部左)' }
+      });
+
+      // 6. 莖部右牆 — 莖部段高度 botD，貼莖部右邊
+      this.state.zones.push({
+        id: 'clearance_stem_right', type: 'unusable_clearance',
+        x: botLeft + botW - clearance / 2, y: botD / 2,
+        width: clearance, height: botD, depth: hY,
+        metadata: { reason: '牆邊安全距 (莖部右)' }
+      });
+    }
+    else if (config.shape === 'u_shape') {
+      const outerW = config.u_outer_x || config.widthX;
+      const outerD = config.u_outer_z || config.depthZ;
+      const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
+      const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
+      const gapLeft = (outerW - gapW) / 2;
+      const gapRight = gapLeft + gapW;
+      const hY = config.heightY || 2400;
+
+      // 1. 底牆 — 全寬
+      this.state.zones.push({
+        id: 'clearance_bottom', type: 'unusable_clearance',
+        x: outerW / 2, y: clearance / 2,
+        width: outerW, height: clearance, depth: hY,
+        metadata: { reason: '牆邊安全距 (下)' }
+      });
+
+      // 2. 左外牆 — 全高 outerD
+      this.state.zones.push({
+        id: 'clearance_left', type: 'unusable_clearance',
+        x: clearance / 2, y: outerD / 2,
+        width: clearance, height: outerD, depth: hY,
+        metadata: { reason: '牆邊安全距 (左)' }
+      });
+
+      // 3. 右外牆 — 全高 outerD
+      this.state.zones.push({
+        id: 'clearance_right', type: 'unusable_clearance',
+        x: outerW - clearance / 2, y: outerD / 2,
+        width: clearance, height: outerD, depth: hY,
+        metadata: { reason: '牆邊安全距 (右)' }
+      });
+
+      // 4. 左臂頂端（gap 左側）— 僅左臂寬 gapLeft
+      this.state.zones.push({
+        id: 'clearance_left_arm_top', type: 'unusable_clearance',
+        x: gapLeft / 2, y: outerD - clearance / 2,
+        width: gapLeft, height: clearance, depth: hY,
+        metadata: { reason: '牆邊安全距 (左臂上)' }
+      });
+
+      // 5. 右臂頂端（gap 右側）— 僅右臂寬 (outerW - gapRight)
+      this.state.zones.push({
+        id: 'clearance_right_arm_top', type: 'unusable_clearance',
+        x: (gapRight + outerW) / 2, y: outerD - clearance / 2,
+        width: outerW - gapRight, height: clearance, depth: hY,
+        metadata: { reason: '牆邊安全距 (右臂上)' }
+      });
+
+      // 6. 缺口左內壁 — 高度 gapD，貼缺口左側
+      this.state.zones.push({
+        id: 'clearance_gap_left_wall', type: 'unusable_clearance',
+        x: gapLeft + clearance / 2, y: outerD - gapD / 2,
+        width: clearance, height: gapD, depth: hY,
+        metadata: { reason: '牆邊安全距 (缺口左)' }
+      });
+
+      // 7. 缺口右內壁 — 高度 gapD，貼缺口右側
+      this.state.zones.push({
+        id: 'clearance_gap_right_wall', type: 'unusable_clearance',
+        x: gapRight - clearance / 2, y: outerD - gapD / 2,
+        width: clearance, height: gapD, depth: hY,
+        metadata: { reason: '牆邊安全距 (缺口右)' }
+      });
+    }
   },
 
   generateAisleZones() {
@@ -817,6 +936,9 @@ export const SpacePlanningPage = {
 
         console.log(`[SpacePlanning] Generated forklift aisle ${i} at (${Math.round(x)}, ${Math.round(y)})`);
       }
+    }
+    else if (config.shape === 't_shape' || config.shape === 'u_shape') {
+      console.log('[SpacePlanning] Aisle generation for', config.shape, 'not yet implemented');
     }
   },
 
@@ -983,6 +1105,98 @@ export const SpacePlanningPage = {
         });
       }
     }
+
+    else if (config.shape === 't_shape') {
+      const topW = config.t_top_x || config.widthX;
+      const topD = config.t_top_z || (config.depthZ * 0.4);
+      const botW = config.t_bottom_x || (config.widthX * 0.4);
+      const botD = config.t_bottom_z || (config.depthZ * 0.6);
+      const botLeft = (topW - botW) / 2;
+      const c = this.state.constraints.building.wallClearance || 0;
+      const hY = config.heightY || 2400;
+
+      // Cross-bar: from y=botD (no clearance — junction with stem) to y=botD+topD-c (top clearance)
+      const crossW = topW - 2 * c;
+      const crossH = topD - c;
+      if (crossW > 0 && crossH > 0) {
+        this.state.zones.push({
+          id: 'usable_crossbar', type: 'usable', name: '橫桿區', label: '橫桿區',
+          x: topW / 2,
+          y: botD + crossH / 2,          // from botD upward, no bottom clearance
+          width: crossW, height: crossH, depth: hY,
+          area: Math.round((crossW * crossH) / 1000000 * 100) / 100,
+          metadata: { reason: '可規劃空間' }
+        });
+      }
+
+      // Stem: from y=c (bottom clearance) to y=botD (no top clearance — junction with crossbar)
+      const stemW = botW - 2 * c;
+      const stemH = botD - c;
+      if (stemW > 0 && stemH > 0) {
+        this.state.zones.push({
+          id: 'usable_stem', type: 'usable', name: '莖部區', label: '莖部區',
+          x: botLeft + botW / 2,         // actual stem center X
+          y: c + stemH / 2,              // from bottom clearance upward
+          width: stemW, height: stemH, depth: hY,
+          area: Math.round((stemW * stemH) / 1000000 * 100) / 100,
+          metadata: { reason: '可規劃空間' }
+        });
+      }
+    }
+
+    else if (config.shape === 'u_shape') {
+      const outerW = config.u_outer_x || config.widthX;
+      const outerD = config.u_outer_z || config.depthZ;
+      const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
+      const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
+      const c = this.state.constraints.building.wallClearance || 0;
+      const hY = config.heightY || 2400;
+      const gapLeft = (outerW - gapW) / 2;
+      const gapRight = gapLeft + gapW;
+      const gapTop = outerD - gapD;
+
+      // Left arm: full height, x=[c .. gapLeft-c]
+      const leftW = gapLeft - 2 * c;
+      const leftH = outerD - 2 * c;          // full container height
+      if (leftW > 0 && leftH > 0) {
+        this.state.zones.push({
+          id: 'usable_left_arm', type: 'usable', name: '左臂區', label: '左臂區',
+          x: c + leftW / 2,
+          y: c + leftH / 2,                  // from bottom clearance
+          width: leftW, height: leftH, depth: hY,
+          area: Math.round((leftW * leftH) / 1000000 * 100) / 100,
+          metadata: { reason: '可規劃空間' }
+        });
+      }
+
+      // Right arm: full height, x=[gapRight+c .. outerW-c]
+      const rightW = (outerW - gapRight) - 2 * c;
+      const rightH = outerD - 2 * c;
+      if (rightW > 0 && rightH > 0) {
+        this.state.zones.push({
+          id: 'usable_right_arm', type: 'usable', name: '右臂區', label: '右臂區',
+          x: gapRight + c + rightW / 2,
+          y: c + rightH / 2,               // from bottom clearance
+          width: rightW, height: rightH, depth: hY,
+          area: Math.round((rightW * rightH) / 1000000 * 100) / 100,
+          metadata: { reason: '可規劃空間' }
+        });
+      }
+
+      // Base strip: ONLY middle column (gapW wide) to avoid arm overlap
+      const baseW = gapW;
+      const baseH = gapTop - 2 * c;
+      if (baseW > 0 && baseH > 0) {
+        this.state.zones.push({
+          id: 'usable_base', type: 'usable', name: '底部區', label: '底部區',
+          x: outerW / 2,
+          y: c + baseH / 2,              // from bottom clearance upward
+          width: baseW, height: baseH, depth: hY,
+          area: Math.round((baseW * baseH) / 1000000 * 100) / 100,
+          metadata: { reason: '可規劃空間' }
+        });
+      }
+    }
   },
 
   // ============================================================
@@ -992,30 +1206,55 @@ export const SpacePlanningPage = {
   getContainerBounds() {
     const config = this.state.containerConfig;
 
+    // Diagnostic: log what we have
+    console.log('[SpacePlanning] getContainerBounds config:', {
+      shape: config.shape,
+      widthX: config.widthX, depthZ: config.depthZ,
+      t_top_x: config.t_top_x, t_top_z: config.t_top_z,
+      t_bottom_x: config.t_bottom_x, t_bottom_z: config.t_bottom_z,
+      u_outer_x: config.u_outer_x, u_outer_z: config.u_outer_z,
+      u_gap_x: config.u_gap_x, u_gap_z: config.u_gap_z,
+    });
+
     switch (config.shape) {
       case 'rect':
         return {
-          minX: 0,
-          minZ: 0,
+          minX: 0, minZ: 0,
           maxX: config.widthX,
           maxZ: config.depthZ
         };
-      case 't_shape':
+
+      case 't_shape': {
+        // t_top_x = full width of cross bar (= widthX)
+        // t_top_z = depth of cross bar
+        // t_bottom_x = width of stem
+        // t_bottom_z = depth of stem
+        const topW = config.t_top_x || config.topWidthX || config.widthX;
+        const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
+        const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
         return {
-          minX: 0,
-          minZ: 0,
-          maxX: config.topWidthX || config.t_top_x,
-          maxZ: (config.bottomDepthZ || config.t_bottom_z) + (config.topDepthZ || config.t_top_z)
+          minX: 0, minZ: 0,
+          maxX: topW,
+          maxZ: botD + topD
         };
-      case 'u_shape':
+      }
+
+      case 'u_shape': {
+        // u_outer_x = full outer width  (= widthX)
+        // u_outer_z = full outer depth  (= depthZ)
+        // u_gap_x   = gap (cutout) width
+        // u_gap_z   = gap (cutout) depth
+        const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
+        const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
         return {
-          minX: 0,
-          minZ: 0,
-          maxX: config.outerWidthX || config.u_outer_x,
-          maxZ: config.outerDepthZ || config.u_outer_z
+          minX: 0, minZ: 0,
+          maxX: outerW,
+          maxZ: outerD
         };
+      }
+
       default:
-        return { minX: 0, minZ: 0, maxX: 5800, maxZ: 2300 };
+        return { minX: 0, minZ: 0, maxX: config.widthX || 5800, maxZ: config.depthZ || 2300 };
     }
   },
 
@@ -1028,41 +1267,31 @@ export const SpacePlanningPage = {
         return x >= 0 && x <= config.widthX && y >= 0 && y <= config.depthZ;
 
       case 't_shape': {
-        const topWidthX = config.topWidthX || config.t_top_x;
-        const topDepthZ = config.topDepthZ || config.t_top_z;
-        const bottomWidthX = config.bottomWidthX || config.t_bottom_x;
-        const bottomDepthZ = config.bottomDepthZ || config.t_bottom_z;
-        const bottomLeft = (topWidthX - bottomWidthX) / 2;
-        const bottomRight = bottomLeft + bottomWidthX;
+        const topW = config.t_top_x || config.topWidthX || config.widthX;
+        const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
+        const botW = config.t_bottom_x || config.bottomWidthX || (config.widthX * 0.4);
+        const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
+        const botLeft = (topW - botW) / 2;
+        const botRight = botLeft + botW;
 
-        // In bottom (stem)
-        if (y >= 0 && y <= bottomDepthZ) {
-          return x >= bottomLeft && x <= bottomRight;
-        }
-        // In top (cross)
-        if (y > bottomDepthZ && y <= bottomDepthZ + topDepthZ) {
-          return x >= 0 && x <= topWidthX;
-        }
+        if (y >= 0 && y <= botD) return x >= botLeft && x <= botRight;
+        if (y > botD && y <= botD + topD) return x >= 0 && x <= topW;
         return false;
       }
 
       case 'u_shape': {
-        const outerWidthX = config.outerWidthX || config.u_outer_x;
-        const outerDepthZ = config.outerDepthZ || config.u_outer_z;
-        const gapWidthX = config.gapWidthX || config.u_gap_x;
-        const gapDepthZ = config.gapDepthZ || config.u_gap_z;
+        const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
+        const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
+        const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
+        const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
 
-        // Inside outer rectangle
-        if (x < 0 || x > outerWidthX || y < 0 || y > outerDepthZ) return false;
+        if (x < 0 || x > outerW || y < 0 || y > outerD) return false;
 
-        // Not in gap
-        const gapLeft = (outerWidthX - gapWidthX) / 2;
-        const gapRight = (outerWidthX + gapWidthX) / 2;
-        const gapTop = outerDepthZ - gapDepthZ;
+        const gapLeft = (outerW - gapW) / 2;
+        const gapRight = gapLeft + gapW;
+        const gapTop = outerD - gapD;
 
-        if (x >= gapLeft && x <= gapRight && y >= gapTop && y <= outerDepthZ) {
-          return false; // In gap
-        }
+        if (x >= gapLeft && x <= gapRight && y >= gapTop) return false; // in gap
         return true;
       }
 
@@ -1079,8 +1308,23 @@ export const SpacePlanningPage = {
     const config = this.state.containerConfig;
     if (!config) return;
 
-    // Calculate areas
-    const totalArea = (config.widthX * config.depthZ) / 1000000; // m²
+    // Calculate actual container floor area (not just bounding box)
+    let totalArea;
+    if (config.shape === 't_shape') {
+      const topW = config.t_top_x || config.widthX;
+      const topD = config.t_top_z || (config.depthZ * 0.4);
+      const botW = config.t_bottom_x || (config.widthX * 0.4);
+      const botD = config.t_bottom_z || (config.depthZ * 0.6);
+      totalArea = ((topW * topD) + (botW * botD)) / 1000000; // m²
+    } else if (config.shape === 'u_shape') {
+      const outerW = config.u_outer_x || config.widthX;
+      const outerD = config.u_outer_z || config.depthZ;
+      const gapW = config.u_gap_x || (outerW * 0.4);
+      const gapD = config.u_gap_z || (outerD * 0.5);
+      totalArea = ((outerW * outerD) - (gapW * gapD)) / 1000000; // m²
+    } else {
+      totalArea = (config.widthX * config.depthZ) / 1000000; // m²
+    }
 
     let columnsArea = 0;
     let aislesArea = 0;
@@ -1183,56 +1427,28 @@ export const SpacePlanningPage = {
 
   async saveSpaces() {
     try {
-      // Save layout plan metadata
-      localStorage.setItem('layoutPlan', JSON.stringify(this.state.layoutPlan));
+      const { usableRegions, constraintZones } = spacePlanningPersistenceService.persistGeneratedLayout({
+        layoutPlan: this.state.layoutPlan,
+        constraints: this.state.constraints,
+        zones: this.state.zones,
+        containerConfig: this.state.containerConfig
+      });
 
-      // Save constraints
-      localStorage.setItem('spaceConstraints', JSON.stringify(this.state.constraints));
-
-      // Save generated zones (with full YAML-compliant structure)
-      localStorage.setItem('generatedZones', JSON.stringify(this.state.zones));
-
-      // Separate usable regions for easy access by assignment page
-      const usableRegions = this.state.zones.filter(z => z.type === 'usable');
-      localStorage.setItem('usableRegions', JSON.stringify(usableRegions));
-
-      // Separate constraint zones
-      const constraintZones = this.state.zones.filter(z => z.type !== 'usable');
-      localStorage.setItem('constraintZones', JSON.stringify(constraintZones));
-
-      console.log('[SpacePlanning] Saved to localStorage:');
+      console.log('[SpacePlanning] Saved generated layout state:');
       console.log('  - Layout plan:', this.state.layoutPlan.layout_id);
       console.log('  - Total zones:', this.state.zones.length);
       console.log('  - Usable regions:', usableRegions.length);
       console.log('  - Constraint zones:', constraintZones.length);
 
-      // Save to API (disabled for now)
-      const payload = {
-        layout_plan: this.state.layoutPlan,
-        container: this.state.containerConfig,
-        constraints: this.state.constraints,
-        zones: this.state.zones,
-        usable_regions: usableRegions,
-        constraint_zones: constraintZones
-      };
+      const result = await spacePlanningPersistenceService.submitCuttingJob(
+        this.state.containerConfig,
+        usableRegions
+      );
+      console.log('[SpacePlanning] Backend save successful:', result);
+      alert('✓ 空間規劃已儲存成功 (包含伺服器同步)！');
 
-      // TODO: Implement backend API endpoint
-      // Temporarily disabled to avoid CORS errors
-      /*
-      const response = await fetch(`${API_BASE_URL}/api/v2/space-planning/jobs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        console.warn('API save failed, but saved to localStorage');
-      }
-      */
-
-      alert('✓ 空間規劃已儲存到本地！');
     } catch (error) {
-      console.error('Save error:', error);
+      console.error('[SpacePlanning] Save error:', error);
       alert('❌ 儲存失敗：' + error.message);
     }
   },
@@ -1257,55 +1473,47 @@ export const SpacePlanningPage = {
   openExpandedView() {
     if (!this.elements.canvasModal || !this.elements.canvasExpanded) return;
 
-    console.log('[SpacePlanning] Opening expanded view');
-
     // Hide sidebar and app-container
     const sidebar = document.getElementById('controls');
     const appContainer = document.getElementById('app-container');
-    if (sidebar) {
-      sidebar.style.display = 'none';
-      console.log('[SpacePlanning] Hid sidebar');
-    }
-    if (appContainer) {
-      appContainer.style.display = 'none';
-      console.log('[SpacePlanning] Hid app-container');
-    }
+    if (sidebar) sidebar.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'none';
 
     // Show modal
     this.elements.canvasModal.style.display = 'flex';
 
-    // Wait for modal to render, then calculate size
-    setTimeout(() => {
-      const modalBody = this.elements.canvasModal.querySelector('.modal-body');
+    // Double rAF: wait for modal layout to complete
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dpr = window.devicePixelRatio || 1;
+        const bounds = this.getContainerBounds();
 
-      // Use window dimensions for maximum size
-      const maxWidth = window.innerWidth - 20;
-      const maxHeight = window.innerHeight - 100; // Reserve space for header/footer
+        // Use window viewport minus safe margins
+        const viewportRect = {
+          width: window.innerWidth - 40,
+          height: window.innerHeight - 120  // header/footer/legend
+        };
 
-      console.log(`[SpacePlanning] Available space: ${maxWidth}x${maxHeight}`);
+        const { scale, offsetX, offsetY } = this.computeFitTransform(bounds, viewportRect);
+        const bboxW = bounds.maxX - bounds.minX;
+        const bboxH = bounds.maxZ - bounds.minZ;
 
-      // Calculate aspect ratio
-      const bounds = this.getContainerBounds();
-      const containerWidth = bounds.maxX - bounds.minX;
-      const containerHeight = bounds.maxZ - bounds.minZ;
-      const aspectRatio = containerWidth / containerHeight;
+        // Canvas size = exactly the viewport we measured
+        const canvasW = viewportRect.width;
+        const canvasH = viewportRect.height;
 
-      let canvasWidth = maxWidth;
-      let canvasHeight = maxWidth / aspectRatio;
+        const expCanvas = this.elements.canvasExpanded;
+        expCanvas.width = canvasW * dpr;
+        expCanvas.height = canvasH * dpr;
+        expCanvas.style.width = canvasW + 'px';
+        expCanvas.style.height = canvasH + 'px';
 
-      if (canvasHeight > maxHeight) {
-        canvasHeight = maxHeight;
-        canvasWidth = maxHeight * aspectRatio;
-      }
+        console.log('[CANVAS] expanded cssW=%d cssH=%d | dpr=%f | scale=%.4f | offsetX=%.1f offsetY=%.1f',
+          canvasW, canvasH, dpr, scale, offsetX, offsetY);
 
-      this.elements.canvasExpanded.width = canvasWidth;
-      this.elements.canvasExpanded.height = canvasHeight;
-
-      console.log(`[SpacePlanning] Expanded canvas size: ${canvasWidth}x${canvasHeight}`);
-
-      // Redraw on expanded canvas
-      this.redrawExpanded();
-    }, 50);
+        this.redrawExpanded();
+      });
+    });
   },
 
   exitSecondaryEditMode() {
@@ -1406,6 +1614,11 @@ export const SpacePlanningPage = {
     // Clear
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Apply DPR scaling
+    const dpr = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
     // Temporarily swap canvas context
     const originalCanvas = this.elements.canvas;
     const originalCtx = this.elements.ctx;
@@ -1440,21 +1653,127 @@ export const SpacePlanningPage = {
     this.elements.canvas = originalCanvas;
     this.elements.ctx = originalCtx;
 
+    // Restore DPR transform
+    ctx.restore();
+
     console.log('[SpacePlanning] Expanded canvas redraw complete');
+  },
+
+  // ============================================================
+  // FIT-TO-VIEW UTILITIES
+  // ============================================================
+
+  /**
+   * Single source of truth for viewport measurement.
+   * Uses getBoundingClientRect on the canvas wrapper — works even when
+   * canvas CSS size hasn't updated yet (SPA route injection, hidden modals).
+   */
+  getViewportRect(canvas) {
+    const el = canvas || this.elements.canvas;
+    if (!el) return null;
+    // Prefer parent's rect — more reliable than the canvas itself
+    // because canvas CSS may still be '100%' before first layout pass
+    const parent = el.parentElement;
+    const rect = parent ? parent.getBoundingClientRect() : el.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return null;
+    return rect;
+  },
+
+  /**
+   * Compute fit-to-view transform for a given bounding box inside a viewport.
+   * Returns { scale, offsetX, offsetY } in CSS pixels.
+   * safetyFactor < 1.0 adds extra breathing room.
+   */
+  computeFitTransform(bbox, viewportRect, paddingPx = 40, safetyFactor = 0.90) {
+    const bboxW = Math.max(bbox.maxX - bbox.minX, 1);
+    const bboxH = Math.max(bbox.maxZ - bbox.minZ, 1);
+    const vw = viewportRect.width;
+    const vh = viewportRect.height;
+
+    const scaleX = (vw - paddingPx * 2) / bboxW;
+    const scaleY = (vh - paddingPx * 2) / bboxH;
+    const scale = Math.min(scaleX, scaleY) * safetyFactor;
+
+    const offsetX = (vw - bboxW * scale) / 2;
+    const offsetY = (vh - bboxH * scale) / 2;
+
+    console.log(
+      '[FIT] viewportW=%d viewportH=%d | bboxW=%d bboxH=%d | scaleX=%.4f scaleY=%.4f | chosenScale=%.4f | offsetX=%.1f offsetY=%.1f',
+      vw, vh, bboxW, bboxH, scaleX, scaleY, scale, offsetX, offsetY
+    );
+
+    // Verify no clipping
+    const mappedMaxX = bbox.minX * scale + offsetX + bboxW * scale;
+    const mappedMaxZ = bbox.minZ * scale + offsetY + bboxH * scale;
+    if (mappedMaxX > vw || mappedMaxZ > vh) {
+      console.warn('[FIT] WARNING: mapped bbox exceeds viewport! mappedMaxX=%d, mappedMaxZ=%d', Math.round(mappedMaxX), Math.round(mappedMaxZ));
+    }
+
+    return { scale, offsetX, offsetY };
   },
 
   resizeCanvas() {
     const canvas = this.elements.canvas;
-    if (!canvas) return;
+    if (!canvas) return false;
 
-    const container = canvas.parentElement;
-    const rect = container.getBoundingClientRect();
+    // Orphan Check: Stop everything and clean up if the canvas is no longer part of the live DOM
+    if (!document.body.contains(canvas)) {
+      console.log('[CANVAS] Canvas is no longer in DOM. Cleaning up orphaned instance...');
+      if (this._resizeObserver) {
+        this._resizeObserver.disconnect();
+        this._resizeObserver = null;
+      }
+      if (this._handleWindowResize) {
+        window.removeEventListener('resize', this._handleWindowResize);
+        this._handleWindowResize = null;
+      }
+      if (this._resizeRafId) {
+        cancelAnimationFrame(this._resizeRafId);
+        this._resizeRafId = null;
+      }
+      this.elements.canvas = null;
+      this.elements.ctx = null;
+      return false;
+    }
 
-    canvas.width = rect.width;
-    canvas.height = rect.height - 100; // Account for controls and legend
+    // Always set 100%/100% in CSS first so the parent controls sizing
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
+    // Use getBoundingClientRect on PARENT — most reliable source
+    const viewportRect = this.getViewportRect(canvas);
+    if (!viewportRect) {
+      // Cancel previous pending RAF to avoid stacking
+      if (this._resizeRafId) cancelAnimationFrame(this._resizeRafId);
+      
+      if (!this._deferWarningLogged) {
+        console.warn('[CANVAS] resizeCanvas: viewport not ready, deferring... (this warning is throttled)');
+        this._deferWarningLogged = true;
+      }
+      
+      this._resizeRafId = requestAnimationFrame(() => this.resizeCanvas());
+      return;
+    }
+
+    // Reset throttle flag when successful
+    this._deferWarningLogged = false;
+
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = viewportRect.width;
+    const cssH = viewportRect.height;
+
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+    // Pin CSS size explicitly so canvas element matches parent
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+
+    console.log('[CANVAS] cssW=%d cssH=%d | dpr=%f | internalW=%d internalH=%d', cssW, cssH, dpr, canvas.width, canvas.height);
 
     this.requestRender();
+    return true;
   },
+
 
   redraw() {
     const ctx = this.elements.ctx;
@@ -1464,12 +1783,21 @@ export const SpacePlanningPage = {
       return;
     }
 
-    console.log('[SpacePlanning] Redrawing canvas...');
-    console.log('[SpacePlanning] Total zones:', this.state.zones.length);
-    console.log('[SpacePlanning] Layer visibility:', this.state.layerVisibility);
+    // [VERIFY-D] canvas sizing at render time
+    console.log('[VERIFY-D] canvas.width=%d canvas.height=%d | clientW=%d clientH=%d | offsetW=%d offsetH=%d',
+      canvas.width, canvas.height, canvas.clientWidth, canvas.clientHeight, canvas.offsetWidth, canvas.offsetHeight);
 
-    // Clear
+    // Expose self on window so SecondaryRegionEditor can delegate
+    if (globalThis.window) {
+      globalThis.window.SpacePlanning = this;
+    }
+    // Clear entire internal buffer
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Apply DPR scaling so all draw calls use CSS-pixel coordinates
+    const dpr = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.scale(dpr, dpr);
 
     // Draw grid
     this.drawGrid();
@@ -1478,12 +1806,11 @@ export const SpacePlanningPage = {
     this.drawContainer();
 
     // Draw zones by type - 柱子最後畫（在最上層）
-    // 修正：使用正確的圖層映射
     const layerMap = {
       'unusable_clearance': 'clearance',
-      'unusable_aisle': 'aisles',      // 注意複數
+      'unusable_aisle': 'aisles',
       'usable': 'usable',
-      'unusable_column': 'columns'     // 注意複數
+      'unusable_column': 'columns'
     };
 
     const zoneTypes = ['unusable_clearance', 'unusable_aisle', 'usable', 'unusable_column'];
@@ -1492,15 +1819,14 @@ export const SpacePlanningPage = {
       const layerKey = layerMap[type];
       const isVisible = this.state.layerVisibility[layerKey];
 
-      console.log(`[SpacePlanning] Rendering layer ${type} (${layerKey}), visible: ${isVisible}`);
-
       if (!isVisible) return;
 
       const zonesToDraw = this.state.zones.filter(z => z.type === type);
-      console.log(`[SpacePlanning] Drawing ${zonesToDraw.length} zones of type ${type}`);
-
       zonesToDraw.forEach(zone => this.drawZone(zone));
     });
+
+    // Restore DPR transform
+    ctx.restore();
 
     console.log('[SpacePlanning] Redraw complete');
   },
@@ -1509,22 +1835,28 @@ export const SpacePlanningPage = {
     const ctx = this.elements.ctx;
     const canvas = this.elements.canvas;
 
+    // Use CSS pixel dimensions (ctx is already DPR-scaled)
+    const displayWidth = canvas.clientWidth || (canvas.width / (window.devicePixelRatio || 1));
+    const displayHeight = canvas.clientHeight || (canvas.height / (window.devicePixelRatio || 1));
+
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 1;
 
-    const gridSize = 50;
+    // Adaptive grid size: keep grid lines in 30-80px range
+    const minDim = Math.min(displayWidth, displayHeight);
+    const gridSize = Math.max(30, Math.min(80, Math.round(minDim / 15)));
 
-    for (let x = 0; x < canvas.width; x += gridSize) {
+    for (let x = 0; x < displayWidth; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
+      ctx.lineTo(x, displayHeight);
       ctx.stroke();
     }
 
-    for (let y = 0; y < canvas.height; y += gridSize) {
+    for (let y = 0; y < displayHeight; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.lineTo(displayWidth, y);
       ctx.stroke();
     }
   },
@@ -1541,8 +1873,67 @@ export const SpacePlanningPage = {
     if (config.shape === 'rect') {
       const rect = this.worldToCanvas(0, 0, config.widthX, config.depthZ);
       ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+    } else if (config.shape === 't_shape') {
+      // Field names from define_container.js: t_top_x, t_top_z, t_bottom_x, t_bottom_z
+      const topW = config.t_top_x || config.topWidthX || config.widthX;
+      const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
+      const botW = config.t_bottom_x || config.bottomWidthX || (config.widthX * 0.4);
+      const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
+      const botLeft = (topW - botW) / 2;
+
+      ctx.beginPath();
+      const p0 = this.worldToCanvas(0, botD, 0, 0);
+      const p1 = this.worldToCanvas(topW, botD, 0, 0);
+      const p2 = this.worldToCanvas(topW, botD + topD, 0, 0);
+      const p3 = this.worldToCanvas(0, botD + topD, 0, 0);
+      const p4 = this.worldToCanvas(botLeft + botW, botD, 0, 0);
+      const p5 = this.worldToCanvas(botLeft + botW, 0, 0, 0);
+      const p6 = this.worldToCanvas(botLeft, 0, 0, 0);
+      const p7 = this.worldToCanvas(botLeft, botD, 0, 0);
+
+      ctx.moveTo(p3.x, p3.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.lineTo(p4.x, p4.y);
+      ctx.lineTo(p5.x, p5.y);
+      ctx.lineTo(p6.x, p6.y);
+      ctx.lineTo(p7.x, p7.y);
+      ctx.lineTo(p0.x, p0.y);
+      ctx.closePath();
+      ctx.stroke();
+
+    } else if (config.shape === 'u_shape') {
+      // Field names from define_container.js: u_outer_x, u_outer_z, u_gap_x, u_gap_z
+      const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
+      const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
+      const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
+      const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
+      const gapLeft = (outerW - gapW) / 2;
+      const gapRight = gapLeft + gapW;
+      const gapTop = outerD - gapD;
+
+      ctx.beginPath();
+      const u0 = this.worldToCanvas(0, 0, 0, 0);
+      const u1 = this.worldToCanvas(outerW, 0, 0, 0);
+      const u2 = this.worldToCanvas(outerW, outerD, 0, 0);
+      const u3 = this.worldToCanvas(gapRight, outerD, 0, 0);
+      const u4 = this.worldToCanvas(gapRight, gapTop, 0, 0);
+      const u5 = this.worldToCanvas(gapLeft, gapTop, 0, 0);
+      const u6 = this.worldToCanvas(gapLeft, outerD, 0, 0);
+      const u7 = this.worldToCanvas(0, outerD, 0, 0);
+
+      ctx.moveTo(u0.x, u0.y);
+      ctx.lineTo(u1.x, u1.y);
+      ctx.lineTo(u2.x, u2.y);
+      ctx.lineTo(u3.x, u3.y);
+      ctx.lineTo(u4.x, u4.y);
+      ctx.lineTo(u5.x, u5.y);
+      ctx.lineTo(u6.x, u6.y);
+      ctx.lineTo(u7.x, u7.y);
+      ctx.closePath();
+      ctx.stroke();
     }
-    // TODO: Draw T and U shapes
 
     ctx.setLineDash([]);
   },
@@ -1599,18 +1990,16 @@ export const SpacePlanningPage = {
     if (!canvas || !config) return { x: 0, y: 0, width: 0, height: 0 };
 
     const bounds = this.getContainerBounds();
-    const containerWidth = bounds.maxX - bounds.minX;
-    const containerHeight = bounds.maxZ - bounds.minZ;
 
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-    const scale = Math.min(scaleX, scaleY) * 0.9;
+    // Use getBoundingClientRect — consistent with resizeCanvas
+    const viewportRect = this.getViewportRect(canvas);
+    if (!viewportRect) return { x: 0, y: 0, width: 0, height: 0 };
 
-    const offsetX = (canvas.width - containerWidth * scale) / 2;
-    const offsetY = (canvas.height - containerHeight * scale) / 2;
+    const { scale, offsetX, offsetY } = this.computeFitTransform(bounds, viewportRect);
+
     return {
-      x: worldX * scale + offsetX,
-      y: worldY * scale + offsetY,
+      x: (worldX - bounds.minX) * scale + offsetX,
+      y: (worldY - bounds.minZ) * scale + offsetY,
       width: worldW * scale,
       height: worldH * scale
     };
@@ -1624,8 +2013,7 @@ export const SpacePlanningPage = {
     console.log('[SpacePlanning] Entering secondary edit mode...');
 
     // Check if we have usable regions
-    const usableRegions = this.state.zones.filter(z => z.type === 'usable');
-    if (usableRegions.length === 0) {
+    if (!spacePlanningPersistenceService.hasEditableRegions(this.state.zones)) {
       alert('請先生成可用空間');
       return;
     }
@@ -1671,15 +2059,13 @@ export const SpacePlanningPage = {
     if (btnReset) btnReset.style.display = 'none';
 
     // Initialize secondary editor
-    if (window.SecondaryRegionEditor) {
-      window.SecondaryRegionEditor.init();
-      window.SecondaryRegionEditor.state.mode = 'editing';
-      window.SecondaryRegionEditor.renderCanvas();
-    }
+    secondaryRegionEditorBridge.activateEditingMode();
 
     console.log('[SpacePlanning] Secondary edit mode activated');
   }
 };
 
 // Expose to global scope for HTML onclick handlers
-window.SpacePlanning = SpacePlanningPage;
+if (globalThis.window) {
+  globalThis.window.SpacePlanning = SpacePlanningPage;
+}

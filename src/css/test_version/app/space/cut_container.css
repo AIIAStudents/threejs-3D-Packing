@@ -5,9 +5,11 @@
 .space-planning-page {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  max-height: 100%;
   background: #0f172a;
   color: #e2e8f0;
+  overflow: hidden;
 }
 
 /* ============================================================
@@ -16,11 +18,14 @@
 
 .page-header {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 2rem;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border-bottom: 1px solid #334155;
+  margin-bottom: 0;
+  /* override global style.css margin-bottom: 20px */
 }
 
 .page-header h2 {
@@ -45,6 +50,7 @@
   grid-template-rows: minmax(0, 1fr);
   gap: 1rem;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   padding: 1rem;
 }
@@ -212,6 +218,8 @@
 .canvas-section {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   background: #1e293b;
   border-radius: 8px;
   border: 1px solid #334155;
@@ -283,8 +291,7 @@
 
 #planning-canvas {
   flex: 1;
-  width: 100%;
-  height: 100%;
+  display: block;
   background: #0f172a;
 }
 
@@ -425,6 +432,7 @@
 
 .page-footer {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;

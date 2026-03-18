@@ -1,5 +1,7 @@
-// Secondary Region Editor - Allows users to subdivide usable regions
 // This module handles the intermediate editing step between space planning and allocation
+
+import { secondaryRegionEditorService } from '../../frontend/contexts/space-design/application/secondary-region-editor-service.js';
+import { spacePlanningBridge } from '../../frontend/contexts/space-design/infrastructure/space-planning-bridge.js';
 
 export const SecondaryRegionEditor = {
   state: {
@@ -18,7 +20,7 @@ export const SecondaryRegionEditor = {
     // Settings
     snapToGrid: true,
     gridSize: 100, // mm
-    minRegionSize: 1000, // 1m minimum dimension
+    minRegionSize: 500, // 0.5m minimum dimension (allows T-shape narrow stems)
 
     // Container reference
     containerConfig: null,
@@ -32,29 +34,11 @@ export const SecondaryRegionEditor = {
     this.bindDOM();
     this.addEventListeners();
 
-    // Load container config
-    const storedConfig = localStorage.getItem('containerConfig');
-    if (storedConfig) {
-      this.state.containerConfig = JSON.parse(storedConfig);
-    }
+    const { containerConfig, originalRegions } = secondaryRegionEditorService.initializeState();
+    this.state.containerConfig = containerConfig;
+    this.state.originalRegions = originalRegions;
 
-    // Load usable regions
-    const storedZones = localStorage.getItem('generatedZones');
-    if (storedZones) {
-      const zones = JSON.parse(storedZones);
-      this.state.originalRegions = zones.filter(z => z.type === 'usable');
-
-      // Calculate area for regions that don't have it
-      for (const region of this.state.originalRegions) {
-        if (!region.area && region.width && region.height) {
-          // Calculate area in m² (width and height are in mm)
-          region.area = (region.width * region.height) / 1000000;
-          console.log(`[SecondaryEditor] Calculated area for ${region.id}: ${region.area.toFixed(2)} m²`);
-        }
-      }
-
-      console.log('[SecondaryEditor] Loaded regions:', this.state.originalRegions.length);
-    }
+    console.log('[SecondaryEditor] Loaded regions:', this.state.originalRegions.length);
 
     this.isInitialized = true;
 
@@ -212,29 +196,49 @@ export const SecondaryRegionEditor = {
   // ============================================================
 
   generateChildName(parentName, index) {
-    // If parent is a standard root name (Region X, 區域 X), use Alphabet
-    if (!parentName || parentName.startsWith('Region') || parentName.startsWith('區域')) {
-      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      return alphabet[index] || `${index + 1}`;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letter = alphabet[index] || `${index + 1}`;
+    // 結合成 "父名稱-代號" 以確保子區域全域唯一 (例如: 區域 1-A)
+    if (parentName) {
+      return `${parentName}-${letter}`;
     }
-    // Otherwise, append number (e.g. A -> A-1, A-1 -> A-1-1)
-    return `${parentName}-${index + 1}`;
+    return letter;
   },
 
   getAllLeafRegions(region) {
-    if (!region.has_subdivisions || !region.child_regions || region.child_regions.length === 0) {
-      return [region];
-    }
-
-    let leaves = [];
-    for (const child of region.child_regions) {
-      leaves = leaves.concat(this.getAllLeafRegions(child));
-    }
-    return leaves;
+    return secondaryRegionEditorService.getLeafRegions(region);
   },
 
   applyEqualSplit() {
     if (!this.state.selectedRegion) return;
+    {
+      const region = this.state.selectedRegion;
+      const direction = this.elements.equalDirection?.value || 'horizontal';
+      const parts = parseInt(this.elements.equalParts?.value) || 2;
+
+      console.log(`[SecondaryEditor] Applying equal split: ${parts} parts, ${direction}`);
+
+      this.state.childRegions = [];
+
+      const validation = secondaryRegionEditorService.buildEqualSubdivision({
+        region,
+        direction,
+        parts,
+        containerConfig: this.state.containerConfig,
+        minRegionSize: this.state.minRegionSize
+      });
+
+      if (!validation.valid) {
+        alert(`?⊥?憟?: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      this.state.childRegions = validation.children;
+      this.updateRegionWithSubdivision(region.id, validation.children);
+      this.renderCanvas();
+      this.updateRegionsList();
+      return;
+    }
 
     const direction = this.elements.equalDirection?.value || 'horizontal';
     const parts = parseInt(this.elements.equalParts?.value) || 2;
@@ -265,6 +269,7 @@ export const SecondaryRegionEditor = {
           y: childY,
           width: region.width,
           height: partHeight,
+          depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
           area: (region.width * partHeight) / 1000000, // Convert to m²
           metadata: {
             subdivision_method: 'equal',
@@ -290,6 +295,7 @@ export const SecondaryRegionEditor = {
           y: region.y,
           width: partWidth,
           height: region.height,
+          depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
           area: (partWidth * region.height) / 1000000,
           metadata: {
             subdivision_method: 'equal',
@@ -315,6 +321,35 @@ export const SecondaryRegionEditor = {
 
   applyRatioSplit() {
     if (!this.state.selectedRegion) return;
+    {
+      const region = this.state.selectedRegion;
+      const direction = this.elements.ratioDirection?.value || 'horizontal';
+      const percent = parseInt(this.elements.ratioPercent?.value) || 50;
+      const ratio = percent / 100;
+
+      console.log(`[SecondaryEditor] Applying ratio split: ${percent}%, ${direction}`);
+
+      this.state.childRegions = [];
+
+      const validation = secondaryRegionEditorService.buildRatioSubdivision({
+        region,
+        direction,
+        ratio,
+        containerConfig: this.state.containerConfig,
+        minRegionSize: this.state.minRegionSize
+      });
+
+      if (!validation.valid) {
+        alert(`?⊥?憟?: ${validation.errors.join(', ')}`);
+        return;
+      }
+
+      this.state.childRegions = validation.children;
+      this.updateRegionWithSubdivision(region.id, validation.children);
+      this.renderCanvas();
+      this.updateRegionsList();
+      return;
+    }
 
     const direction = this.elements.ratioDirection?.value || 'horizontal';
     const percent = parseInt(this.elements.ratioPercent?.value) || 50;
@@ -348,6 +383,7 @@ export const SecondaryRegionEditor = {
         y: region.y - region.height / 2 + height1 / 2,
         width: region.width,
         height: height1,
+        depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
         area: (region.width * height1) / 1000000,
         metadata: {
           subdivision_method: 'ratio',
@@ -366,6 +402,7 @@ export const SecondaryRegionEditor = {
         y: region.y + region.height / 2 - height2 / 2,
         width: region.width,
         height: height2,
+        depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
         area: (region.width * height2) / 1000000,
         metadata: {
           subdivision_method: 'ratio',
@@ -391,6 +428,7 @@ export const SecondaryRegionEditor = {
         y: region.y,
         width: width1,
         height: region.height,
+        depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
         area: (width1 * region.height) / 1000000,
         metadata: {
           subdivision_method: 'ratio',
@@ -409,6 +447,7 @@ export const SecondaryRegionEditor = {
         y: region.y,
         width: width2,
         height: region.height,
+        depth: region.depth || (this.state.containerConfig?.heightY) || 2400,
         area: (width2 * region.height) / 1000000,
         metadata: {
           subdivision_method: 'ratio',
@@ -432,6 +471,33 @@ export const SecondaryRegionEditor = {
   },
 
   validateSubdivision(children) {
+    if (!this.state.selectedRegion) {
+      return {
+        valid: false,
+        errors: ['No region selected']
+      };
+    }
+
+    const childAreas = children.reduce((sum, child) => sum + (child.area || 0), 0);
+    const parentArea = this.state.selectedRegion.area || 0;
+    const diff = parentArea > 0 ? Math.abs(parentArea - childAreas) / parentArea : 0;
+    const hasTooSmallChild = children.some(
+      (child) => child.width < this.state.minRegionSize || child.height < this.state.minRegionSize
+    );
+    const earlyErrors = [];
+
+    if (hasTooSmallChild) {
+      earlyErrors.push(`??偕撖賊?撠?(?撠?${this.state.minRegionSize}mm)`);
+    }
+    if (diff > 0.001) {
+      earlyErrors.push(`?Ｙ?銝???(隤文榆 ${(diff * 100).toFixed(2)}%)`);
+    }
+
+    return {
+      valid: earlyErrors.length === 0,
+      errors: earlyErrors
+    };
+
     const errors = [];
 
     // Check minimum size
@@ -460,6 +526,19 @@ export const SecondaryRegionEditor = {
   },
 
   updateRegionWithSubdivision(regionId, children) {
+    const result = secondaryRegionEditorService.applySubdivision(this.state.originalRegions, regionId, children);
+
+    if (!result.selectedRegion) {
+      console.error(`[SecondaryEditor] Could not find region ${regionId} to update`);
+      return;
+    }
+
+    console.log(`[SecondaryEditor] Updating subdivisions for region ${regionId}`);
+    this.state.originalRegions = result.regions;
+    this.state.selectedRegion = result.selectedRegion;
+    this.state.childRegions = result.selectedRegion.child_regions || [];
+    return;
+
     // Recursive search to find the region (top-level or nested)
     const findRegion = (regions) => {
       for (const r of regions) {
@@ -491,6 +570,26 @@ export const SecondaryRegionEditor = {
 
   clearSubdivisions() {
     if (!this.state.selectedRegion) return;
+    {
+      this.state.childRegions = [];
+      this.state.subdivisions = [];
+
+      const regionId = this.state.selectedRegionId;
+      const result = secondaryRegionEditorService.clearSubdivision(this.state.originalRegions, regionId);
+
+      if (!result.selectedRegion) {
+        console.error(`[SecondaryEditor] Could not find region ${regionId} to clear`);
+        return;
+      }
+
+      console.log(`[SecondaryEditor] Clearing subdivisions for region ${regionId}`);
+      this.state.originalRegions = result.regions;
+      this.state.selectedRegion = result.selectedRegion;
+
+      this.renderCanvas();
+      this.updateRegionsList();
+      return;
+    }
 
     this.state.childRegions = [];
     this.state.subdivisions = [];
@@ -597,11 +696,13 @@ export const SecondaryRegionEditor = {
 
   handleMouseUp(e) {
     if (!this.state.isDragging) return;
-
     this.state.isDragging = false;
 
-    // TODO: Apply manual split based on currentSplitLine
-    // For now, just clear the preview
+    if (this.state.currentSplitLine && this.state.selectedRegion) {
+      console.warn('[SecondaryEditor] Manual split not yet implemented');
+      alert('手動切割功能尚在開發中，請改用「等分切割」或「比例切割」');
+    }
+
     this.state.currentSplitLine = null;
     this.renderCanvas();
   },
@@ -737,8 +838,9 @@ export const SecondaryRegionEditor = {
       let leafChildren = [];
 
       if (hasSubdivisions) {
-        leafChildren = this.getAllLeafRegions(region);
-        totalChildArea = leafChildren.reduce((sum, child) => sum + child.area, 0);
+        const leafSummary = secondaryRegionEditorService.getLeafRegionSummary(region);
+        leafChildren = leafSummary.leafRegions;
+        totalChildArea = leafSummary.totalLeafArea;
       }
 
       let childrenHTML = '';
@@ -804,9 +906,13 @@ export const SecondaryRegionEditor = {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // First, draw base layers using SpacePlanningPage (columns, aisles, clearance, etc.)
-    if (window.SpacePlanning && window.SpacePlanning.redraw) {
-      window.SpacePlanning.redraw();
-    }
+    // Note: SpacePlanning.redraw() already handles DPR scaling via ctx.save/scale/restore
+    spacePlanningBridge.redraw();
+
+    // Apply DPR scaling for our overlay drawing
+    const dpr = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.scale(dpr, dpr);
 
     // Now draw our overlays - show ALL subdivisions, not just selected
     for (const region of this.state.originalRegions) {
@@ -844,6 +950,9 @@ export const SecondaryRegionEditor = {
     if (this.state.currentSplitLine) {
       this.drawSplitLinePreview(ctx, this.state.currentSplitLine);
     }
+
+    // Restore DPR transform
+    ctx.restore();
   },
 
   drawRegionOverlay(ctx, region, style) {
@@ -943,91 +1052,103 @@ export const SecondaryRegionEditor = {
   // ============================================================
 
   worldToScreen(worldX, worldY) {
-    // Use SpacePlanningPage's coordinate system if available
-    if (window.SpacePlanning && window.SpacePlanning.worldToScreen) {
-      return window.SpacePlanning.worldToScreen(worldX, worldY);
+    // Delegate to SpacePlanning — single source of truth for coordinate transform
+    const screenPosition = spacePlanningBridge.worldToCanvas(worldX, worldY);
+    if (screenPosition) {
+      return screenPosition;
     }
 
-    // Fallback to own implementation
+    // Fallback: use SpacePlanning utilities if available
     const canvas = this.elements.canvas;
     if (!canvas || !this.state.containerConfig) return { x: 0, y: 0 };
-
     const bounds = this.getContainerBounds();
-    const containerWidth = bounds.maxX - bounds.minX;
-    const containerHeight = bounds.maxZ - bounds.minZ;
-
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-    const scale = Math.min(scaleX, scaleY) * 0.9;
-
-    const offsetX = (canvas.width - containerWidth * scale) / 2;
-    const offsetY = (canvas.height - containerHeight * scale) / 2;
-
+    const vr = spacePlanningBridge.getViewportRect(canvas);
+    if (!vr) return { x: 0, y: 0 };
+    const transform = spacePlanningBridge.computeFitTransform(bounds, vr);
+    if (!transform) return { x: 0, y: 0 };
+    const { scale, offsetX, offsetY } = transform;
     return {
-      x: worldX * scale + offsetX,
-      y: worldY * scale + offsetY
+      x: (worldX - bounds.minX) * scale + offsetX,
+      y: (worldY - bounds.minZ) * scale + offsetY
     };
   },
 
   screenToWorld(screenX, screenY) {
-    // Use SpacePlanningPage's coordinate system if available
-    if (window.SpacePlanning && window.SpacePlanning.screenToWorld) {
-      return window.SpacePlanning.screenToWorld(screenX, screenY);
-    }
-
-    // Fallback to own implementation
     const canvas = this.elements.canvas;
     if (!canvas || !this.state.containerConfig) return { x: 0, y: 0 };
 
     const bounds = this.getContainerBounds();
-    const containerWidth = bounds.maxX - bounds.minX;
-    const containerHeight = bounds.maxZ - bounds.minZ;
 
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-    const scale = Math.min(scaleX, scaleY) * 0.9;
+    // Must use same transform as worldToScreen — delegate to SpacePlanning utilities
+    const vr = spacePlanningBridge.getViewportRect(canvas);
+    if (vr) {
+      const transform = spacePlanningBridge.computeFitTransform(bounds, vr);
+      if (!transform) return { x: 0, y: 0 };
+      const { scale, offsetX, offsetY } = transform;
+      return {
+        x: (screenX - offsetX) / scale + bounds.minX,
+        y: (screenY - offsetY) / scale + bounds.minZ
+      };
+    }
 
-    const offsetX = (canvas.width - containerWidth * scale) / 2;
-    const offsetY = (canvas.height - containerHeight * scale) / 2;
-
+    // Fallback (same getBoundingClientRect approach)
+    const parent = canvas.parentElement;
+    const rect = parent ? parent.getBoundingClientRect() : canvas.getBoundingClientRect();
+    if (!rect || rect.width < 10) return { x: 0, y: 0 };
+    const bboxW = Math.max(bounds.maxX - bounds.minX, 1);
+    const bboxH = Math.max(bounds.maxZ - bounds.minZ, 1);
+    const scale = Math.min((rect.width - 80) / bboxW, (rect.height - 80) / bboxH) * 0.90;
+    const offsetX = (rect.width - bboxW * scale) / 2;
+    const offsetY = (rect.height - bboxH * scale) / 2;
     return {
-      x: (screenX - offsetX) / scale,
-      y: (screenY - offsetY) / scale
+      x: (screenX - offsetX) / scale + bounds.minX,
+      y: (screenY - offsetY) / scale + bounds.minZ
     };
   },
 
   getContainerBounds() {
+    // Fix 5: Delegate to SpacePlanning for correct T/U shape bounds
+    const planningBounds = spacePlanningBridge.getContainerBounds();
+    if (planningBounds) {
+      return planningBounds;
+    }
+
+    // Fallback
     if (!this.state.containerConfig) {
       return { minX: 0, maxX: 10000, minZ: 0, maxZ: 10000 };
     }
-
     const config = this.state.containerConfig;
     return {
       minX: 0,
-      maxX: config.widthX || 10000,
+      maxX: config.u_outer_x || config.t_top_x || config.widthX || 10000,
       minZ: 0,
-      maxZ: config.depthZ || 10000
+      maxZ: config.u_outer_z || ((config.t_bottom_z || 0) + (config.t_top_z || 0)) || config.depthZ || 10000
     };
   },
 
   getScale() {
-    // Use SpacePlanningPage's scale if available
-    if (window.SpacePlanning && window.SpacePlanning.getScale) {
-      return window.SpacePlanning.getScale();
+    // Must match computeFitTransform — delegate to SpacePlanning
+    if (!this.state.containerConfig) return 0.1;
+    const canvas = this.elements.canvas;
+    if (!canvas) return 0.1;
+
+    const vr = spacePlanningBridge.getViewportRect(canvas);
+    if (vr) {
+      const bounds = this.getContainerBounds();
+      const transform = spacePlanningBridge.computeFitTransform(bounds, vr);
+      if (transform) {
+        return transform.scale;
+      }
     }
 
     // Fallback
-    if (!this.state.containerConfig) return 0.1;
-
-    const canvas = this.elements.canvas;
+    const parent = canvas.parentElement;
+    const rect = parent ? parent.getBoundingClientRect() : canvas.getBoundingClientRect();
+    if (!rect || rect.width < 10) return 0.1;
     const bounds = this.getContainerBounds();
-    const containerWidth = bounds.maxX - bounds.minX;
-    const containerHeight = bounds.maxZ - bounds.minZ;
-
-    const scaleX = canvas.width / containerWidth;
-    const scaleY = canvas.height / containerHeight;
-
-    return Math.min(scaleX, scaleY) * 0.9;
+    const bboxW = Math.max(bounds.maxX - bounds.minX, 1);
+    const bboxH = Math.max(bounds.maxZ - bounds.minZ, 1);
+    return Math.min((rect.width - 80) / bboxW, (rect.height - 80) / bboxH) * 0.90;
   },
 
   // ============================================================
@@ -1037,12 +1158,7 @@ export const SecondaryRegionEditor = {
   exitEditMode() {
     console.log('[SecondaryEditor] Exiting edit mode...');
 
-    // Restore original regions (discard changes)
-    const storedZones = localStorage.getItem('generatedZones');
-    if (storedZones) {
-      const zones = JSON.parse(storedZones);
-      this.state.originalRegions = zones.filter(z => z.type === 'usable');
-    }
+    this.state.originalRegions = secondaryRegionEditorService.reloadOriginalRegions();
 
     // Clear selection state
     this.state.selectedRegionId = null;
@@ -1051,15 +1167,31 @@ export const SecondaryRegionEditor = {
     this.state.mode = 'view';
 
     // Restore normal UI
-    if (window.SpacePlanning && window.SpacePlanning.exitSecondaryEditMode) {
-      window.SpacePlanning.exitSecondaryEditMode();
-    }
+    spacePlanningBridge.exitSecondaryEditMode();
   },
 
   resetAllSubdivisions() {
     if (!confirm('確定要重設所有細分嗎？此操作無法復原。')) return;
 
     console.log('[SecondaryEditor] Resetting all subdivisions...');
+
+    this.state.originalRegions = secondaryRegionEditorService.resetAllSubdivisions(this.state.originalRegions);
+    this.state.childRegions = [];
+    this.state.selectedRegionId = null;
+    this.state.selectedRegion = null;
+
+    if (this.elements.selectedInfo) {
+      this.elements.selectedInfo.style.display = 'none';
+    }
+    if (this.elements.subdivisionTools) {
+      this.elements.subdivisionTools.style.display = 'none';
+    }
+
+    this.renderCanvas();
+    this.updateRegionsList();
+
+    console.log('[SecondaryEditor] All subdivisions reset and canvas updated');
+    return;
 
     // Clear all subdivisions from original regions
     for (const region of this.state.originalRegions) {
@@ -1088,26 +1220,29 @@ export const SecondaryRegionEditor = {
     console.log('[SecondaryEditor] All subdivisions reset and canvas updated');
   },
 
-  applyAndContinue() {
+  async applyAndContinue() {
     console.log('[SecondaryEditor] Applying subdivisions and continuing...');
 
-    // Save regions with subdivisions
-    const regionsWithSubdivisions = this.state.originalRegions.map(region => ({
-      ...region,
-      has_subdivisions: region.has_subdivisions || false,
-      child_regions: region.child_regions || []
-    }));
+    const { flatLeaves } = secondaryRegionEditorService.persistEditedRegions(this.state.originalRegions);
 
-    localStorage.setItem('usableRegionsWithSubdivisions', JSON.stringify(regionsWithSubdivisions));
+    // Fix: Also save to backend so assign-space can load it from server truth
+    try {
+      const result = await secondaryRegionEditorService.submitCuttingJob(this.state.containerConfig, flatLeaves);
+      console.log('[SecondaryEditor] Backend save successful:', result);
 
-    console.log('[SecondaryEditor] Saved regions:', regionsWithSubdivisions.length);
-    console.log('[SecondaryEditor] Subdivided regions:',
-      regionsWithSubdivisions.filter(r => r.has_subdivisions).length);
+      // Navigate to allocation page
+      window.location.hash = '/assign-space';
 
-    // Navigate to allocation page
-    window.location.hash = '/assign-space';
+    } catch (error) {
+      console.error('[SecondaryEditor] Failed to save cutting job to backend:', error);
+      alert('❌ 無法儲存切割結果到伺服器：' + error.message + '\n\n系統將嘗試使用本地緩存繼續，但可能導致分配失敗。');
+      // Navigation allowed as fallback if user wants to proceed despite error
+      window.location.hash = '/assign-space';
+    }
   }
 };
 
 // Make globally accessible
-window.SecondaryRegionEditor = SecondaryRegionEditor;
+if (globalThis.window) {
+  globalThis.window.SecondaryRegionEditor = SecondaryRegionEditor;
+}
