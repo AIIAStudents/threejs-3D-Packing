@@ -1,3 +1,12 @@
+"""
+[DEPRECATED] Groups Inventory API Blueprint (Orphan)
+WARNING: This module is deprecated and its blueprint is no longer registered.
+It relies on the legacy 'items' table schema which is now a view (DDD Phase 1).
+It will be removed completely in Phase 3. Please use the v2 groups_inventory module instead.
+"""
+import warnings
+warnings.warn("groups_inventory_api.py is an orphan legacy module and will be removed in Phase 3.", DeprecationWarning, stacklevel=2)
+
 import sqlite3
 import os
 from flask import Blueprint, jsonify, request

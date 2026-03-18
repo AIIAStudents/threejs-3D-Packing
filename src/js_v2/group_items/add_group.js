@@ -1,5 +1,6 @@
+import { groupManagementService } from '../../frontend/contexts/inventory/application/group-management-service.js';
+
 export const AddGroupPage = {
-  API_BASE: 'http://127.0.0.1:8888/api',
   groups: [],
 
   init() {
@@ -127,11 +128,10 @@ export const AddGroupPage = {
 
   async loadGroups() {
     try {
-      const response = await fetch(`${this.API_BASE}/groups`);
-      if (!response.ok) throw new Error('載入失敗');
-
-      this.groups = await response.json();
+      this.groups = await groupManagementService.loadGroups();
       this.renderGroups();
+      return;
+      void 0;
 
     } catch (error) {
       console.error('Error loading groups:', error);
@@ -295,13 +295,10 @@ export const AddGroupPage = {
     }
 
     try {
-      const response = await fetch(`${this.API_BASE}/groups`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: groupName })
-      });
+      await groupManagementService.createGroup(groupName);
+      const response = { ok: true };
 
-      if (!response.ok) throw new Error('新增失敗');
+      void 0;
 
       this.closeModal(); // Close the input modal first
 
@@ -382,11 +379,10 @@ export const AddGroupPage = {
 
   async executeDelete(id) {
     try {
-      const response = await fetch(`${this.API_BASE}/groups/${id}`, {
-        method: 'DELETE'
-      });
+      await groupManagementService.deleteGroup(id);
+      const response = { ok: true };
 
-      if (!response.ok) throw new Error('刪除失敗');
+      void 0;
 
       // Show Success Modal
       const successModal = document.getElementById('success-modal');
@@ -432,16 +428,10 @@ export const AddGroupPage = {
         throw new Error('找不到群組資料');
       }
 
-      const response = await fetch(`${this.API_BASE}/groups/${this.currentEditingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName,
-          note: currentGroup.description || currentGroup.note || ''  // Preserve existing note
-        })
-      });
+      await groupManagementService.renameGroup(currentGroup, newName);
+      const response = { ok: true };
 
-      if (!response.ok) throw new Error('更新失敗');
+      void 0;
 
       this.closeRenameModal();
 
@@ -485,16 +475,10 @@ export const AddGroupPage = {
         throw new Error('找不到群組資料');
       }
 
-      const response = await fetch(`${this.API_BASE}/groups/${this.currentEditingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: currentGroup.name,  // Always preserve the name
-          note: newNote
-        })
-      });
+      await groupManagementService.saveGroupNote(currentGroup, newNote);
+      const response = { ok: true };
 
-      if (!response.ok) throw new Error('更新失敗');
+      void 0;
 
       this.closeNoteModal();
 

@@ -1,7 +1,13 @@
 """
-Groups and Items API Blueprint
+[DEPRECATED] Groups and Items API Blueprint
+WARNING: This module is deprecated and its blueprint has been unregistered.
+It relies on the legacy 'items' table schema which is now a view (DDD Phase 1).
+It will be removed completely in Phase 3. Please use the v2 APIs instead.
+
 Handles CRUD operations for groups and items
 """
+import warnings
+warnings.warn("groups_items.py is deprecated and will be removed in Phase 3.", DeprecationWarning, stacklevel=2)
 from flask import Blueprint, jsonify, request
 from src.api_server_v2.db_config import get_db_connection
 

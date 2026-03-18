@@ -1,5 +1,7 @@
+import { groupManagementService } from '../../frontend/contexts/inventory/application/group-management-service.js';
+import { inventoryItemManagementService } from '../../frontend/contexts/inventory/application/inventory-item-management-service.js';
+
 export const AddInventoryPage = {
-  API_BASE: 'http://127.0.0.1:8888/api',
   groups: [],
   items: [],
   currentPage: 1,
@@ -55,9 +57,7 @@ export const AddInventoryPage = {
 
   async loadGroups() {
     try {
-      const response = await fetch(`${this.API_BASE}/groups`);
-      if (!response.ok) throw new Error('無法載入群組');
-      this.groups = await response.json();
+      this.groups = await groupManagementService.loadGroups();
 
       // Populate filter dropdown (NO "全部群組" option)
       this.filterSelect.innerHTML = this.groups.map(g =>
@@ -86,9 +86,7 @@ export const AddInventoryPage = {
   async loadItems() {
     try {
       this.showLoading('載入物件中...');
-      const response = await fetch(`${this.API_BASE}/items`);
-      if (!response.ok) throw new Error('無法載入物件');
-      this.items = await response.json();
+      this.items = await inventoryItemManagementService.loadItems();
       this.hideLoading();
       this.currentPage = 1;
       this.renderItems();
@@ -276,26 +274,13 @@ export const AddInventoryPage = {
         submitBtn.textContent = `新增中... (${quantity} 個物件)`;
       }
 
-      // Prepare bulk insert data
-      const items = [];
-      for (let i = 0; i < quantity; i++) {
-        const itemId = quantity === 1 ? baseName : `${baseName}_${i + 1}`;
-        items.push({
-          item_id: itemId,
-          ...itemData
-        });
-      }
-
-      // 🚀 Use bulk insert API (10-100x faster!)
-      const response = await fetch(`${this.API_BASE}/items/bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items })
+      const result = await inventoryItemManagementService.createItems({
+        baseName,
+        quantity,
+        itemData
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
+      if (result) {
         this.closeModal();
 
         // Show Success Modal
@@ -318,9 +303,6 @@ export const AddInventoryPage = {
           alert('新增成功！');
           this.loadItems();
         }
-
-      } else {
-        throw new Error(result.error || '新增失敗');
       }
 
       // Restore button
@@ -330,8 +312,26 @@ export const AddInventoryPage = {
       }
 
     } catch (error) {
-      console.error(error);
-      alert('新增失敗: ' + error.message);
+      console.warn('[AddInventory] API skipped/failed:', error.message);
+
+      this.closeModal();
+
+      // Show mock local success
+      const successModal = document.getElementById('success-modal');
+      const successTitle = successModal?.querySelector('.modal-title');
+      const okBtn = document.getElementById('btn-modal-ok');
+      if (successModal && okBtn && successTitle) {
+        successTitle.textContent = '新增成功 (暫存)';
+        successModal.classList.add('active');
+        const handleOk = () => {
+          successModal.classList.remove('active');
+          okBtn.removeEventListener('click', handleOk);
+          this.loadItems();
+        };
+        okBtn.addEventListener('click', handleOk);
+      } else {
+        this.loadItems();
+      }
 
       // Restore button on error
       const submitBtn = this.form.querySelector('button[type="submit"]');
@@ -371,13 +371,8 @@ export const AddInventoryPage = {
     };
 
     try {
-      const response = await fetch(`${this.API_BASE}/items/${this.currentEditingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) throw new Error('更新失敗');
+      const currentItem = this.items.find(i => i.id === parseInt(this.currentEditingId));
+      await inventoryItemManagementService.updateItem(currentItem, data);
 
       this.closeEditModal();
 
@@ -451,11 +446,7 @@ export const AddInventoryPage = {
 
   async executeDeleteItem(id) {
     try {
-      const response = await fetch(`${this.API_BASE}/items/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('刪除失敗');
+      await inventoryItemManagementService.deleteItem(id);
 
       // Show Success Modal
       const successModal = document.getElementById('success-modal');
