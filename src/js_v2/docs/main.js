@@ -165,5 +165,5 @@ function init() {
   });
 }
 
-// Export for DirectModuleLoader
+// Export for AppRouter
 export default { init };

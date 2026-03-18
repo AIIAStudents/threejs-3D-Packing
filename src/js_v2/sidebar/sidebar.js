@@ -139,12 +139,12 @@ export class Sidebar {
 
   updateActiveState(path) {
     // Handle potential legacy paths or clean up path
-    // DirectModuleLoader handles the redirection, so sidebar just needs to match the final hash
+    // AppRouter handles the redirection, so sidebar just needs to match the final hash
 
     // Find matching menu item
     // We use endsWith or includes because the path might have extra params eventually, 
     // but for now exact match or mapping is best. 
-    // Given the legacy redirect in DirectModuleLoader, we should try to match the logical route.
+    // Given the legacy redirect in AppRouter, we should try to match the logical route.
 
     let logicalPath = path;
 

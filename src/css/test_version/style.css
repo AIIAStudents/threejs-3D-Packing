@@ -118,7 +118,7 @@ body {
 
 .section-title {
   padding: 10px 20px;
-  font-size: 0.7rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;

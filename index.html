@@ -8,20 +8,8 @@
 
   <!-- Centralized CSS Imports -->
   <link rel="stylesheet" href="./src/css/test_version/style.css">
-  <link rel="stylesheet" href="./src/css/test_version/define_container.css">
-  <link rel="stylesheet" href="./src/css/test_version/cut_container.css">
-  <link rel="stylesheet" href="./src/css/test_version/assign_space.css">
-  <link rel="stylesheet" href="./src/css/test_version/assign_sequence.css">
-  <link rel="stylesheet" href="./src/css/test_version/add_group.css">
-  <link rel="stylesheet" href="./src/css/test_version/add_inventory.css">
-  <link rel="stylesheet" href="./src/css/test_version/view_final.css">
-  <link rel="stylesheet" href="./src/css/test_version/animation_preview.css">
 
   <!-- External Dependencies -->
-  <!-- Three.js (required for 3D view) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -42,17 +30,11 @@
         <i class="fas fa-box-open" style="font-size: 4rem; margin-bottom: 20px; color: #ddd;"></i>
         <h2>歡迎使用 3D 裝箱系統</h2>
         <p>請點擊左側選單開始新專案或管理設定。</p>
-        <div style="margin-top: 30px;">
-          <a href="/webgpu_test.html" class="btn btn-primary"
-            style="padding: 12px 24px; background: #3b82f6; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);">
-            🚀 體驗 WebGPU 新引擎 (Beta)
-          </a>
-        </div>
       </div>
     </main>
   </div>
 
   <!-- Centralized JavaScript Imports -->
-  <!-- DirectModuleLoader initializes the Router (Sidebar) and loads module based on URL -->
-  <script type="module" src="./src/js_v2/DirectModuleLoader.js?v=2"></script>
+  <!-- AppRouter initializes the Router (Sidebar) and loads modules based on URL -->
+  <script type="module" src="./src/js_v2/AppRouter.js?v=3"></script>
 </body>

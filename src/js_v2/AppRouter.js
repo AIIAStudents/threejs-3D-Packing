@@ -1,11 +1,11 @@
 import { Sidebar } from './sidebar/sidebar.js';
 
 /**
- * DirectModuleLoader - Logical Route Based SPA Router
+ * AppRouter - Logical Route Based SPA Router
  * Uses hash routing with logical routes (#/page-name) instead of file paths
  */
 
-class DirectModuleLoader {
+class AppRouter {
   // Logical route to file path mapping
   static PATH_MAP = {
     '/docs': {
@@ -51,8 +51,8 @@ class DirectModuleLoader {
       js: '/src/js_v2/assign/assign_sequence.js'
     },
     '/view-final': {
-      html: '/src/html/app/preview/view_final.html',
-      js: '/src/js_v2/view/view_final.js'
+      html: '/src/html/app/preview/packing_results_page.html',
+      js: '/src/js_v2/view/packing_results_page.js'
     },
     '/animation-preview': {
       html: '/src/html/app/preview/animation_preview.html',
@@ -93,7 +93,7 @@ class DirectModuleLoader {
    */
   init() {
     const initialPath = window.location.hash.slice(1) || '/';
-    console.log('DirectModuleLoader init with path:', initialPath);
+    console.log('AppRouter init with path:', initialPath);
     this.handlePath(initialPath);
   }
 
@@ -111,17 +111,17 @@ class DirectModuleLoader {
    */
   async handlePath(path) {
     try {
-      console.log('[DirectModuleLoader] handlePath called with:', path);
+      console.log('[AppRouter] handlePath called with:', path);
       if (!path || path === '/') {
         // Load docs page as default instead of showing welcome screen
-        console.log('[DirectModuleLoader] Loading default docs page...');
-        const docsConfig = DirectModuleLoader.PATH_MAP['/docs'];
-        console.log('[DirectModuleLoader] docsConfig:', docsConfig);
+        console.log('[AppRouter] Loading default docs page...');
+        const docsConfig = AppRouter.PATH_MAP['/docs'];
+        console.log('[AppRouter] docsConfig:', docsConfig);
         if (docsConfig) {
           await this.loadPage('/docs', docsConfig);
-          console.log('[DirectModuleLoader] Docs page loaded successfully');
+          console.log('[AppRouter] Docs page loaded successfully');
         } else {
-          console.warn('[DirectModuleLoader] No docs config found, showing welcome');
+          console.warn('[AppRouter] No docs config found, showing welcome');
           this.showWelcome();
         }
         return;
@@ -139,6 +139,7 @@ class DirectModuleLoader {
           '/src/html/assign_space.html': '/assign-space',
           '/src/html/assign_sequence.html': '/assign-sequence',
           '/src/html/view_final.html': '/view-final',
+          '/src/html/packing_results_page.html': '/view-final',
           '/src/html/animation_preview.html': '/animation-preview',
           '/src/html/worker_demo.html': '/demo-worker',
           '/src/html/instanced_mesh_demo.html': '/demo-instanced',
@@ -150,6 +151,7 @@ class DirectModuleLoader {
           '/src/html/app/space/assign_space.html': '/assign-space',
           '/src/html/app/space/assign_sequence.html': '/assign-sequence',
           '/src/html/app/preview/view_final.html': '/view-final',
+          '/src/html/app/preview/packing_results_page.html': '/view-final',
           '/src/html/app/preview/animation_preview.html': '/animation-preview'
         };
 
@@ -162,7 +164,7 @@ class DirectModuleLoader {
       }
 
       // Validate route exists in PATH_MAP
-      const routeConfig = DirectModuleLoader.PATH_MAP[path];
+      const routeConfig = AppRouter.PATH_MAP[path];
       if (!routeConfig) {
         console.error(`Route not found: ${path}`);
         this.showError(`路由不存在: ${path}`);
@@ -289,7 +291,7 @@ class DirectModuleLoader {
 
 // Initialize
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new DirectModuleLoader());
+  document.addEventListener('DOMContentLoaded', () => new AppRouter());
 } else {
-  new DirectModuleLoader();
+  new AppRouter();
 }

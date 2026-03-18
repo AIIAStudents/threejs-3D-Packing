@@ -73,7 +73,7 @@ export const ScrollReveal = {
 };
 
 // Auto-initialize when module is loaded
-// Note: Will be called by DirectModuleLoader when page loads
+// Note: Will be called by AppRouter when page loads
 export function init() {
   ScrollReveal.init();
 }
