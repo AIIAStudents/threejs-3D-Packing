@@ -1,36 +1,105 @@
 <link rel="stylesheet" href="/src/css/test_version/app/space/assign_sequence.css">
-<div class="page-container">
+<div class="space-flow-page assign-sequence-page">
   <header class="page-header">
-    <h2>排序設定</h2>
-    <p class="subtitle">拖曳物件調整打包順序</p>
+    <div class="page-header-copy">
+      <p class="page-kicker">Spatial Control Flow / Step 4</p>
+      <div class="page-title-row">
+        <h2>排序設定</h2>
+        <span class="page-status-chip">Sequence Optimization Bench</span>
+      </div>
+      <p class="page-subtitle">
+        針對單一區塊檢視待入場物件，調整序列與優先順序，讓後續 packing 計算更符合實際作業流程。
+      </p>
+    </div>
+    <div class="flow-header-actions">
+      <div class="header-metric">
+        <p class="metric-label">Focus</p>
+        <strong>Sequence / Priority</strong>
+      </div>
+      <div class="header-metric">
+        <p class="metric-label">Output</p>
+        <strong>執行前排序結果</strong>
+      </div>
+    </div>
   </header>
 
+  <section class="expert-mode-bridge" aria-label="快速模式入口">
+    <div class="expert-mode-bridge-copy">
+      <p class="expert-mode-bridge-kicker">Quick Mode Available</p>
+      <h3>如果你還在確認配置策略，先從 V2 快速模式會更直覺</h3>
+      <p>快速模式會先產生配置候選方案與設計理由；Expert Mode 這裡則專注於排序、優先序與 packing 前處理。</p>
+    </div>
+    <div class="expert-mode-bridge-actions">
+      <a class="btn btn-primary" href="#/planning-v2">前往 V2 快速模式</a>
+      <span class="expert-mode-bridge-note">目前位置：Expert Mode / 排序設定</span>
+    </div>
+  </section>
+
+  <section class="flow-stepper" aria-label="空間配置流程">
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">1</div>
+      <div class="flow-step-label">定義容器</div>
+      <div class="flow-step-meta">完成</div>
+    </div>
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">2</div>
+      <div class="flow-step-label">切割容器</div>
+      <div class="flow-step-meta">完成</div>
+    </div>
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">3</div>
+      <div class="flow-step-label">分配物件</div>
+      <div class="flow-step-meta">完成</div>
+    </div>
+    <div class="flow-step is-active">
+      <div class="flow-step-index">4</div>
+      <div class="flow-step-label">排序設定</div>
+      <div class="flow-step-meta">安排區塊順序</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">5</div>
+      <div class="flow-step-label">結果驗證</div>
+      <div class="flow-step-meta">檢查 packing 結果</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">6</div>
+      <div class="flow-step-label">動畫預覽</div>
+      <div class="flow-step-meta">播放流程模擬</div>
+    </div>
+  </section>
+
   <div class="content-wrapper">
-    <!-- Zone Selector -->
     <section class="selector-section">
       <div class="form-group">
-        <label for="zone-select">選擇編輯空間：</label>
+        <label for="zone-select">選擇要排序的區塊</label>
         <select id="zone-select" class="zone-selector">
           <option value="">載入中...</option>
         </select>
       </div>
     </section>
 
-    <!-- Item List for Ordering -->
     <section class="ordering-section">
       <div class="section-header">
-        <h3>物件順序</h3>
-        <span id="item-count" class="item-count">0 個物件</span>
+        <h3>排序工作台</h3>
+        <span id="item-count" class="item-count">0 件物件</span>
       </div>
       <div id="items-container" class="sortable-list">
         <div class="empty-state">
-          <p>請選擇上方的空間以編輯物件順序</p>
+          <p>先選擇一個區塊，才能查看該區塊目前的排序結果。</p>
         </div>
       </div>
     </section>
   </div>
 
   <footer class="page-footer">
-    <button id="btn-prev" class="btn btn-secondary">上一步</button>
-    <button id="btn-execute-packing" class="btn btn-primary">執行打包</button>
+    <div class="command-bar-copy">
+      <p class="save-kicker">Execution Gate</p>
+      <p class="command-bar-title">確認排序後執行 packing</p>
+      <p>排序會直接影響 packing 的放置順序，請先確認同群組的相對順序是否符合操作邏輯。</p>
+    </div>
+    <div class="command-bar-actions">
+      <button id="btn-prev" class="btn btn-secondary">回到分配物件</button>
+      <button id="btn-execute-packing" class="btn btn-primary">執行 Packing</button>
+    </div>
   </footer>
+</div>

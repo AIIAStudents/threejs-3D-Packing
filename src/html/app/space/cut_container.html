@@ -1,121 +1,177 @@
 <link rel="stylesheet" href="/src/css/test_version/app/space/cut_container.css">
 <link rel="stylesheet" href="/src/css/test_version/app/space/secondary_editor.css">
 
-<div class="space-planning-page">
+<div class="space-flow-page cut-container-page">
   <header class="page-header">
-    <h2>空間規劃 & 限制設定</h2>
+    <div class="page-header-copy">
+      <p class="page-kicker">Spatial Control Flow / Step 2</p>
+      <div class="page-title-row">
+        <h2>切割與規劃倉儲空間</h2>
+        <span class="page-status-chip">Warehouse Layout Workspace</span>
+      </div>
+      <p class="page-subtitle">
+        這裡會根據容器形狀、走道、安全距離與柱位限制，自動生成可存放區、走道區、安全區與不可用區。
+      </p>
+    </div>
     <div class="header-actions">
-      <button id="btn-generate" class="btn btn-primary">🔄 生成空間</button>
-      <button id="btn-reset" class="btn btn-outline">↺ 重置</button>
+      <button id="btn-generate" class="btn btn-primary">重新生成規劃</button>
+      <button id="btn-reset" class="btn btn-outline">還原規劃條件</button>
     </div>
   </header>
+  <section id="cut-container-readonly-banner" class="readonly-cut-banner" hidden>
+    此頁面為規劃結果的空間切割視覺化，如需修改請回到快速模式重新生成。
+  </section>
+
+  <section class="expert-mode-bridge" aria-label="快速模式入口">
+    <div class="expert-mode-bridge-copy">
+      <p class="expert-mode-bridge-kicker">Quick Mode Available</p>
+      <h3>這頁是 Expert Mode 的切割工作台</h3>
+      <p>如果你想先輸入倉儲需求，再由系統自動理解限制、規劃走道與儲位，請改走 V2 快速模式。這裡會保留切割矩陣、細分與手動規劃能力。</p>
+    </div>
+    <div class="expert-mode-bridge-actions">
+      <a class="btn btn-primary" href="#/planning-v2">改用 V2 快速模式</a>
+      <span class="expert-mode-bridge-note">目前位置：Expert Mode / 切割與規劃</span>
+    </div>
+  </section>
+
+  <section class="flow-stepper" aria-label="空間切割流程">
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">1</div>
+      <div class="flow-step-label">定義容器</div>
+      <div class="flow-step-meta">外框與規劃條件</div>
+    </div>
+    <div class="flow-step is-active">
+      <div class="flow-step-index">2</div>
+      <div class="flow-step-label">空間切割</div>
+      <div class="flow-step-meta">生成可用區與走道</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">3</div>
+      <div class="flow-step-label">二次細分</div>
+      <div class="flow-step-meta">微調儲位與分區</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">4</div>
+      <div class="flow-step-label">配置驗證</div>
+      <div class="flow-step-meta">檢查可達性與動線</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">5</div>
+      <div class="flow-step-label">輸出結果</div>
+      <div class="flow-step-meta">提供後續配置與搜尋</div>
+    </div>
+  </section>
 
   <div class="planning-workspace">
-    <!-- Left Panel: Constraint Configuration -->
     <aside class="constraints-panel">
+      <div class="panel-intro">
+        <p class="section-kicker">Constraint Matrix</p>
+        <h3>限制條件設定</h3>
+        <p>可在這裡調整柱位、主走道、次走道與安全距離，重新生成更符合倉儲作業需求的空間切割結果。</p>
+        <div class="panel-intro-grid">
+          <span class="metric-chip">儲位配置</span>
+          <span class="metric-chip">動線優化</span>
+        </div>
+      </div>
+
       <div class="panel-section">
         <h3 class="section-title">
-          <span class="icon">🏗️</span>
-          建築限制
+          <span class="icon">01</span>
+          建築與障礙
         </h3>
 
-        <!-- Columns Configuration -->
         <div class="constraint-group">
           <div class="group-header">
-            <label class="group-label">柱體配置</label>
+            <label class="group-label">柱位模式</label>
           </div>
 
           <div class="form-group">
-            <label>配置模式</label>
+            <label>柱位生成方式</label>
             <select id="column-mode" class="form-select">
-              <option value="rule_based">規則式柱位（推薦）</option>
-              <option value="exception_based">自訂柱位（進階）</option>
+              <option value="rule_based">規則式生成</option>
+              <option value="exception_based">自訂柱位</option>
             </select>
           </div>
 
-          <!-- Rule-based Column Parameters -->
           <div id="rule-based-params" class="sub-params">
             <div class="form-row">
               <div class="form-group">
-                <label>柱寬 (mm)</label>
+                <label>柱寬（mm）</label>
                 <input type="number" id="column-width" value="400" min="100" step="50">
               </div>
               <div class="form-group">
-                <label>柱深 (mm)</label>
+                <label>柱深（mm）</label>
                 <input type="number" id="column-depth" value="400" min="100" step="50">
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>X 間距 (mm)</label>
+                <label>X 間距（mm）</label>
                 <input type="number" id="spacing-x" value="6000" min="1000" step="100">
               </div>
               <div class="form-group">
-                <label>Z 間距 (mm)</label>
+                <label>Z 間距（mm）</label>
                 <input type="number" id="spacing-z" value="6000" min="1000" step="100">
               </div>
             </div>
 
             <div class="form-group">
-              <label>牆邊偏移 (mm)</label>
+              <label>離牆偏移（mm）</label>
               <input type="number" id="wall-offset" value="500" min="0" step="50">
             </div>
           </div>
 
-          <!-- Exception-based Column Parameters -->
           <div id="exception-based-params" class="sub-params" style="display: none;">
             <div class="custom-columns-list" id="custom-columns-list">
               <p class="hint">點擊下方按鈕新增自訂柱位</p>
             </div>
-            <button id="btn-add-column" class="btn btn-sm btn-outline">+ 新增柱位</button>
+            <button id="btn-add-column" class="btn btn-outline btn-sm">新增自訂柱位</button>
           </div>
         </div>
 
-        <!-- Wall Clearance -->
         <div class="constraint-group">
           <div class="group-header">
-            <label class="group-label">牆邊安全距離</label>
+            <label class="group-label">安全距離</label>
           </div>
           <div class="form-group">
-            <label>距離 (mm)</label>
+            <label>牆邊安全距離（mm）</label>
             <input type="number" id="wall-clearance" value="300" min="0" step="50">
-            <p class="hint">消防與安全規範要求的最小距離</p>
+            <p class="hint">這個值會轉成安全緩衝區，避免儲位與建築邊界過近。</p>
           </div>
         </div>
       </div>
 
       <div class="panel-section">
         <h3 class="section-title">
-          <span class="icon">🚶</span>
-          動線限制
+          <span class="icon">02</span>
+          走道配置
         </h3>
 
-        <!-- Main Aisle -->
         <div class="constraint-group">
           <div class="group-header">
             <label class="toggle-label">
               <input type="checkbox" id="main-aisle-enabled" checked>
-              <span>主走道 / 消防通道</span>
+              <span>保留主走道</span>
             </label>
           </div>
 
           <div id="main-aisle-params" class="sub-params">
             <div class="form-group">
-              <label>寬度 (mm)</label>
+              <label>主走道寬度（mm）</label>
               <input type="number" id="main-aisle-width" value="2000" min="1000" step="100">
             </div>
 
             <div class="form-group">
-              <label>方向</label>
+              <label>主走道方向</label>
               <select id="main-aisle-direction" class="form-select">
-                <option value="along_length">沿長度方向</option>
-                <option value="along_width">沿寬度方向</option>
+                <option value="along_length">沿長向</option>
+                <option value="along_width">沿寬向</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>位置</label>
+              <label>主走道位置</label>
               <select id="main-aisle-position" class="form-select">
                 <option value="center">中央</option>
                 <option value="offset_left">偏左 1/3</option>
@@ -125,31 +181,30 @@
           </div>
         </div>
 
-        <!-- Forklift Aisles -->
         <div class="constraint-group">
           <div class="group-header">
             <label class="toggle-label">
               <input type="checkbox" id="forklift-aisles-enabled">
-              <span>叉車動線（可選）</span>
+              <span>啟用次走道 / 作業走道</span>
             </label>
           </div>
 
           <div id="forklift-aisles-params" class="sub-params" style="display: none;">
             <div class="form-group">
-              <label>數量</label>
+              <label>走道組數</label>
               <input type="number" id="forklift-count" value="2" min="1" max="5" step="1">
             </div>
 
             <div class="form-group">
-              <label>寬度 (mm)</label>
+              <label>次走道寬度（mm）</label>
               <input type="number" id="forklift-width" value="1500" min="1000" step="100">
             </div>
 
             <div class="form-group">
-              <label>間距</label>
+              <label>走道間距模式</label>
               <select id="forklift-spacing" class="form-select">
-                <option value="auto">自動均分</option>
-                <option value="custom">自訂</option>
+                <option value="auto">自動分布</option>
+                <option value="custom">依限制條件</option>
               </select>
             </div>
           </div>
@@ -157,28 +212,28 @@
       </div>
     </aside>
 
-    <!-- Secondary Editing Toolbar (hidden by default) -->
     <aside id="subdivision-toolbar" class="subdivision-toolbar">
       <div class="toolbar-header">
-        <h3>進一步規劃空間</h3>
-        <p class="hint">點擊可用區域開始細分</p>
+        <p class="section-kicker">Secondary Edit Mode</p>
+        <h3>細分可用區</h3>
+        <p class="hint">進一步把自動生成的儲位區切成更細的分區，作為後續 slotting 與庫位管理基礎。</p>
       </div>
 
       <div class="selected-region-info" id="selected-region-info" style="display: none;">
-        <h4>已選擇區域</h4>
+        <h4>目前選取區塊</h4>
         <div class="region-stats">
-          <span>面積: <strong id="selected-area">0</strong> m²</span>
-          <span>尺寸: <strong id="selected-dimensions">0×0</strong> mm</span>
+          <span>面積 <strong id="selected-area">0</strong> m²</span>
+          <span>尺寸 <strong id="selected-dimensions">0 × 0</strong> mm</span>
         </div>
       </div>
 
       <div class="subdivision-tools" id="subdivision-tools" style="display: none;">
         <div class="tool-group">
-          <label class="tool-label">分割方式</label>
+          <label class="tool-label">切割模式</label>
           <select id="split-mode" class="form-select">
-            <option value="equal">等分切割</option>
+            <option value="equal">平均切割</option>
             <option value="ratio">比例切割</option>
-            <option value="manual">手動拖曳</option>
+            <option value="manual">手動切割</option>
           </select>
         </div>
 
@@ -186,56 +241,55 @@
           <div class="form-group">
             <label>方向</label>
             <select id="equal-direction" class="form-select">
-              <option value="horizontal">水平分割</option>
-              <option value="vertical">垂直分割</option>
+              <option value="horizontal">水平</option>
+              <option value="vertical">垂直</option>
             </select>
           </div>
           <div class="form-group">
-            <label>分成幾等份</label>
+            <label>切割數量</label>
             <input type="number" id="equal-parts" value="2" min="2" max="10">
           </div>
-          <button id="btn-apply-equal" class="btn btn-primary">套用等分</button>
+          <button id="btn-apply-equal" class="btn btn-primary">套用平均切割</button>
         </div>
 
         <div id="ratio-split-params" class="tool-params" style="display: none;">
           <div class="form-group">
             <label>方向</label>
             <select id="ratio-direction" class="form-select">
-              <option value="horizontal">水平分割</option>
-              <option value="vertical">垂直分割</option>
+              <option value="horizontal">水平</option>
+              <option value="vertical">垂直</option>
             </select>
           </div>
           <div class="form-group">
-            <label>左側/上側比例 (%)</label>
+            <label>比例（%）</label>
             <input type="number" id="ratio-percent" value="50" min="10" max="90" step="5">
           </div>
-          <button id="btn-apply-ratio" class="btn btn-primary">套用比例</button>
+          <button id="btn-apply-ratio" class="btn btn-primary">套用比例切割</button>
         </div>
 
         <div id="manual-split-params" class="tool-params" style="display: none;">
-          <p class="hint">在畫布上拖曳以建立分割線</p>
+          <p class="hint">在畫布上點選切割線位置後，會依照目前選取區域建立新的子區塊。</p>
           <div class="form-group">
             <label>
               <input type="checkbox" id="snap-to-grid" checked>
-              吸附格線 (100mm)
+              吸附至 100 mm 網格
             </label>
           </div>
         </div>
 
         <div class="tool-actions">
           <button id="btn-clear-splits" class="btn btn-secondary">清除切割</button>
-          <button id="btn-deselect" class="btn btn-secondary">取消選擇</button>
+          <button id="btn-deselect" class="btn btn-secondary">取消選取</button>
         </div>
       </div>
     </aside>
 
-    <!-- Center: Visualization Canvas -->
     <section class="canvas-section">
       <div class="canvas-controls">
         <div class="layer-toggles">
           <label class="toggle-btn">
             <input type="checkbox" id="show-columns" checked>
-            <span>柱子</span>
+            <span>阻擋區</span>
           </label>
           <label class="toggle-btn">
             <input type="checkbox" id="show-aisles" checked>
@@ -243,122 +297,173 @@
           </label>
           <label class="toggle-btn">
             <input type="checkbox" id="show-clearance" checked>
-            <span>安全距</span>
+            <span>安全緩衝</span>
           </label>
           <label class="toggle-btn">
             <input type="checkbox" id="show-usable" checked>
-            <span>可用區</span>
+            <span>可存放區</span>
           </label>
         </div>
-        <button id="btn-expand-canvas" class="btn-expand" title="放大檢視">
+        <button id="btn-expand-canvas" class="btn-expand" title="放大畫布">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
           </svg>
         </button>
       </div>
-      <canvas id="planning-canvas" width="800" height="600"></canvas>
+
+      <div class="canvas-stage">
+        <canvas id="planning-canvas" width="800" height="600"></canvas>
+      </div>
+
       <div class="canvas-legend">
         <div class="legend-item">
           <span class="color-box" style="background: #6b7280;"></span>
-          <span>柱子</span>
+          <span>阻擋區 / 柱位</span>
         </div>
         <div class="legend-item">
           <span class="color-box" style="background: #9ca3af;"></span>
-          <span>走道</span>
+          <span>可通行走道</span>
         </div>
         <div class="legend-item">
           <span class="color-box" style="background: #d1d5db;"></span>
-          <span>安全距</span>
+          <span>安全緩衝區</span>
         </div>
         <div class="legend-item">
           <span class="color-box" style="background: #3b82f6;"></span>
-          <span>可用空間</span>
+          <span>可存放區</span>
+        </div>
+        <div class="legend-item">
+          <span class="color-box" style="background: #b45309;"></span>
+          <span>死角 / 不建議配置</span>
         </div>
       </div>
     </section>
 
-    <!-- Right Panel: Results -->
     <aside class="results-panel">
+      <div class="panel-intro">
+        <p class="section-kicker">Planning Scoreboard</p>
+        <h3>規劃評估結果</h3>
+        <p>這裡會根據可用面積、走道占比、可達性、死角與揀貨效率，評估目前配置是否適合後續 slotting 與搜尋。</p>
+        <div class="panel-intro-grid">
+          <span class="metric-chip">儲位效率</span>
+          <span class="metric-chip">動線品質</span>
+        </div>
+      </div>
+
       <div id="statistics-section" class="panel-section">
-        <h3 class="section-title">空間統計</h3>
+        <h3 class="section-title">核心指標</h3>
 
         <div class="stats-summary">
+          <div class="stat-item highlight">
+            <span class="stat-label">綜合評分</span>
+            <span class="stat-value" id="score-total">0 分</span>
+          </div>
           <div class="stat-item">
             <span class="stat-label">總面積</span>
             <span class="stat-value" id="total-area">0 m²</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">不可用面積</span>
-            <span class="stat-value" id="unusable-area">0 m²</span>
-          </div>
-          <div class="stat-item highlight">
-            <span class="stat-label">可用面積</span>
+            <span class="stat-label">可存放面積</span>
             <span class="stat-value" id="usable-area">0 m²</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">利用率</span>
+            <span class="stat-label">不可用面積</span>
+            <span class="stat-value" id="unusable-area">0 m²</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">空間利用率</span>
             <span class="stat-value" id="utilization">0%</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">儲位區數量</span>
+            <span class="stat-value" id="storage-zone-count">0 區</span>
           </div>
         </div>
 
         <div class="breakdown">
-          <h4>不可用區域明細</h4>
+          <h4>區域面積拆解</h4>
           <div class="breakdown-item">
-            <span>柱子</span>
+            <span>阻擋區 / 死角</span>
             <span id="columns-area">0 m²</span>
           </div>
           <div class="breakdown-item">
-            <span>走道</span>
+            <span>走道區</span>
             <span id="aisles-area">0 m²</span>
           </div>
           <div class="breakdown-item">
-            <span>安全距</span>
+            <span>安全緩衝</span>
             <span id="clearance-area">0 m²</span>
+          </div>
+        </div>
+
+        <div class="score-grid">
+          <div class="score-card">
+            <span class="score-label">儲位占比</span>
+            <strong id="storage-ratio">0%</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">走道占比</span>
+            <strong id="aisle-ratio">0%</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">可達性</span>
+            <strong id="accessibility-ratio">0%</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">死角比例</span>
+            <strong id="dead-corner-ratio">0%</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">平均接近距離</span>
+            <strong id="pick-distance">0 mm</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">走道平衡分</span>
+            <strong id="aisle-balance-score">0 分</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">揀貨效率分</span>
+            <strong id="picking-score">0 分</strong>
+          </div>
+          <div class="score-card">
+            <span class="score-label">Slotting 彈性分</span>
+            <strong id="slotting-score">0 分</strong>
           </div>
         </div>
       </div>
 
       <div id="usable-blocks-section" class="panel-section" style="display: none;">
-        <h3 class="section-title">可用空間區塊</h3>
-        <div id="zones-list" class="zones-list">
-          <!-- Dynamically populated -->
-        </div>
+        <h3 class="section-title">儲位區摘要</h3>
+        <div id="zones-list" class="zones-list"></div>
       </div>
 
-      <!-- Regions List for Secondary Editing -->
       <div class="panel-section" id="secondary-regions-panel" style="display: none;">
-        <h3 class="section-title">空間列表</h3>
-        <div id="regions-list" class="regions-list">
-          <!-- Dynamically populated during secondary editing -->
-        </div>
+        <h3 class="section-title">二次細分區塊</h3>
+        <div id="regions-list" class="regions-list"></div>
       </div>
     </aside>
   </div>
 
-  <!-- Footer Actions -->
   <footer class="page-footer">
-    <button id="btn-prev-step" class="btn btn-secondary">← 上一步</button>
+    <button id="btn-prev-step" class="btn btn-secondary">回到容器定義</button>
     <div class="footer-right">
-      <!-- Normal mode buttons -->
       <div id="normal-mode-buttons">
-        <button id="btn-save" class="btn btn-success">💾 儲存</button>
-        <button id="btn-next-step" class="btn btn-primary">下一步 →</button>
+        <button id="btn-save" class="btn btn-success">儲存規劃結果</button>
+        <button id="btn-next-step" class="btn btn-primary">進入二次細分</button>
       </div>
 
-      <!-- Edit mode buttons (hidden by default) -->
       <div id="edit-mode-buttons" style="display: none;">
-        <button id="btn-cancel-edit" class="btn btn-secondary">取消編輯</button>
+        <button id="btn-cancel-edit" class="btn btn-secondary">回到主規劃</button>
         <button id="btn-reset-subdivisions" class="btn btn-outline">重設細分</button>
         <button id="btn-apply-subdivisions" class="btn btn-success">套用細分並繼續</button>
       </div>
     </div>
   </footer>
 
-  <!-- Expanded Canvas Modal -->
   <div id="canvas-modal" class="canvas-modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>空間規劃預覽</h3>
+        <h3>放大檢視規劃畫布</h3>
         <button id="btn-close-modal" class="btn-close-modal" title="關閉">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12" />
@@ -366,13 +471,15 @@
         </button>
       </div>
       <div class="modal-body">
-        <canvas id="planning-canvas-expanded" width="1600" height="900"></canvas>
+        <div class="canvas-stage canvas-stage--expanded">
+          <canvas id="planning-canvas-expanded" width="1600" height="900"></canvas>
+        </div>
       </div>
       <div class="modal-footer">
         <div class="canvas-legend">
           <div class="legend-item">
             <span class="color-box" style="background: #6b7280;"></span>
-            <span>柱子</span>
+            <span>阻擋區 / 柱位</span>
           </div>
           <div class="legend-item">
             <span class="color-box" style="background: #9ca3af;"></span>
@@ -380,18 +487,21 @@
           </div>
           <div class="legend-item">
             <span class="color-box" style="background: #d1d5db;"></span>
-            <span>安全距</span>
+            <span>安全緩衝</span>
           </div>
           <div class="legend-item">
             <span class="color-box" style="background: #3b82f6;"></span>
-            <span>可用空間</span>
+            <span>可存放區</span>
+          </div>
+          <div class="legend-item">
+            <span class="color-box" style="background: #b45309;"></span>
+            <span>死角</span>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Add Custom Column Modal -->
   <div id="column-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -401,28 +511,28 @@
       <div class="modal-body">
         <form id="column-form" class="modal-form">
           <div class="form-group">
-            <label>X 座標 (mm)</label>
+            <label>X 位置（mm）</label>
             <input type="number" id="column-x" value="3000" min="0" step="100" required>
-            <p class="hint">柱子中心點的 X 座標</p>
+            <p class="form-hint">柱位中心點在容器內的 X 座標。</p>
           </div>
           <div class="form-group">
-            <label>Z 座標 (mm)</label>
+            <label>Z 位置（mm）</label>
             <input type="number" id="column-z" value="3000" min="0" step="100" required>
-            <p class="hint">柱子中心點的 Z 座標</p>
+            <p class="form-hint">柱位中心點在容器內的 Z 座標。</p>
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label>柱寬 (mm)</label>
+              <label>柱寬（mm）</label>
               <input type="number" id="column-width-input" value="400" min="100" step="50" required>
             </div>
             <div class="form-group">
-              <label>柱深 (mm)</label>
+              <label>柱深（mm）</label>
               <input type="number" id="column-depth-input" value="400" min="100" step="50" required>
             </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="btn-cancel-column">取消</button>
-            <button type="submit" class="btn btn-primary">確定</button>
+            <button type="submit" class="btn btn-primary">加入柱位</button>
           </div>
         </form>
       </div>

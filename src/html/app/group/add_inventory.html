@@ -1,37 +1,106 @@
 <link rel="stylesheet" href="/src/css/test_version/app/group/add_inventory.css">
-<div class="page-container">
+<div class="page-container add-inventory-page">
   <header class="page-header">
-    <h2>新增物件</h2>
+    <div class="page-header-copy">
+      <p class="page-kicker">Inventory Control Workstation</p>
+      <div class="page-title-row">
+        <h2>新增物件</h2>
+        <span class="page-status-chip">mm Precision</span>
+      </div>
+      <p class="page-subtitle">群組物件管理與高密度倉儲資料建檔控制台</p>
+    </div>
+
+    <div class="header-actions" aria-hidden="true">
+      <div class="header-metric">
+        <span class="metric-label">MODE</span>
+        <strong>CONTROL ROOM</strong>
+      </div>
+      <div class="header-metric">
+        <span class="metric-label">FLOW</span>
+        <strong>GROUP ITEMS</strong>
+      </div>
+    </div>
   </header>
 
   <div class="content-wrapper">
-    <!-- Filter and Controls -->
-    <section class="controls-section">
+    <section class="controls-section" aria-label="頁面工具列">
+      <div class="controls-heading">
+        <div>
+          <p class="section-kicker">Toolbar</p>
+          <h3>群組物件管理</h3>
+        </div>
+        <p class="controls-summary">選擇目標群組、同步資料並建立新物件批次。</p>
+      </div>
+
       <div class="filter-controls">
-        <label for="filter-group">篩選群組：</label>
-        <select id="filter-group" class="filter-select">
-          <option value="">全部群組</option>
-        </select>
-        <button id="refresh-btn" class="btn btn-secondary btn-icon" title="重新整理">重新整理</button>
-        <button id="open-modal-btn" class="btn btn-primary">+ 新增物件</button>
+        <div class="control-field">
+          <label for="filter-group" class="control-label">目標群組</label>
+          <select id="filter-group" class="filter-select">
+            <option value="">全部群組</option>
+          </select>
+        </div>
+
+        <div class="control-actions">
+          <button id="refresh-btn" class="btn btn-secondary btn-icon" title="重新整理">
+            <span class="btn-symbol" aria-hidden="true">↻</span>
+            <span>重新整理</span>
+          </button>
+          <button id="open-modal-btn" class="btn btn-primary btn-icon">
+            <span class="btn-symbol" aria-hidden="true">+</span>
+            <span>新增物件</span>
+          </button>
+        </div>
       </div>
     </section>
 
-    <!-- Items Table -->
-    <section class="list-section">
+    <section class="list-section" aria-label="物件資料工作台">
+      <div class="list-section-header">
+        <div>
+          <p class="section-kicker">Workbench</p>
+          <h3>物件資料工作台</h3>
+        </div>
+        <p class="list-section-summary">維持表格資料密度，同時強化編號、尺寸與操作狀態辨識。</p>
+      </div>
+
       <div id="items-list" class="items-table-container">
-        <div class="loading">載入中...</div>
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <div class="state-copy">
+            <p class="state-eyebrow">Syncing Workbench</p>
+            <p>載入中...</p>
+          </div>
+        </div>
       </div>
     </section>
   </div>
 
-  <!-- Modal Dialog -->
+  <div class="save-changes-container">
+    <div class="save-bar">
+      <div class="save-bar-copy">
+        <p class="save-kicker">Command Bar</p>
+        <div class="save-title-row">
+          <strong>確認本頁調整後提交變更</strong>
+          <span class="save-hint">新增、編輯或刪除完成後再儲存</span>
+        </div>
+      </div>
+
+      <button id="save-changes-btn" class="btn btn-success">
+        <span class="icon" aria-hidden="true">⟲</span>
+        <span>儲存變更</span>
+      </button>
+    </div>
+  </div>
+
   <div id="item-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>新增物件</h3>
-        <button class="modal-close" id="modal-close-btn">&times;</button>
+        <div>
+          <p class="section-kicker">Create Item</p>
+          <h3>新增物件</h3>
+        </div>
+        <button class="modal-close" id="modal-close-btn" type="button" aria-label="關閉新增物件視窗">&times;</button>
       </div>
+
       <div class="modal-body">
         <form id="add-item-form" class="modal-form">
           <div class="form-group">
@@ -44,7 +113,7 @@
           <div class="form-group">
             <label for="item-name">物件名稱 *</label>
             <input type="text" id="item-name" name="item_name" required placeholder="例如: Box">
-            <small class="form-hint">若數量 > 1，系統會自動編號 (Box, Box_2, Box_3...)</small>
+            <small class="form-hint">若數量大於 1，系統會自動編號為 Box、Box_2、Box_3...</small>
           </div>
 
           <div class="form-section-title">尺寸設定 (mm)</div>
@@ -79,13 +148,6 @@
     </div>
   </div>
 
-  <!-- Save Changes Button (Bottom Right) -->
-  <div class="save-changes-container">
-    <button id="save-changes-btn" class="btn btn-success">
-      <span class="icon">💾</span> 儲存變更
-    </button>
-  </div>
-  <!-- Success Modal -->
   <div id="success-modal" class="modal-overlay">
     <div class="success-modal">
       <div class="checkmark-circle">
@@ -94,23 +156,30 @@
         </svg>
       </div>
       <h3 class="modal-title">更新成功</h3>
-      <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+      <button id="btn-modal-ok" class="btn btn-primary btn-modal-ok">OK</button>
     </div>
   </div>
 
-  <!-- Edit Item Modal -->
   <div id="edit-item-modal" class="modal-overlay">
     <div class="modal-content">
-      <button class="modal-close" id="modal-close-edit">✕</button>
+      <button class="modal-close" id="modal-close-edit" type="button" aria-label="關閉編輯物件視窗">✕</button>
       <div class="modal-header">
-        <h3 class="modal-title">✏️ 編輯物件尺寸</h3>
+        <div>
+          <p class="section-kicker">Edit Item</p>
+          <h3 class="modal-title">編輯物件尺寸</h3>
+        </div>
       </div>
       <div class="modal-body">
         <form id="edit-item-form" class="modal-form">
           <div class="form-group">
-            <label>物件編號</label>
-            <input type="text" id="edit-item-id" readonly disabled
-              style="background: rgba(100, 116, 139, 0.1); cursor: not-allowed;">
+            <label for="edit-item-id">物件編號</label>
+            <input
+              type="text"
+              id="edit-item-id"
+              readonly
+              disabled
+              style="background: rgba(100, 116, 139, 0.1); cursor: not-allowed;"
+            >
           </div>
           <div class="form-group">
             <label for="edit-length">長度 (L) *</label>
@@ -133,12 +202,14 @@
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal -->
   <div id="delete-item-confirm-modal" class="modal-overlay">
     <div class="modal-content modal-confirm">
-      <button class="modal-close" id="modal-close-delete-item">✕</button>
+      <button class="modal-close" id="modal-close-delete-item" type="button" aria-label="關閉刪除確認視窗">✕</button>
       <div class="modal-header">
-        <h3 class="modal-title">⚠️ 確認刪除</h3>
+        <div>
+          <p class="section-kicker">Remove Item</p>
+          <h3 class="modal-title">確認刪除</h3>
+        </div>
       </div>
       <div class="modal-body">
         <p class="confirm-message">確定要刪除此物件嗎？</p>

@@ -1,31 +1,98 @@
 <link rel="stylesheet" href="/src/css/test_version/app/group/add_group.css">
-<div class="page-container">
+<div class="page-container add-group-page">
   <header class="page-header">
-    <h2>新增群組</h2>
+    <div class="page-header-copy">
+      <p class="page-kicker">Group Structure Console</p>
+      <div class="page-title-row">
+        <h2>新增群組</h2>
+        <span class="page-status-chip">Module Layout</span>
+      </div>
+      <p class="page-subtitle">建立群組節點、整理備註脈絡，讓後續物件配置有清楚的結構基底。</p>
+    </div>
+
+    <div class="header-actions" aria-hidden="true">
+      <div class="header-metric">
+        <span class="metric-label">MODE</span>
+        <strong>STRUCTURE PANEL</strong>
+      </div>
+      <div class="header-metric">
+        <span class="metric-label">FLOW</span>
+        <strong>GROUP NODES</strong>
+      </div>
+    </div>
   </header>
 
   <div class="content-wrapper">
-    <!-- Groups List -->
-    <section class="list-section">
-      <div class="section-header"
-        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 style="margin: 0;">現有群組</h3>
-        <button id="open-group-modal-btn" class="btn btn-primary">
-          <span class="icon">✨</span> 建立新群組
-        </button>
+    <section class="controls-section" aria-label="群組建立工具列">
+      <div class="controls-heading">
+        <div>
+          <p class="section-kicker">Toolbar</p>
+          <h3>群組結構編排</h3>
+        </div>
+        <p class="controls-summary">先建立結構節點，再補上命名與備註，讓群組關係清楚可維護。</p>
       </div>
+
+      <div class="creation-strip">
+        <div class="creation-copy">
+          <p class="creation-label">Create Group</p>
+          <p class="creation-detail">建立新群組後，可立即調整名稱、補充備註，作為後續物件配置與空間分配的主模組。</p>
+        </div>
+
+        <div class="creation-actions">
+          <button id="open-group-modal-btn" class="btn btn-primary btn-icon">
+            <span class="btn-symbol" aria-hidden="true">+</span>
+            <span>建立新群組</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="list-section" aria-label="群組編排工作區">
+      <div class="list-section-header">
+        <div>
+          <p class="section-kicker">Structure Board</p>
+          <h3>現有群組</h3>
+        </div>
+        <p class="list-section-summary">將群組視為配置模組，快速辨識名稱、ID、備註狀態與操作選單。</p>
+      </div>
+
       <div id="groups-list" class="groups-container">
-        <div class="loading">載入中...</div>
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <div class="state-copy">
+            <p class="state-eyebrow">Syncing Structure Board</p>
+            <p>載入中...</p>
+          </div>
+        </div>
       </div>
     </section>
   </div>
 
-  <!-- Create Group Modal -->
+  <div class="save-changes-container">
+    <div class="save-bar">
+      <div class="save-bar-copy">
+        <p class="save-kicker">Command Bar</p>
+        <div class="save-title-row">
+          <strong>確認群組結構整理後提交變更</strong>
+          <span class="save-hint">完成建立、命名或備註調整後再儲存</span>
+        </div>
+      </div>
+
+      <button id="save-changes-btn" class="btn btn-success">
+        <span class="icon" aria-hidden="true">⟲</span>
+        <span>儲存變更</span>
+      </button>
+    </div>
+  </div>
+
   <div id="group-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3><span class="icon">✨</span> 建立新群組</h3>
-        <button class="modal-close" id="modal-close-group">&times;</button>
+        <div>
+          <p class="section-kicker">Create Group</p>
+          <h3>建立新群組</h3>
+        </div>
+        <button class="modal-close" id="modal-close-group" type="button" aria-label="關閉建立群組視窗">&times;</button>
       </div>
       <div class="modal-body">
         <form id="add-group-form" class="modal-form">
@@ -42,12 +109,14 @@
     </div>
   </div>
 
-  <!-- Rename Group Modal -->
   <div id="rename-group-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3><span class="icon">✏️</span> 修改群組名稱</h3>
-        <button class="modal-close" id="modal-close-rename">&times;</button>
+        <div>
+          <p class="section-kicker">Rename Group</p>
+          <h3>修改群組名稱</h3>
+        </div>
+        <button class="modal-close" id="modal-close-rename" type="button" aria-label="關閉修改群組名稱視窗">&times;</button>
       </div>
       <div class="modal-body">
         <form id="rename-group-form" class="modal-form">
@@ -64,12 +133,14 @@
     </div>
   </div>
 
-  <!-- Note Group Modal -->
   <div id="note-group-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3><span class="icon">📝</span> 新增備註</h3>
-        <button class="modal-close" id="modal-close-note">&times;</button>
+        <div>
+          <p class="section-kicker">Group Notes</p>
+          <h3>設定群組備註</h3>
+        </div>
+        <button class="modal-close" id="modal-close-note" type="button" aria-label="關閉群組備註視窗">&times;</button>
       </div>
       <div class="modal-body">
         <form id="note-group-form" class="modal-form">
@@ -86,42 +157,35 @@
     </div>
   </div>
 
-  <!-- Save Changes Button (Bottom Right) -->
-  <div class="save-changes-container">
-    <button id="save-changes-btn" class="btn btn-success">
-      <span class="icon">💾</span> 儲存變更
-    </button>
+  <div id="success-modal" class="modal-overlay">
+    <div class="success-modal">
+      <div class="checkmark-circle">
+        <svg class="checkmark" viewBox="0 0 52 52">
+          <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+        </svg>
+      </div>
+      <h3 class="modal-title">更新成功</h3>
+      <button id="btn-modal-ok" class="btn btn-primary btn-modal-ok">OK</button>
+    </div>
   </div>
-</div>
 
-<!-- Success Modal -->
-<div id="success-modal" class="modal-overlay">
-  <div class="success-modal">
-    <div class="checkmark-circle">
-      <svg class="checkmark" viewBox="0 0 52 52">
-        <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-      </svg>
-    </div>
-    <h3 class="modal-title">更新成功</h3>
-    <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
-  </div>
-</div>
-
-<!-- Delete Confirmation Modal -->
-<div id="delete-confirm-modal" class="modal-overlay">
-  <div class="modal-content modal-confirm">
-    <button class="modal-close" id="modal-close-delete-confirm">✕</button>
-    <div class="modal-header">
-      <h3 class="modal-title">⚠️ 確認刪除</h3>
-    </div>
-    <div class="modal-body">
-      <p class="confirm-message">確定要刪除此群組嗎？</p>
-      <p class="confirm-warning">刪除群組會同時刪除該群組的所有物件！</p>
-    </div>
-    <div class="modal-actions">
-      <button id="btn-delete-cancel" class="btn btn-secondary">取消</button>
-      <button id="btn-delete-confirm" class="btn btn-danger">刪除</button>
+  <div id="delete-confirm-modal" class="modal-overlay">
+    <div class="modal-content modal-confirm">
+      <button class="modal-close" id="modal-close-delete-confirm" type="button" aria-label="關閉刪除確認視窗">✕</button>
+      <div class="modal-header">
+        <div>
+          <p class="section-kicker">Remove Group</p>
+          <h3 class="modal-title">確認刪除</h3>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p class="confirm-message">確定要刪除此群組嗎？</p>
+        <p class="confirm-warning">刪除群組會同時刪除該群組的所有物件。</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-delete-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-delete-confirm" class="btn btn-danger">刪除</button>
+      </div>
     </div>
   </div>
-</div>
 </div>

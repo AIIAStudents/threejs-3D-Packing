@@ -1,89 +1,140 @@
 <link rel="stylesheet" href="/src/css/test_version/app/space/assign_space.css">
-<link rel="stylesheet" href="/src/css/test_version/app/space/assign_space_modal.css">
-<div class="page-container">
+<div class="space-flow-page assign-space-page">
   <header class="page-header">
-    <h2>分配物件至區域</h2>
-    <p class="subtitle">請將右側群組拖曳到左側對應的切割區域中進行分配。</p>
+    <div class="page-header-copy">
+      <p class="page-kicker">空間配置流程 / 第 3 步</p>
+      <div class="page-title-row">
+        <h2>分配物件</h2>
+        <span class="page-status-chip">分配控制台</span>
+      </div>
+      <p class="page-subtitle">
+        以左側空間畫布作為主要配置介面，直接把右側群組拖曳到空間區塊中，並在右側查看由空間主導的規則與適配結果。
+      </p>
+    </div>
+    <div class="flow-header-actions">
+      <div class="header-metric">
+        <p class="metric-label">操作模式</p>
+        <strong>拖曳分配</strong>
+      </div>
+      <div class="header-metric">
+        <p class="metric-label">輸出目標</p>
+        <strong>空間感知配置</strong>
+      </div>
+    </div>
   </header>
 
+  <section class="expert-mode-bridge" aria-label="快速模式入口">
+    <div class="expert-mode-bridge-copy">
+      <p class="expert-mode-bridge-kicker">Quick Mode Available</p>
+      <h3>想先拿到可解釋的配置方案，再決定要不要細調？</h3>
+      <p>V2 快速模式會先根據需求生成候選方案、評分與 AI 摘要；Expert Mode 則保留拖曳分配與細部編排。</p>
+    </div>
+    <div class="expert-mode-bridge-actions">
+      <a class="btn btn-primary" href="#/planning-v2">切換到 V2 快速模式</a>
+      <span class="expert-mode-bridge-note">目前位置：Expert Mode / 分配物件</span>
+    </div>
+  </section>
+
+  <section class="flow-stepper" aria-label="步驟進度">
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">1</div>
+      <div class="flow-step-label">定義容器</div>
+      <div class="flow-step-meta">已完成</div>
+    </div>
+    <div class="flow-step is-complete">
+      <div class="flow-step-index">2</div>
+      <div class="flow-step-label">切分容器</div>
+      <div class="flow-step-meta">已完成</div>
+    </div>
+    <div class="flow-step is-active">
+      <div class="flow-step-index">3</div>
+      <div class="flow-step-label">分配群組</div>
+      <div class="flow-step-meta">拖曳到空間區塊</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">4</div>
+      <div class="flow-step-label">排列順序</div>
+      <div class="flow-step-meta">規劃空間順序</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">5</div>
+      <div class="flow-step-label">驗證結果</div>
+      <div class="flow-step-meta">檢查適配與衝突</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-index">6</div>
+      <div class="flow-step-label">預覽動線</div>
+      <div class="flow-step-meta">檢視最終輸出</div>
+    </div>
+  </section>
+
   <div class="assign-content">
-    <!-- Left: Zones List (60%) -->
-    <section class="zones-section">
-      <h3>切割區域</h3>
-      <div id="zones-list" class="zones-list">
-        <div class="loading">載入區域中...</div>
+    <section class="workspace-section">
+      <div class="mapping-stage-head">
+        <div class="mapping-stage-copy">
+          <p class="section-kicker">空間位置總覽</p>
+          <h3>主要分配畫布</h3>
+          <p>
+            只保留一個主要空間視圖，直接在這個畫布中查看位置語意、主走道、入口、分配狀態與拖曳適配結果。
+          </p>
+        </div>
+        <span class="status-chip is-info">滑鼠拖曳分配</span>
+      </div>
+
+      <div class="workspace-layout">
+        <div id="space-map" class="space-map">
+          <div class="loading">正在載入空間畫布...</div>
+        </div>
       </div>
     </section>
 
-    <!-- Right: Groups Pool (40%) -->
-    <section class="groups-section">
-      <h3>群組列表 (拖曳)</h3>
-      <div id="groups-pool" class="groups-pool">
-        <div class="loading">載入群組中...</div>
-      </div>
-    </section>
+    <aside class="control-sidebar">
+      <section class="policy-section">
+        <div class="mapping-stage-head">
+          <div class="mapping-stage-copy">
+            <p class="section-kicker">空間規範</p>
+            <h3>空間主導規則</h3>
+            <p>
+              規則仍由空間決定。可在這裡調整容量、允許輪廓與用途傾向，同時維持主畫布作為主要操作焦點。
+            </p>
+          </div>
+          <span class="status-chip is-warning">由空間決定</span>
+        </div>
+        <div id="space-policy-panel" class="space-policy-panel">
+          <div class="loading">正在載入空間規則...</div>
+        </div>
+      </section>
+
+      <section class="groups-section">
+        <div class="mapping-stage-head">
+          <div class="mapping-stage-copy">
+            <p class="section-kicker">待分配群組</p>
+            <h3>可拖曳清單</h3>
+            <p>
+              瀏覽完整群組清單，直接把卡片拖到左側空間；已配置卡片也能拖回群組池取消或重新配置。
+            </p>
+          </div>
+          <span class="status-chip is-success">可操作</span>
+        </div>
+        <div id="groups-pool" class="groups-pool">
+          <div class="loading">正在載入群組清單...</div>
+        </div>
+      </section>
+    </aside>
   </div>
 
-  <!-- Bottom Buttons -->
   <div class="bottom-buttons">
-    <button id="save-changes-btn" class="btn btn-success">
-      <span class="icon">💾</span> 儲存變更
-    </button>
-    <button id="next-step-btn" class="btn btn-primary">
-      下一步 →
-    </button>
-  </div>
-
-  <!-- Allocation Mode Selection Modal -->
-  <div id="allocation-modal" class="modal-overlay">
-    <div class="modal-content allocation-modal">
-      <div class="modal-header">
-        <h3>分配設定</h3>
-        <button class="modal-close" onclick="window.AssignSpace.closeAllocationModal()">×</button>
-      </div>
-      <form id="allocation-form">
-        <div class="form-group">
-          <label>分配模式</label>
-          <select id="allocation-mode" name="mode" required>
-            <option value="shared">共用模式 - 多個群組可共用此區域</option>
-            <option value="exclusive">獨占模式 - 此群組獨占整個區域</option>
-            <option value="percentage">百分比模式 - 指定使用區域的百分比</option>
-            <option value="priority_queue">優先序模式 - 依優先序排入</option>
-          </select>
-        </div>
-
-        <div id="percentage-input" class="form-group" style="display: none;">
-          <label>使用百分比 (%)</label>
-          <input type="number" id="allocation-percentage" name="percentage" min="1" max="100" step="1" />
-          <small>此群組將使用區域的指定百分比</small>
-        </div>
-
-        <div id="priority-input" class="form-group" style="display: none;">
-          <label>優先序</label>
-          <input type="number" id="allocation-priority" name="priority" min="1" step="1" />
-          <small>數字越小優先序越高</small>
-        </div>
-
-        <div class="form-group">
-          <label>備註（選填）</label>
-          <textarea id="allocation-notes" name="notes" rows="2" placeholder="輸入分配相關備註..."></textarea>
-        </div>
-
-        <div id="capacity-preview" class="capacity-preview" style="display: none;">
-          <div class="preview-label">容量預覽</div>
-          <div id="capacity-preview-content"></div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary"
-            onclick="window.AssignSpace.closeAllocationModal()">取消</button>
-          <button type="submit" class="btn btn-primary">確定分配</button>
-        </div>
-      </form>
+    <div class="command-bar-copy">
+      <p class="save-kicker">配置流程</p>
+      <p class="command-bar-title">確認畫布狀態後，再儲存目前的群組配置。</p>
+      <div id="workflow-feedback" class="workflow-feedback"></div>
+    </div>
+    <div class="command-bar-actions">
+      <button id="save-changes-btn" class="btn btn-success">儲存分配規則</button>
+      <button id="next-step-btn" class="btn btn-primary">繼續前往順序編排</button>
     </div>
   </div>
 
-  <!-- Success Modal -->
   <div id="success-modal" class="modal-overlay">
     <div class="success-modal">
       <div class="checkmark-circle">
@@ -91,8 +142,20 @@
           <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
         </svg>
       </div>
-      <h3 class="modal-title">更新成功</h3>
-      <button id="btn-modal-ok" class="btn-modal-ok">OK</button>
+      <h3 class="modal-title">儲存成功</h3>
+      <button id="btn-modal-ok" class="btn btn-primary btn-modal-ok">確認</button>
+    </div>
+  </div>
+
+  <div id="expanded-map-modal" class="map-modal-overlay" aria-hidden="true">
+    <div class="map-modal-shell" role="dialog" aria-modal="true" aria-labelledby="expanded-map-title">
+      <div class="map-modal-header">
+        <h3 id="expanded-map-title">放大檢視規劃畫布</h3>
+        <button id="expanded-map-close" class="map-modal-close" type="button" aria-label="關閉放大檢視">×</button>
+      </div>
+      <div class="map-modal-body">
+        <div id="space-map-expanded" class="space-map-expanded"></div>
+      </div>
     </div>
   </div>
 </div>
