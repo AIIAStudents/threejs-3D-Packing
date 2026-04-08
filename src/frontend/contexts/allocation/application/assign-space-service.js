@@ -1,24 +1,40 @@
 import {
   addAssignment,
   buildEmptyAssignments,
-  buildPreviewValidationAllocations,
   buildServerAssignments,
-  buildSubmitValidationAllocations,
-  createCandidateAllocation,
   flattenAssignmentsForPersistence,
   flattenLeafRegions,
   isGroupAssigned,
   removeAssignment,
+  syncRegionAssignmentMode,
   updateAssignmentValue
 } from '../domain/allocation-rules.js';
 import { CapacityPolicy } from '../domain/capacity-policy.js';
+import {
+  buildAllocationWorkspaceState,
+  evaluateAssignmentAttempt,
+  getPolicySummary,
+  normalizeSpacePolicy
+} from '../domain/space-allocation-policy.js';
 import { allocationApi } from '../infrastructure/allocation-api.js';
 import { allocationStorage } from '../infrastructure/allocation-storage.js';
 
 const FALLBACK_GROUPS = [
-  { id: 1, name: '蝢斤? A', color: '#667eea' },
-  { id: 2, name: '蝢斤? B', color: '#764ba2' }
+  { id: 1, name: '群組 A', color: '#667eea' },
+  { id: 2, name: '群組 B', color: '#764ba2' }
 ];
+
+function normalizeAssignments(assignments = {}, regions = []) {
+  const nextAssignments = { ...assignments };
+
+  regions.forEach((region) => {
+    if (!Array.isArray(nextAssignments[region.id])) {
+      nextAssignments[region.id] = [];
+    }
+  });
+
+  return nextAssignments;
+}
 
 function loadLocalRegionState() {
   const regionsWithSubdivisions = allocationStorage.loadRegionsWithSubdivisions();
@@ -39,7 +55,7 @@ function loadLocalRegionState() {
   }
 
   const generatedZones = allocationStorage.loadGeneratedZones();
-  if (generatedZones) {
+  if (generatedZones?.length) {
     const regions = generatedZones.filter((zone) => zone.type === 'usable');
     return {
       regions,
@@ -53,17 +69,63 @@ function loadLocalRegionState() {
   };
 }
 
+function mergeRegionGeometry(primaryRegions = [], fallbackRegions = []) {
+  if (!fallbackRegions?.length) {
+    return primaryRegions;
+  }
+
+  const fallbackByLabel = new Map(
+    fallbackRegions.map((region) => [String(region.label || region.name || region.id), region])
+  );
+
+  return primaryRegions.map((region) => {
+    const fallback = fallbackByLabel.get(String(region.label || region.name || region.id));
+    if (!fallback) {
+      return region;
+    }
+
+    return {
+      ...fallback,
+      ...region,
+      width: fallback.width || region.width,
+      height: fallback.height || region.length || region.height,
+      depth: fallback.depth || region.height,
+      metrics: {
+        ...(fallback.metrics || {}),
+        ...(region.metrics || {})
+      },
+      geometry_2d: region.geometry_2d || fallback.geometry_2d,
+      depth: region.depth || fallback.depth
+    };
+  });
+}
+
 export const assignSpaceService = {
   async loadInitialState() {
+    const localRegions = allocationStorage.loadUsableRegions() || [];
+    const generatedZones = allocationStorage.loadGeneratedZones() || [];
+    const constraintZones = allocationStorage.loadConstraintZones() || generatedZones.filter((zone) => zone.type !== 'usable');
+    const storedAssignments = allocationStorage.loadZoneAssignments?.() || {};
+    const storedPolicies = allocationStorage.loadSpacePolicies();
+
     try {
       const data = await allocationApi.loadAssignmentData();
-      const regions = data.zones || [];
+      const serverRegions = data.zones || [];
+      const mergedRegions = mergeRegionGeometry(serverRegions, localRegions);
+      const assignments = normalizeAssignments(
+        Object.keys(storedAssignments).length
+          ? storedAssignments
+          : buildServerAssignments(mergedRegions),
+        mergedRegions
+      );
 
       return {
         groups: data.groups || [],
-        regions,
+        regions: mergedRegions,
         items: data.items || [],
-        assignments: buildServerAssignments(regions)
+        assignments,
+        constraintZones,
+        spacePolicies: storedPolicies || {}
       };
     } catch (error) {
       console.error('[AssignSpace] Server load failed, falling back to local load:', error);
@@ -75,67 +137,76 @@ export const assignSpaceService = {
         console.error('Error loading groups:', groupError);
       }
 
+      const localState = loadLocalRegionState();
       return {
         groups,
         items: [],
-        ...loadLocalRegionState()
+        regions: localState.regions,
+        assignments: normalizeAssignments(
+          Object.keys(storedAssignments).length ? storedAssignments : localState.assignments,
+          localState.regions
+        ),
+        constraintZones,
+        spacePolicies: storedPolicies || {}
       };
     }
+  },
+
+  buildWorkspaceState({ regions, groups, items, assignments, spacePolicies, constraintZones, selectedGroupId }) {
+    return buildAllocationWorkspaceState({
+      regions,
+      groups,
+      items,
+      assignments,
+      spacePolicies,
+      constraintZones,
+      selectedGroupId
+    });
   },
 
   getRegionUsageSnapshot(region, regionAssignments, items) {
     return CapacityPolicy.buildRegionUsageSnapshot(region, regionAssignments, items);
   },
 
-  buildPreviewValidation({ assignments, regions, groups, groupId, regionId, mode, percentageValue, efficiencyFactor }) {
-    const candidateAllocation = createCandidateAllocation({
-      allocationId: `preview_${Date.now()}`,
-      regionId,
-      groupId,
-      mode,
-      percentage: percentageValue,
-      notes: ''
-    });
+  updateSpacePolicy(spacePolicies = {}, assignments = {}, region, patch = {}) {
+    const currentPolicy = normalizeSpacePolicy(spacePolicies?.[region.id], region?.spatial);
+    const nextPolicy = normalizeSpacePolicy({ ...currentPolicy, ...patch }, region?.spatial);
+    const nextPolicies = {
+      ...spacePolicies,
+      [region.id]: nextPolicy
+    };
 
-    const validation = CapacityPolicy.validate(
-      regions,
-      groups,
-      buildPreviewValidationAllocations(assignments, candidateAllocation),
-      { efficiency_factor: efficiencyFactor }
-    );
+    let nextAssignments = assignments;
+    if (patch.mode && patch.mode !== currentPolicy.mode) {
+      nextAssignments = syncRegionAssignmentMode(assignments, region.id, nextPolicy.mode);
+    }
 
     return {
-      validation,
-      regionResult: validation.per_region[regionId]
+      spacePolicies: nextPolicies,
+      assignments: nextAssignments,
+      policy: nextPolicy
     };
   },
 
-  validateNewAssignment({ assignments, regions, groups, groupId, regionId, mode, percentage, priority, notes, efficiencyFactor }) {
-    const candidateAllocation = createCandidateAllocation({
-      allocationId: `alloc_${Date.now()}`,
-      regionId,
-      groupId,
-      mode,
-      percentage: mode === 'percentage' ? (percentage || 50) : null,
-      priority: mode === 'priority_queue' ? (priority || 1) : null,
-      notes: notes || ''
-    });
-
-    const validation = CapacityPolicy.validate(
-      regions,
-      groups,
-      buildSubmitValidationAllocations(assignments, candidateAllocation),
-      { efficiency_factor: efficiencyFactor }
-    );
-
-    return {
-      validation,
-      summary: validation.status === 'error' ? CapacityPolicy.getSummary(validation) : null
-    };
+  buildPolicySummary(policy) {
+    return getPolicySummary(policy);
   },
 
-  addAssignment(assignments, { regionId, groupId, mode }) {
-    return addAssignment(assignments, { regionId, groupId, mode });
+  validateAssignmentAttempt({ region, group, assignments, items }) {
+    return evaluateAssignmentAttempt({
+      region,
+      groupProfile: group,
+      assignments,
+      items
+    });
+  },
+
+  assignGroup(assignments, { region, group }) {
+    return addAssignment(assignments, {
+      regionId: region.id,
+      groupId: group.id,
+      mode: region.spacePolicy.mode
+    });
   },
 
   updateAssignmentValue(assignments, regionId, groupId, nextValue) {
@@ -150,8 +221,9 @@ export const assignSpaceService = {
     return isGroupAssigned(assignments, groupId);
   },
 
-  async saveAssignments(assignments) {
+  async saveWorkspace({ assignments, spacePolicies }) {
     allocationStorage.saveZoneAssignments(assignments);
+    allocationStorage.saveSpacePolicies(spacePolicies);
 
     try {
       const result = await allocationApi.saveAssignments(

@@ -224,6 +224,39 @@ export function updateAssignmentValue(assignmentsByRegion = {}, regionId, groupI
   return nextAssignments;
 }
 
+export function syncRegionAssignmentMode(assignmentsByRegion = {}, regionId, mode = 'shared') {
+  const nextAssignments = cloneAssignments(assignmentsByRegion);
+  const regionAssignments = nextAssignments[regionId] || [];
+
+  nextAssignments[regionId] = regionAssignments.map((assignment, index) => {
+    const nextAssignment = typeof assignment === 'object'
+      ? { ...assignment }
+      : { id: assignment };
+
+    nextAssignment.mode = mode;
+
+    if (mode === 'percentage') {
+      nextAssignment.value = typeof nextAssignment.value === 'number' ? nextAssignment.value : 0;
+      return nextAssignment;
+    }
+
+    if (mode === 'priority_queue') {
+      nextAssignment.value = index + 1;
+      return nextAssignment;
+    }
+
+    nextAssignment.value = null;
+    delete nextAssignment.isLocked;
+    return nextAssignment;
+  });
+
+  if (mode === 'percentage') {
+    return rebalancePercentages(nextAssignments, regionId);
+  }
+
+  return nextAssignments;
+}
+
 export function removeAssignment(assignmentsByRegion = {}, regionId, groupId) {
   const nextAssignments = cloneAssignments(assignmentsByRegion);
 
@@ -234,6 +267,15 @@ export function removeAssignment(assignmentsByRegion = {}, regionId, groupId) {
   nextAssignments[regionId] = nextAssignments[regionId].filter(
     (assignment) => getAssignmentGroupId(assignment) !== groupId
   );
+
+  const priorityAssignments = nextAssignments[regionId].filter(
+    (assignment) => typeof assignment === 'object' && assignment.mode === 'priority_queue'
+  );
+  if (priorityAssignments.length === nextAssignments[regionId].length) {
+    priorityAssignments.forEach((assignment, index) => {
+      assignment.value = index + 1;
+    });
+  }
 
   return rebalancePercentages(nextAssignments, regionId);
 }

@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   constraintZones: 'constraintZones',
   generatedZones: 'generatedZones',
   layoutPlan: 'layoutPlan',
+  readOnlyCutContext: 'readOnlyCutContext',
   spaceConstraints: 'spaceConstraints',
   usableRegions: 'usableRegions',
   usableRegionsWithSubdivisions: 'usableRegionsWithSubdivisions'
@@ -13,6 +14,10 @@ const STORAGE_KEYS = {
 export const spaceDesignStorage = {
   loadContainerConfig() {
     return storageAdapter.getJSON(STORAGE_KEYS.containerConfig, null);
+  },
+
+  saveContainerConfig(containerConfig) {
+    return storageAdapter.setJSON(STORAGE_KEYS.containerConfig, containerConfig);
   },
 
   loadGeneratedZones() {
@@ -29,6 +34,10 @@ export const spaceDesignStorage = {
 
   saveLayoutPlan(layoutPlan) {
     return storageAdapter.setJSON(STORAGE_KEYS.layoutPlan, layoutPlan);
+  },
+
+  loadLayoutPlan() {
+    return storageAdapter.getJSON(STORAGE_KEYS.layoutPlan, null);
   },
 
   saveSpaceConstraints(constraints) {
@@ -49,5 +58,17 @@ export const spaceDesignStorage = {
 
   saveConstraintZones(zones) {
     return storageAdapter.setJSON(STORAGE_KEYS.constraintZones, zones);
+  },
+
+  loadReadOnlyCutContext() {
+    return storageAdapter.getJSON(STORAGE_KEYS.readOnlyCutContext, null);
+  },
+
+  saveReadOnlyCutContext(context) {
+    return storageAdapter.setJSON(STORAGE_KEYS.readOnlyCutContext, context);
+  },
+
+  clearReadOnlyCutContext() {
+    return storageAdapter.removeItem(STORAGE_KEYS.readOnlyCutContext);
   }
 };
