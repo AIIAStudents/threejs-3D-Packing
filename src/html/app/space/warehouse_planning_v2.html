@@ -1,0 +1,468 @@
+<link rel="stylesheet" href="/src/css/test_version/app/space/warehouse_planning_v2.css?v=14">
+<div class="planning-v2-page">
+  <header class="planning-v2-header">
+    <div>
+      <p class="planning-v2-kicker">Warehouse Planning V2 / Smart Planning</p>
+      <div class="planning-v2-title-row">
+        <h2>&#x5009;&#x5132;&#x5FEB;&#x901F;&#x898F;&#x5283; V2</h2>
+        <span class="planning-v2-chip">AI &#x7406;&#x89E3;&#x9700;&#x6C42;&#x8207; 2D &#x65B9;&#x6848;</span>
+      </div>
+      <p class="planning-v2-subtitle">
+        &#x5148;&#x7528;&#x81EA;&#x7136;&#x8A9E;&#x8A00;&#x8AAA;&#x51FA;&#x9700;&#x6C42;&#xFF0C;&#x518D;&#x900F;&#x904E;&#x898F;&#x5283;&#x7CBE;&#x9748;&#x88DC;&#x9F4A;&#x689D;&#x4EF6;&#xFF0C;&#x5FEB;&#x901F;&#x751F;&#x6210;&#x53EF;&#x8ABF;&#x6574;&#x7684; 2D &#x914D;&#x7F6E;&#x3002;
+      </p>
+    </div>
+    <div class="planning-v2-header-actions"></div>
+  </header>
+
+  <div class="planning-v2-shell">
+    <aside class="planning-v2-intake">
+      <section class="planning-v2-card planning-v2-prompt-card">
+        <div class="card-head">
+          <div>
+            <p class="section-kicker">&#x9700;&#x6C42;&#x8F38;&#x5165;</p>
+            <h3>&#x5148;&#x7528;&#x81EA;&#x7136;&#x8A9E;&#x8A00;&#x8AAA;&#x9700;&#x6C42;</h3>
+          </div>
+          <button id="planning-v2-parse-btn" class="btn btn-secondary" type="button">&#x7406;&#x89E3;&#x9700;&#x6C42;</button>
+        </div>
+        <label class="planning-v2-search-shell" for="planning-v2-prompt">
+          <span class="planning-v2-search-icon">&#x2315;</span>
+          <input
+            id="planning-v2-prompt"
+            class="planning-v2-search-input"
+            type="search"
+            placeholder="&#x50CF;&#x641C;&#x5C0B;&#x4E00;&#x6A23;&#x8F38;&#x5165;&#x9700;&#x6C42;&#xFF0C;&#x4F8B;&#x5982;&#xFF1A;&#x6211;&#x6C92;&#x6709;&#x6982;&#x5FF5;&#xFF0C;&#x5148;&#x7D66;&#x6211;&#x4E00;&#x7248;"
+          >
+        </label>
+
+        <div class="planning-v2-action-row">
+          <button id="planning-v2-random-start-btn" class="btn btn-primary" type="button">&#x6C92;&#x9748;&#x611F;&#xFF1F;&#x5148;&#x8A66;&#x4E00;&#x7248;</button>
+          <button id="planning-v2-open-wizard" class="btn btn-primary" type="button">&#x7528;&#x554F;&#x7B54;&#x88DC;&#x5145;&#x9700;&#x6C42;</button>
+          <span id="planning-v2-wizard-hint" class="planning-v2-inline-hint">&#x9084;&#x6C92;&#x88DC;&#x9F4A;&#x5165;&#x53E3;&#x3001;&#x7528;&#x9014;&#x6216;&#x9650;&#x5236;&#x689D;&#x4EF6;&#x6642;&#xFF0C;&#x53EF;&#x4EE5;&#x958B;&#x555F;&#x898F;&#x5283;&#x7CBE;&#x9748;&#x3002;</span>
+        </div>
+
+        <div class="planning-v2-mode-row">
+          <span id="planning-v2-flow-mode" class="planning-v2-mode-badge">&#x7B49;&#x5F85;&#x8F38;&#x5165;</span>
+          <span id="planning-v2-flow-note" class="planning-v2-inline-hint">&#x7CFB;&#x7D71;&#x6703;&#x5224;&#x65B7;&#x9019;&#x6B21;&#x662F;&#x63A8;&#x85A6;&#x8D77;&#x624B;&#x5F0F;&#x3001;&#x660E;&#x78BA;&#x8ACB;&#x6C42;&#x6216;&#x5C0D;&#x73FE;&#x6709;&#x65B9;&#x6848;&#x5FAE;&#x8ABF;&#x3002;</span>
+        </div>
+
+        <div id="planning-v2-wizard-pill-row" class="planning-v2-pill-row"></div>
+        <p class="planning-v2-helper-text">
+          &#x4E3B;&#x756B;&#x9762;&#x53EA;&#x4FDD;&#x7559;&#x91CD;&#x9EDE;&#x8F38;&#x5165;&#x8207;&#x7D50;&#x679C;&#x3002;&#x66F4;&#x5B8C;&#x6574;&#x7684;&#x898F;&#x5283;&#x689D;&#x4EF6;&#x6703;&#x6536;&#x5728; Wizard &#x5167;&#x9010;&#x6B65;&#x88DC;&#x9F4A;&#x3002;
+        </p>
+      </section>
+    </aside>
+
+    <main class="planning-v2-canvas-column">
+      <section class="planning-v2-card planning-v2-canvas-card">
+        <div class="card-head">
+          <div>
+            <p class="section-kicker">2D Layout Canvas</p>
+            <h3>&#x5FEB;&#x901F; 2D &#x914D;&#x7F6E;</h3>
+          </div>
+          <div id="planning-v2-candidate-tabs" class="planning-v2-candidate-tabs"></div>
+        </div>
+        <div class="planning-v2-layer-row">
+          <label><input id="layer-storage" type="checkbox" checked> &#x5132;&#x4F4D;</label>
+          <label><input id="layer-aisles" type="checkbox" checked> &#x8D70;&#x9053;</label>
+          <label><input id="layer-safety" type="checkbox" checked> &#x7DE9;&#x885D;</label>
+        </div>
+        <div id="planning-v2-canvas" class="planning-v2-canvas"></div>
+        <div id="planning-v2-canvas-legend" class="planning-v2-canvas-legend"></div>
+
+        <section class="planning-v2-compare-shell">
+          <div class="card-head">
+            <div>
+              <p class="section-kicker">Candidate Compare</p>
+              <h3>&#x5019;&#x9078;&#x65B9;&#x6848;&#x6BD4;&#x8F03;</h3>
+            </div>
+          </div>
+          <div id="planning-v2-compare" class="planning-v2-compare-grid"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <footer class="planning-v2-toolbar">
+    <div id="planning-v2-status" class="planning-v2-status">&#x5148;&#x7528;&#x81EA;&#x7136;&#x8A9E;&#x8A00;&#x6216;&#x898F;&#x5283;&#x7CBE;&#x9748;&#x88DC;&#x9F4A;&#x689D;&#x4EF6;&#xFF0C;&#x518D;&#x751F;&#x6210; 2D &#x65B9;&#x6848;&#x3002;</div>
+    <div class="planning-v2-toolbar-actions">
+      <button id="planning-v2-generate-btn" class="btn btn-primary" type="button">&#x751F;&#x6210;&#x65B9;&#x6848;</button>
+      <button id="planning-v2-regenerate-btn" class="btn btn-secondary" type="button">&#x91CD;&#x65B0;&#x751F;&#x6210;</button>
+      <button id="planning-v2-preset-conservative" class="btn btn-secondary" type="button">&#x4FDD;&#x5B88;&#x65B9;&#x6848;</button>
+      <button id="planning-v2-preset-density" class="btn btn-secondary" type="button">&#x9AD8;&#x5BC6;&#x5EA6;&#x65B9;&#x6848;</button>
+      <button id="planning-v2-preset-efficiency" class="btn btn-secondary" type="button">&#x9AD8;&#x6548;&#x7387;&#x65B9;&#x6848;</button>
+      <button id="planning-v2-save-btn" class="btn btn-success" type="button">&#x5132;&#x5B58;&#x8349;&#x6848;</button>
+      <button id="planning-v2-preview-3d" class="btn btn-secondary" type="button">3D &#x9810;&#x89BD;</button>
+    </div>
+  </footer>
+
+  <div id="planning-v2-wizard-modal" class="planning-v2-wizard-modal" hidden>
+    <div class="planning-v2-wizard-dialog" role="dialog" aria-modal="true" aria-labelledby="planning-v2-wizard-title">
+      <div class="planning-v2-wizard-head">
+        <div>
+          <p class="section-kicker">Planning Wizard</p>
+          <h3 id="planning-v2-wizard-title">&#x88DC;&#x9F4A;&#x898F;&#x5283;&#x689D;&#x4EF6;</h3>
+        </div>
+        <button id="planning-v2-wizard-close" class="btn btn-secondary" type="button">&#x95DC;&#x9589;</button>
+      </div>
+
+      <div class="planning-v2-wizard-shell">
+        <aside class="planning-v2-wizard-steps" id="planning-v2-wizard-steps">
+          <button type="button" class="planning-v2-wizard-step" data-step-target="0">
+            <span>1</span>
+            <div><strong>&#x7A7A;&#x9593;&#x6982;&#x6CC1;</strong><small>&#x5148;&#x88DC;&#x4E0A;&#x7A7A;&#x9593;&#x9810;&#x8A2D;&#x8207;&#x5132;&#x4F4D;&#x76EE;&#x6A19;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="1">
+            <span>2</span>
+            <div><strong>&#x5165;&#x53E3;&#x8207;&#x52D5;&#x7DDA;</strong><small>&#x78BA;&#x8A8D;&#x51FA;&#x5165;&#x53E3;&#x65B9;&#x5411;&#x8207;&#x8D70;&#x9053;&#x9700;&#x6C42;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="2">
+            <span>3</span>
+            <div><strong>&#x8CA8;&#x7269;&#x8207;&#x8A2D;&#x5099;</strong><small>&#x8AAA;&#x660E;&#x8CA8;&#x578B;&#x8207;&#x9069;&#x5408;&#x7684;&#x5132;&#x4F4D;&#x65B9;&#x5F0F;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="3">
+            <span>4</span>
+            <div><strong>&#x4F7F;&#x7528;&#x65B9;&#x5F0F;</strong><small>&#x88DC;&#x4E0A;&#x4F5C;&#x696D;&#x985E;&#x578B;&#x8207;&#x642C;&#x904B;&#x7FD2;&#x6163;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="4">
+            <span>5</span>
+            <div><strong>&#x9650;&#x5236;&#x689D;&#x4EF6;</strong><small>&#x4FDD;&#x7559;&#x5340;&#x3001;&#x5B89;&#x5168;&#x689D;&#x4EF6;&#x8207;&#x64F4;&#x5145;&#x9700;&#x6C42;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="5">
+            <span>6</span>
+            <div><strong>&#x504F;&#x597D;&#x8207;&#x76EE;&#x6A19;</strong><small>&#x8A2D;&#x5B9A;&#x898F;&#x5283;&#x65B9;&#x5411;&#x8207;&#x9032;&#x968E;&#x9078;&#x586B;</small></div>
+          </button>
+          <button type="button" class="planning-v2-wizard-step" data-step-target="6">
+            <span>7</span>
+            <div><strong>&#x78BA;&#x8A8D;&#x6458;&#x8981;</strong><small>&#x9001;&#x51FA;&#x524D;&#x518D;&#x770B;&#x4E00;&#x6B21;&#x6574;&#x7406;&#x7D50;&#x679C;</small></div>
+          </button>
+        </aside>
+
+        <div class="planning-v2-wizard-body">
+          <section class="planning-v2-wizard-panel" data-step-panel="0">
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x7A7A;&#x9593;&#x6982;&#x6CC1;</h4>
+              <p>&#x5148;&#x7528;&#x7C97;&#x7565;&#x7A7A;&#x9593;&#x9810;&#x8A2D;&#x8207;&#x76EE;&#x6A19;&#x5132;&#x4F4D;&#x5340;&#xFF0C;&#x8B93;&#x7CFB;&#x7D71;&#x6709;&#x4E00;&#x500B;&#x5B89;&#x5168;&#x7684;&#x8D77;&#x9EDE;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x57FA;&#x672C;&#x689D;&#x4EF6;</h5>
+                <p>&#x4E00;&#x6B21;&#x53EA;&#x56DE;&#x7B54;&#x5169;&#x500B;&#x6700;&#x91CD;&#x8981;&#x7684;&#x8CC7;&#x8A0A;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-grid planning-v2-wizard-grid--compact">
+                <label>
+                  &#x7A7A;&#x9593;&#x5927;&#x5C0F;&#x9810;&#x8A2D;
+                  <select id="space-size-preset">
+                    <option value="medium">&#x4E2D;&#x578B;&#x5009;&#x5EAB;</option>
+                    <option value="small">&#x5C0F;&#x578B;&#x5009;&#x5EAB;</option>
+                    <option value="large">&#x5927;&#x578B;&#x5009;&#x5EAB;</option>
+                    <option value="custom">&#x7A0D;&#x5F8C;&#x518D;&#x8F38;&#x5165;&#x7CBE;&#x6E96;&#x5C3A;&#x5BF8;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x76EE;&#x6A19;&#x5132;&#x4F4D;&#x5340;&#x6578;
+                  <input id="quick-storage-zone-count" type="number" min="1" step="1" placeholder="&#x4F8B;&#x5982; 4">
+                </label>
+              </div>
+            </section>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="1" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x5165;&#x53E3;&#x8207;&#x52D5;&#x7DDA;</h4>
+              <p>&#x9019;&#x4E00;&#x6B65;&#x53EA;&#x8655;&#x7406;&#x51FA;&#x5165;&#x53E3;&#x65B9;&#x5411;&#x8207;&#x8D70;&#x9053;&#x9700;&#x6C42;&#xFF0C;&#x907F;&#x514D;&#x4E00;&#x6B21;&#x770B;&#x5230;&#x592A;&#x591A;&#x6B04;&#x4F4D;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x52D5;&#x7DDA;&#x57FA;&#x5E95;</h5>
+                <p>&#x8B93;&#x7CFB;&#x7D71;&#x77E5;&#x9053;&#x8CA8;&#x6D41;&#x901A;&#x5E38;&#x5F9E;&#x54EA;&#x908A;&#x9032;&#x51FA;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-grid planning-v2-wizard-grid--compact">
+                <label>
+                  &#x5165;&#x53E3;&#x5927;&#x6982;&#x5728;&#x54EA;&#x4E00;&#x5074;&#xFF1F;
+                  <select id="entry-side">
+                    <option value="south">&#x5357;&#x5074;</option>
+                    <option value="north">&#x5317;&#x5074;</option>
+                    <option value="east">&#x6771;&#x5074;</option>
+                    <option value="west">&#x897F;&#x5074;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x5E0C;&#x671B;&#x5E7E;&#x689D;&#x4E3B;&#x8D70;&#x9053;&#xFF1F;
+                  <input id="quick-aisle-count" type="number" min="1" step="1" placeholder="&#x4F8B;&#x5982; 2">
+                </label>
+              </div>
+            </section>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="2" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x8CA8;&#x7269;&#x8207;&#x8A2D;&#x5099;</h4>
+              <p>&#x5148;&#x7528;&#x8CA8;&#x7269;&#x578B;&#x614B;&#x8207;&#x5132;&#x4F4D;&#x8A2D;&#x5099;&#x628A;&#x65B9;&#x6848;&#x65B9;&#x5411;&#x8AAA;&#x6E05;&#x695A;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x8CA8;&#x578B;&#x8207;&#x5132;&#x4F4D;</h5>
+                <p>&#x7528;&#x4EBA;&#x8A71;&#x9078;&#x64C7;&#x6700;&#x63A5;&#x8FD1;&#x7684;&#x60C5;&#x6CC1;&#x5373;&#x53EF;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-grid planning-v2-wizard-grid--compact">
+                <label>
+                  &#x8CA8;&#x7269;&#x985E;&#x578B;&#x8F03;&#x63A5;&#x8FD1;&#x54EA;&#x4E00;&#x7A2E;&#xFF1F;
+                  <select id="goods-type">
+                    <option value="carton">&#x7D19;&#x7BB1; / &#x7BB1;&#x4EF6;</option>
+                    <option value="pallet">&#x68E7;&#x677F;</option>
+                    <option value="mixed">&#x6DF7;&#x5408;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x5132;&#x4F4D;&#x8A2D;&#x5099;&#x8F03;&#x63A5;&#x8FD1;&#x54EA;&#x4E00;&#x7A2E;&#xFF1F;
+                  <select id="rack-mode">
+                    <option value="shelf">&#x5C64;&#x67B6;</option>
+                    <option value="pallet_rack">&#x68E7;&#x677F;&#x8CA8;&#x67B6;</option>
+                    <option value="mixed">&#x6DF7;&#x5408;</option>
+                    <option value="none">&#x5148;&#x4E0D;&#x8A2D;&#x67B6;</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="3" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x4F7F;&#x7528;&#x65B9;&#x5F0F;</h4>
+              <p>&#x8AAA;&#x660E;&#x9019;&#x500B;&#x7A7A;&#x9593;&#x4E3B;&#x8981;&#x62FF;&#x4F86;&#x505A;&#x4EC0;&#x9EBC;&#xFF0C;&#x4EE5;&#x53CA;&#x5E73;&#x5E38;&#x600E;&#x9EBC;&#x642C;&#x904B;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x4F5C;&#x696D;&#x60C5;&#x5883;</h5>
+                <p>&#x9078;&#x64C7;&#x6700;&#x63A5;&#x8FD1;&#x73FE;&#x5834;&#x7684;&#x8AAA;&#x6CD5;&#x5373;&#x53EF;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-grid planning-v2-wizard-grid--compact">
+                <label>
+                  &#x9019;&#x500B;&#x7A7A;&#x9593;&#x4E3B;&#x8981;&#x62FF;&#x4F86;&#x505A;&#x4EC0;&#x9EBC;&#xFF1F;
+                  <select id="qa-use-case">
+                    <option value="balanced">&#x6C4E;&#x7528;&#x578B;&#x7A7A;&#x9593;</option>
+                    <option value="storage">&#x4EE5;&#x5132;&#x5B58;&#x70BA;&#x4E3B;</option>
+                    <option value="picking">&#x4EE5;&#x63C0;&#x8CA8;&#x70BA;&#x4E3B;</option>
+                    <option value="shipping">&#x4EE5;&#x51FA;&#x8CA8;&#x70BA;&#x4E3B;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x5E73;&#x5E38;&#x600E;&#x9EBC;&#x642C;&#x904B;&#xFF1F;
+                  <select id="handling-mode">
+                    <option value="manual">&#x4EBA;&#x5DE5;&#x70BA;&#x4E3B;</option>
+                    <option value="pallet_jack">&#x62D6;&#x677F;&#x8ECA;&#x70BA;&#x4E3B;</option>
+                    <option value="forklift">&#x53C9;&#x8ECA;&#x70BA;&#x4E3B;</option>
+                    <option value="mixed">&#x6DF7;&#x5408;</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="4" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x9650;&#x5236;&#x689D;&#x4EF6;</h4>
+              <p>&#x5148;&#x7528;&#x76F4;&#x89BA;&#x65B9;&#x5F0F;&#x8AAA;&#x660E;&#x67F1;&#x4F4D;&#x3001;&#x4E0D;&#x53EF;&#x653E;&#x7F6E;&#x5340;&#x8207;&#x51FA;&#x8CA8;&#x7DE9;&#x885D;&#x3002;&#x7CFB;&#x7D71;&#x6703;&#x518D;&#x628A;&#x9019;&#x4E9B;&#x8F49;&#x6210;&#x771F;&#x6B63;&#x7684;&#x898F;&#x5283;&#x9650;&#x5236;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x5FC5;&#x8981;&#x9650;&#x5236;</h5>
+                <p>&#x53EA;&#x4FDD;&#x7559;&#x6703;&#x5BE6;&#x969B;&#x5F71;&#x97FF;&#x914D;&#x7F6E;&#x7684;&#x4FDD;&#x7559;&#x689D;&#x4EF6;&#x3001;&#x5B89;&#x5168;&#x9700;&#x6C42;&#x8207;&#x64F4;&#x5145;&#x7A7A;&#x9593;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-toggle-grid planning-v2-wizard-toggle-grid--stack">
+                <label class="toggle-field"><input id="loading-area-required" type="checkbox"> &#x9700;&#x8981;&#x4FDD;&#x7559;&#x51FA;&#x8CA8; / &#x66AB;&#x5B58;&#x5340;</label>
+                <label class="toggle-field"><input id="keep-fast-moving-near-entry" type="checkbox" checked> &#x71B1;&#x9580;&#x8CA8;&#x9700;&#x63A5;&#x8FD1;&#x5165;&#x53E3;</label>
+                <label class="toggle-field"><input id="reserve-expansion-area" type="checkbox"> &#x4FDD;&#x7559;&#x672A;&#x4F86;&#x64F4;&#x5145;&#x5340;&#x57DF;</label>
+                <label class="toggle-field"><input id="escape-route-required" type="checkbox"> &#x9700;&#x8981;&#x9810;&#x7559;&#x9003;&#x751F;&#x901A;&#x9053;</label>
+                <label class="toggle-field"><input id="fire-lane-required" type="checkbox"> &#x9700;&#x8981;&#x9810;&#x7559;&#x6D88;&#x9632;&#x6DE8;&#x7A7A;</label>
+              </div>
+            </section>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="5" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x504F;&#x597D;&#x8207;&#x76EE;&#x6A19;</h4>
+              <p>&#x5148;&#x9078;&#x4F60;&#x66F4;&#x91CD;&#x8996;&#x7684;&#x65B9;&#x5411;&#xFF0C;&#x9032;&#x968E;&#x8CC7;&#x6599;&#x5247;&#x6536;&#x5728;&#x4E0B;&#x65B9;&#x9078;&#x586B;&#x5340;&#x3002;</p>
+            </div>
+            <section class="planning-v2-form-section">
+              <div class="planning-v2-form-section-copy">
+                <h5>&#x898F;&#x5283;&#x65B9;&#x5411;</h5>
+                <p>&#x8B93;&#x7CFB;&#x7D71;&#x77E5;&#x9053;&#x4F60;&#x66F4;&#x91CD;&#x8996;&#x5BB9;&#x91CF;&#x3001;&#x6548;&#x7387;&#x6216;&#x5B89;&#x5168;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-grid">
+                <label>
+                  &#x4F60;&#x66F4;&#x5728;&#x610F;&#x54EA;&#x7A2E;&#x7248;&#x578B;&#xFF1F;
+                  <select id="preferred-layout-style">
+                    <option value="balanced">&#x5E73;&#x8861;&#x65B9;&#x6848;</option>
+                    <option value="high_density">&#x9AD8;&#x5BC6;&#x5EA6;</option>
+                    <option value="high_efficiency">&#x9AD8;&#x6548;&#x7387;</option>
+                    <option value="conservative">&#x4FDD;&#x5B88;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x63C0;&#x8CA8;&#x6A21;&#x5F0F;
+                  <select id="picking-mode">
+                    <option value="manual">&#x4EBA;&#x5DE5;&#x63C0;&#x8CA8;</option>
+                    <option value="batch">&#x6279;&#x6B21;&#x63C0;&#x8CA8;</option>
+                    <option value="wave">&#x6CE2;&#x6B21;&#x63C0;&#x8CA8;</option>
+                    <option value="none">&#x76EE;&#x524D;&#x4E0D;&#x91CD;&#x9EDE;&#x63C0;&#x8CA8;</option>
+                  </select>
+                </label>
+                <label>
+                  &#x51FA;&#x8CA8;&#x983B;&#x7387;
+                  <select id="shipping-frequency">
+                    <option value="medium">&#x4E2D;</option>
+                    <option value="high">&#x9AD8;</option>
+                    <option value="low">&#x4F4E;</option>
+                  </select>
+                </label>
+                <label>
+                  SKU &#x5BC6;&#x5EA6;
+                  <select id="sku-density">
+                    <option value="medium">&#x4E2D;</option>
+                    <option value="high">&#x9AD8;</option>
+                    <option value="low">&#x4F4E;</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <details id="planning-v2-advanced" class="planning-v2-advanced">
+              <summary>&#x9032;&#x968E;&#x8A2D;&#x5B9A;&#xFF1A;&#x6709;&#x9700;&#x8981;&#x518D;&#x88DC;&#x7CBE;&#x78BA;&#x8CC7;&#x6599;</summary>
+              <div class="planning-v2-form-section-copy planning-v2-form-section-copy--inside">
+                <h5>&#x7CBE;&#x78BA;&#x7A7A;&#x9593;&#x8CC7;&#x6599;</h5>
+                <p>&#x53EA;&#x6709;&#x771F;&#x7684;&#x9700;&#x8981;&#x8ABF;&#x6574;&#x5C3A;&#x5BF8;&#x6216;&#x7279;&#x6B8A;&#x5E73;&#x9762;&#x6642;&#xFF0C;&#x624D;&#x9700;&#x8981;&#x5C55;&#x958B;&#x9019;&#x88E1;&#x3002;</p>
+              </div>
+              <div class="planning-v2-advanced-grid">
+                <label>&#x9577;&#x5EA6; (mm)<input id="length-mm" type="number" min="1000" step="100"></label>
+                <label>&#x5BEC;&#x5EA6; (mm)<input id="width-mm" type="number" min="1000" step="100"></label>
+                <label>&#x9AD8;&#x5EA6; (mm)<input id="height-mm" type="number" min="1800" step="100"></label>
+                <label>
+                  &#x7A7A;&#x9593;&#x5F62;&#x72C0;
+                  <select id="shape">
+                    <option value="rectangle">&#x77E9;&#x5F62;</option>
+                    <option value="l_shape">L &#x578B;</option>
+                    <option value="t_shape">T &#x578B;</option>
+                    <option value="u_shape">U &#x578B;</option>
+                  </select>
+                </label>
+                <label>&#x5165;&#x53E3;&#x5BEC;&#x5EA6; (mm)<input id="entry-width-mm" type="number" min="1000" step="100"></label>
+                <label>
+                  &#x662F;&#x5426;&#x9700;&#x8981;&#x5206;&#x5340;
+                  <select id="zoning-required">
+                    <option value="true">&#x9700;&#x8981;&#x57FA;&#x672C;&#x5206;&#x5340;</option>
+                    <option value="false">&#x76EE;&#x524D;&#x4E0D;&#x9700;&#x8981;</option>
+                  </select>
+                </label>
+              </div>
+
+              <div id="shape-params-l" class="planning-v2-shape-params" hidden>
+                <label>L &#x578B;&#x7F3A;&#x53E3;&#x5BEC;&#x5EA6; (mm)<input id="l-notch-width-mm" type="number" min="600" step="100"></label>
+                <label>L &#x578B;&#x7F3A;&#x53E3;&#x6DF1;&#x5EA6; (mm)<input id="l-notch-depth-mm" type="number" min="600" step="100"></label>
+                <label>
+                  L &#x578B;&#x7F3A;&#x53E3;&#x4F4D;&#x7F6E;
+                  <select id="l-open-corner">
+                    <option value="north_east">&#x53F3;&#x4E0A;</option>
+                    <option value="north_west">&#x5DE6;&#x4E0A;</option>
+                    <option value="south_east">&#x53F3;&#x4E0B;</option>
+                    <option value="south_west">&#x5DE6;&#x4E0B;</option>
+                  </select>
+                </label>
+              </div>
+
+              <div id="shape-params-t" class="planning-v2-shape-params" hidden>
+                <label>T &#x578B;&#x4E2D;&#x67F1;&#x5BEC;&#x5EA6; (mm)<input id="t-stem-width-mm" type="number" min="600" step="100"></label>
+                <label>T &#x578B;&#x6A6B;&#x5411;&#x6DF1;&#x5EA6; (mm)<input id="t-head-depth-mm" type="number" min="600" step="100"></label>
+                <label>
+                  T &#x578B;&#x958B;&#x53E3;&#x65B9;&#x5411;
+                  <select id="t-opening-direction">
+                    <option value="north">&#x4E0A;</option>
+                    <option value="south">&#x4E0B;</option>
+                    <option value="east">&#x53F3;</option>
+                    <option value="west">&#x5DE6;</option>
+                  </select>
+                </label>
+              </div>
+
+              <div id="shape-params-u" class="planning-v2-shape-params" hidden>
+                <label>U &#x578B;&#x958B;&#x53E3;&#x5BEC;&#x5EA6; (mm)<input id="u-opening-width-mm" type="number" min="600" step="100"></label>
+                <label>U &#x578B;&#x958B;&#x53E3;&#x6DF1;&#x5EA6; (mm)<input id="u-opening-depth-mm" type="number" min="600" step="100"></label>
+                <label>
+                  U &#x578B;&#x958B;&#x53E3;&#x65B9;&#x5411;
+                  <select id="u-opening-direction">
+                    <option value="north">&#x4E0A;</option>
+                    <option value="south">&#x4E0B;</option>
+                    <option value="east">&#x53F3;</option>
+                    <option value="west">&#x5DE6;</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="planning-v2-form-section-copy planning-v2-form-section-copy--inside">
+                <h5>&#x9032;&#x968E;&#x9650;&#x5236;&#x8207;&#x76EE;&#x6A19;</h5>
+                <p>&#x4E0D;&#x9700;&#x8981;&#x7684;&#x6642;&#x5019;&#x53EF;&#x4EE5;&#x5B8C;&#x5168;&#x7565;&#x904E;&#x3002;</p>
+              </div>
+              <div class="planning-v2-wizard-toggle-grid">
+                <label class="toggle-field"><input id="turning-space-required" type="checkbox"> &#x9700;&#x8981;&#x8F49;&#x8EAB;&#x7A7A;&#x9593;</label>
+                <label class="toggle-field"><input id="escape-route-required" type="checkbox"> &#x9700;&#x8981;&#x9003;&#x751F;&#x901A;&#x9053;</label>
+                <label class="toggle-field"><input id="fire-lane-required" type="checkbox"> &#x9700;&#x8981;&#x6D88;&#x9632;&#x901A;&#x9053;</label>
+                <label class="toggle-field"><input id="stackable" type="checkbox" checked> &#x53EF;&#x4EE5;&#x5806;&#x758A;</label>
+                <label class="toggle-field"><input id="fragile" type="checkbox"> &#x6613;&#x788E; / &#x9700;&#x8B39;&#x614E;</label>
+                <label class="toggle-field"><input id="special-zone-cold" type="checkbox"> &#x9700;&#x8981;&#x51B7;&#x85CF;&#x5340;</label>
+                <label class="toggle-field"><input id="special-zone-hazardous" type="checkbox"> &#x9700;&#x8981;&#x5371;&#x96AA;&#x54C1;&#x5340;</label>
+                <label class="toggle-field"><input id="special-zone-heavy" type="checkbox"> &#x9700;&#x8981;&#x91CD;&#x8CA8;&#x5340;</label>
+              </div>
+
+              <div class="planning-v2-advanced-grid planning-v2-advanced-grid--compact">
+                <label>&#x5BB9;&#x91CF;&#x6B0A;&#x91CD;<input id="objective-storage-density" type="number" min="0.1" max="0.8" step="0.05" value="0.4"></label>
+                <label>&#x6548;&#x7387;&#x6B0A;&#x91CD;<input id="objective-picking-efficiency" type="number" min="0.1" max="0.8" step="0.05" value="0.4"></label>
+                <label>&#x5B89;&#x5168;&#x6B0A;&#x91CD;<input id="objective-safety-margin" type="number" min="0.1" max="0.8" step="0.05" value="0.2"></label>
+              </div>
+            </details>
+          </section>
+
+          <section class="planning-v2-wizard-panel" data-step-panel="6" hidden>
+            <div class="planning-v2-wizard-copy">
+              <h4>&#x78BA;&#x8A8D;&#x6458;&#x8981;</h4>
+              <p>&#x9001;&#x51FA;&#x524D;&#x518D;&#x78BA;&#x8A8D;&#x4E00;&#x6B21;&#x76EE;&#x524D;&#x6574;&#x7406;&#x51FA;&#x7684;&#x689D;&#x4EF6;&#x3002;</p>
+            </div>
+            <div id="planning-v2-wizard-summary" class="planning-v2-wizard-summary"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="planning-v2-wizard-actions">
+        <button id="planning-v2-wizard-prev" class="btn btn-secondary" type="button">&#x4E0A;&#x4E00;&#x6B65;</button>
+        <button id="planning-v2-wizard-next" class="btn btn-primary" type="button">&#x4E0B;&#x4E00;&#x6B65;</button>
+        <button id="planning-v2-wizard-submit" class="btn btn-success" type="button" hidden>&#x5B8C;&#x6210;&#x4E26;&#x5957;&#x7528;</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="planning-v2-preview-modal" class="planning-v2-preview-modal" hidden>
+    <div class="planning-v2-preview-dialog">
+      <div class="planning-v2-preview-head">
+        <div>
+          <p class="section-kicker">3D Preview</p>
+          <h3>3D &#x9810;&#x89BD;</h3>
+        </div>
+        <button id="planning-v2-preview-close" class="btn btn-secondary" type="button">&#x95DC;&#x9589;</button>
+      </div>
+      <div class="planning-v2-preview-body">
+        <div id="planning-v2-preview-scene" class="planning-v2-preview-scene"></div>
+        <aside class="planning-v2-preview-sidebar">
+          <section class="planning-v2-preview-legend-card">
+            <h4>顏色說明</h4>
+            <p>2D 與 3D 會共用同一套區域語意色，避免只看到透明盒子卻不知道代表什麼。</p>
+            <div id="planning-v2-preview-legend" class="planning-v2-preview-legend"></div>
+          </section>
+          <section class="planning-v2-preview-legend-card">
+            <h4>區塊清單</h4>
+            <p>目前方案中的主要區域與名稱。</p>
+            <div id="planning-v2-preview-zone-list" class="planning-v2-preview-zone-list"></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>

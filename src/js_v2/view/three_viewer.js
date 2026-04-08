@@ -6,6 +6,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DynamicQualityScaler } from '../utils/performance.js';
+import {
+  getFootprintOutlinePoints,
+  isPointInWarehouseShape,
+  normalizeWarehouseContainerConfig
+} from '../../frontend/contexts/space-design/domain/warehouse-layout-planner.js';
 
 export class ThreeViewer {
   constructor(containerElement) {
@@ -408,50 +413,24 @@ export class ThreeViewer {
   }
 
   isPointInContainer(x, y) {
-    const config = this.containerConfig;
-    if (!config) return false;
-
-    switch (config.shape) {
-      case 'rect': {
-        const params = config.parameters || config;
-        return x >= 0 && x <= (params.widthX || 0) && y >= 0 && y <= (params.depthZ || 0);
-      }
-
-      case 'u_shape': {
-        const params = config.parameters || config;
-        const { outerWidthX, outerDepthZ, gapWidthX, gapDepthZ } = params;
-        if (x < 0 || x > (outerWidthX || 0) || y < 0 || y > (outerDepthZ || 0)) return false;
-        const gapLeft = ((outerWidthX || 0) - (gapWidthX || 0)) / 2;
-        const gapRight = ((outerWidthX || 0) + (gapWidthX || 0)) / 2;
-        const gapTop = (outerDepthZ || 0) - (gapDepthZ || 0);
-        if (x >= gapLeft && x <= gapRight && y >= gapTop && y <= (outerDepthZ || 0)) {
-          return false; // In gap
-        }
-        return true;
-      }
-
-      case 't_shape': {
-        const params = config.parameters || config;
-        const { topWidthX, topDepthZ, bottomWidthX, bottomDepthZ } = params;
-        const bottomLeft = ((topWidthX || 0) - (bottomWidthX || 0)) / 2;
-        const bottomRight = bottomLeft + (bottomWidthX || 0);
-
-        if (y >= 0 && y <= (bottomDepthZ || 0)) {
-          return x >= bottomLeft && x <= bottomRight;
-        }
-        if (y > (bottomDepthZ || 0) && y <= (bottomDepthZ || 0) + (topDepthZ || 0)) {
-          return x >= 0 && x <= (topWidthX || 0);
-        }
-        return false;
-      }
-
-      default:
-        return false;
-    }
+    if (!this.containerConfig) return false;
+    const config = normalizeWarehouseContainerConfig(this.containerConfig.parameters || this.containerConfig);
+    return isPointInWarehouseShape(config, x, y);
   }
 
+  static ZONE_COLORS = {
+    storage_zone: 0x3471ff,
+    fast_moving_zone: 0x63caa1,
+    main_aisle: 0x44d3c6,
+    secondary_aisle: 0x90beff,
+    shipping_buffer: 0xfab54d,
+    safety_buffer: 0xf0c98a,
+    unknown: 0xb5c7dd
+  };
+
   drawContainer(containerConfig) {
-    const shape = containerConfig.shape || 'rect';
+    const config = normalizeWarehouseContainerConfig(containerConfig.parameters || containerConfig);
+    const shape = config.shape || 'rect';
 
     // DEBUG: Detailed container shape detection logging
     console.log('━━━━━━ THREE VIEWER - DRAW CONTAINER ━━━━━━');
@@ -462,21 +441,12 @@ export class ThreeViewer {
     console.log('[ThreeViewer] Config keys:', Object.keys(containerConfig));
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    switch (shape) {
-      case 'u_shape':
-        this.drawUShapeContainer(containerConfig);
-        break;
-      case 't_shape':
-        this.drawTShapeContainer(containerConfig);
-        break;
-      case 'rect':
-      default:
-        const width = containerConfig.widthX || containerConfig.parameters?.widthX || 5800;
-        const height = containerConfig.heightY || containerConfig.parameters?.heightY || 2400;
-        const depth = containerConfig.depthZ || containerConfig.parameters?.depthZ || 2300;
-        this.drawRectContainer(width, height, depth);
-        break;
+    if (shape === 'rect') {
+      this.drawRectContainer(config.widthX, config.heightY, config.depthZ);
+      return;
     }
+
+    this.drawPolygonContainer(config);
   }
 
   drawRectContainer(width, height, depth) {
@@ -491,6 +461,52 @@ export class ThreeViewer {
 
     this.sceneObjects.container.push(container);
     this.scene.add(container);
+  }
+
+  drawPolygonContainer(config) {
+    const outline = getFootprintOutlinePoints(config);
+    if (!outline.length) return;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(outline[0].x, outline[0].z);
+    outline.slice(1).forEach((point) => {
+      shape.lineTo(point.x, point.z);
+    });
+    shape.lineTo(outline[0].x, outline[0].z);
+
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth: config.heightY,
+      bevelEnabled: false
+    });
+    geometry.rotateX(Math.PI / 2);
+    geometry.translate(0, config.heightY, 0);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xc4a57b,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.DoubleSide,
+      metalness: 0.1,
+      roughness: 0.8,
+      polygonOffset: true,
+      polygonOffsetFactor: 1,
+      polygonOffsetUnits: 1,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData.isDynamic = true;
+    this.scene.add(mesh);
+    this.sceneObjects.container.push(mesh);
+
+    const edges = new THREE.EdgesGeometry(geometry);
+    const line = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0x8b6f47, linewidth: 2 })
+    );
+    line.userData.isDynamic = true;
+    this.scene.add(line);
+    this.sceneObjects.container.push(line);
   }
 
   drawUShapeContainer(config) {
@@ -626,18 +642,16 @@ export class ThreeViewer {
   drawZones(zones) {
     if (!zones || zones.length === 0) return;
 
-    zones.forEach((zone, index) => {
+    zones.forEach((zone) => {
       const zoneWidth = zone.length || 1000;
       const zoneHeight = zone.height || 2400;
       const zoneDepth = zone.width || 1000;
-      const cornerX = zone.x || 0;
-      const cornerZ = zone.y || 0;
-
+      const zoneColor = this.getZoneColor(zone);
       const geometry = new THREE.BoxGeometry(zoneWidth, zoneHeight, zoneDepth);
       const material = new THREE.MeshBasicMaterial({
-        color: this.getZoneColor(index),
+        color: zoneColor,
         transparent: true,
-        opacity: 0.15,
+        opacity: zone.semanticKind === 'shipping_buffer' ? 0.3 : zone.semanticKind === 'fast_moving_zone' ? 0.26 : 0.18,
         side: THREE.DoubleSide,
         depthWrite: false, // Fix Z-fighting for zones
         polygonOffset: true,
@@ -649,7 +663,7 @@ export class ThreeViewer {
       const edges = new THREE.EdgesGeometry(geometry);
       const line = new THREE.LineSegments(
         edges,
-        new THREE.LineBasicMaterial({ color: this.getZoneColor(index), transparent: true, opacity: 0.5 })
+        new THREE.LineBasicMaterial({ color: zoneColor, transparent: true, opacity: zone.semanticKind === 'shipping_buffer' ? 0.9 : 0.58 })
       );
 
       // FIX: zone.x and zone.y from DB are Center coordinates, not corners.
@@ -667,6 +681,8 @@ export class ThreeViewer {
       line.rotation.y = rotation;
 
       mesh.userData.isDynamic = true;
+      mesh.userData.zoneName = zone.name;
+      mesh.userData.semanticKind = zone.semanticKind || zone.type;
       line.userData.isDynamic = true;
 
       this.scene.add(mesh);
@@ -756,11 +772,9 @@ export class ThreeViewer {
 
   getItemColor(item) { /* Worker handles this now */ }
 
-  getZoneColor(index) {
-    const colors = [
-      0x00d2ff, 0x00ff9d, 0xff9f00, 0xff0055, 0xf6ff00
-    ];
-    return colors[index % colors.length];
+  getZoneColor(zone) {
+    const key = zone?.semanticKind || zone?.type || 'unknown';
+    return ThreeViewer.ZONE_COLORS[key] || ThreeViewer.ZONE_COLORS.unknown;
   }
 
   fitCameraToScene() {
