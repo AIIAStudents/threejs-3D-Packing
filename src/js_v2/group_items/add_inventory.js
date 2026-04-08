@@ -101,7 +101,10 @@ export const AddInventoryPage = {
       this.itemsList.innerHTML = `
         <div class="loading-state">
           <div class="spinner"></div>
-          <p>${message}</p>
+          <div class="state-copy">
+            <p class="state-eyebrow">Syncing Workbench</p>
+            <p>${message}</p>
+          </div>
         </div>
       `;
     }
@@ -116,8 +119,11 @@ export const AddInventoryPage = {
     if (this.itemsList) {
       this.itemsList.innerHTML = `
         <div class="error-state">
-          <div class="error-icon">⚠️</div>
-          <p class="error-message">${message}</p>
+          <div class="error-icon">!</div>
+          <div class="state-copy">
+            <p class="state-eyebrow">Connection Alert</p>
+            <p class="error-message">${message}</p>
+          </div>
           ${retryFn ? '<button class="btn btn-primary retry-btn">重試</button>' : ''}
         </div>
       `;
@@ -141,48 +147,117 @@ export const AddInventoryPage = {
     }
 
     // Pagination
-    const totalPages = Math.ceil(filteredItems.length / this.itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(filteredItems.length / this.itemsPerPage));
+    if (this.currentPage > totalPages) {
+      this.currentPage = totalPages;
+    }
     const startIdx = (this.currentPage - 1) * this.itemsPerPage;
     const endIdx = startIdx + this.itemsPerPage;
     const paginatedItems = filteredItems.slice(startIdx, endIdx);
+    const currentGroupName = this.currentFilter
+      ? (this.groups.find(group => group.id.toString() === this.currentFilter)?.name || '未命名群組')
+      : '全部群組';
+    const visibleStart = filteredItems.length > 0 ? startIdx + 1 : 0;
+    const visibleEnd = filteredItems.length > 0 ? Math.min(endIdx, filteredItems.length) : 0;
+    const formatDimension = (value) => {
+      const parsedValue = Number(value);
+      return Number.isFinite(parsedValue)
+        ? parsedValue.toLocaleString('zh-TW', { maximumFractionDigits: 2 })
+        : value;
+    };
 
     let html = `
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th>編號</th>
-            <th>群組</th>
-            <th>長(L)</th>
-            <th>寬(W)</th>
-            <th>高(H)</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
+      <div class="workbench-header">
+        <div class="workbench-copy">
+          <p class="section-kicker">Live Inventory Grid</p>
+          <h4>群組物件清單</h4>
+          <p class="workbench-description">
+            目前檢視
+            <span class="group-pill">${currentGroupName}</span>
+          </p>
+        </div>
+
+        <div class="workbench-meta">
+          <div class="workbench-stat">
+            <span class="stat-label">Total Items</span>
+            <strong>${filteredItems.length}</strong>
+          </div>
+          <div class="workbench-stat">
+            <span class="stat-label">Page</span>
+            <strong>${this.currentPage}/${totalPages}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th class="col-item-id">編號</th>
+              <th>群組</th>
+              <th>長度 (L)</th>
+              <th>寬度 (W)</th>
+              <th>高度 (H)</th>
+              <th class="col-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
     `;
 
     paginatedItems.forEach(item => {
       const group = this.groups.find(g => g.id === item.group_id);
       html += `
-        <tr>
-          <td><strong>${item.item_id}</strong></td>
-          <td>${group ? group.name : 'N/A'}</td>
-          <td>${item.length}</td>
-          <td>${item.width}</td>
-          <td>${item.height}</td>
-          <td>
-            <span class="edit-icon" data-id="${item.id}" title="編輯">✏️</span>
-            <span class="delete-icon" data-id="${item.id}" title="刪除">🗑️</span>
-          </td>
-        </tr>
+          <tr>
+            <td class="cell-item-id">
+              <strong class="item-id-badge">${item.item_id}</strong>
+            </td>
+            <td>
+              <span class="group-pill">${group ? group.name : 'N/A'}</span>
+            </td>
+            <td class="cell-dimension">
+              <span class="dimension-value">${formatDimension(item.length)}</span>
+            </td>
+            <td class="cell-dimension">
+              <span class="dimension-value">${formatDimension(item.width)}</span>
+            </td>
+            <td class="cell-dimension">
+              <span class="dimension-value">${formatDimension(item.height)}</span>
+            </td>
+            <td class="cell-actions">
+              <button
+                type="button"
+                class="icon-action edit-icon"
+                data-id="${item.id}"
+                title="編輯"
+                aria-label="編輯 ${item.item_id}"
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                class="icon-action delete-icon"
+                data-id="${item.id}"
+                title="刪除"
+                aria-label="刪除 ${item.item_id}"
+              >
+                ×
+              </button>
+            </td>
+          </tr>
       `;
     });
 
-    html += '</tbody></table>';
+    html += `
+          </tbody>
+        </table>
+      </div>
 
-    // Add pagination controls if needed
-    if (totalPages > 1) {
-      html += `
+      <div class="table-footer">
+        <div class="results-summary">
+          <span class="results-range">${visibleStart}-${visibleEnd}</span>
+          <span class="results-total">/ ${filteredItems.length} 筆物件</span>
+        </div>
+
         <div class="pagination">
           <button class="page-btn" id="prev-page" ${this.currentPage === 1 ? 'disabled' : ''}>
             上一頁
@@ -192,8 +267,8 @@ export const AddInventoryPage = {
             下一頁
           </button>
         </div>
-      `;
-    }
+      </div>
+    `;
 
     this.itemsList.innerHTML = html;
 
@@ -233,9 +308,10 @@ export const AddInventoryPage = {
   renderEmptyState() {
     this.itemsList.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📦</div>
-        <h3>當前群組內沒有新增任何物件</h3>
-        <p>請點選下方按鈕建立您的第一個物件。</p>
+        <div class="empty-icon">[]</div>
+        <p class="state-eyebrow">No Active Inventory</p>
+        <h3>目前群組尚未建立任何物件</h3>
+        <p>先建立第一筆資料，工作台就會自動切換成可編輯清單。</p>
         <button class="btn btn-primary" id="add-first-item">+ 新增物件</button>
       </div>
     `;
@@ -477,6 +553,13 @@ export const AddInventoryPage = {
   openModal() {
     this.modal.classList.add('active');
     this.form.reset();
+    const itemGroupSelect = document.getElementById('item-group');
+    if (itemGroupSelect && this.currentFilter) {
+      itemGroupSelect.value = this.currentFilter;
+    }
+    window.requestAnimationFrame(() => {
+      document.getElementById('item-name')?.focus();
+    });
   },
 
   closeModal() {

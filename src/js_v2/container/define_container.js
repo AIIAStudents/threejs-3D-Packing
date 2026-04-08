@@ -3,6 +3,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { throttle, DynamicQualityScaler } from '../utils/performance.js';
 import { apiClient } from '../../frontend/app/api/api-client.js';
 import { storageAdapter } from '../../frontend/app/storage/storage-adapter.js';
+import { planningV2Storage } from '../../frontend/contexts/planning-v2/infrastructure/planning-v2-storage.js';
+import { normalizePlanningIntent } from '../../frontend/contexts/planning-v2/domain/planning-intent.js';
+import {
+  getFootprintOutlinePoints,
+  normalizeWarehouseContainerConfig
+} from '../../frontend/contexts/space-design/domain/warehouse-layout-planner.js';
 
 export const DefineContainerPage = {
   // Three.js
@@ -37,17 +43,29 @@ export const DefineContainerPage = {
     y_mm: null,
 
     // Shape
-    shape: 'rect',           // 'rect', 't_shape', 'u_shape', 'l_shape'
+    shape: 'rect',
 
-    // Non-standard params
-    t_bottom_x: 1500,
-    t_bottom_z: 4000,
-    t_top_x: 4000,
-    t_top_z: 1500,
-    u_outer_x: 6000,
-    u_outer_z: 3000,
-    u_gap_x: 2000,
-    u_gap_z: 1000,
+    // Warehouse planning defaults
+    primary_aisle_width: 2400,
+    secondary_aisle_width: 1600,
+    safety_buffer_mm: 300,
+    boundary_inspection_aisle_width: 1000,
+    preserve_central_main_aisle: true,
+    preserve_boundary_inspection_aisle: false,
+    main_aisle_axis: 'auto',
+    layout_strategy: 'balanced',
+    target_storage_band_mm: 2400,
+    grid_size_mm: 200,
+
+    // T-shape params
+    t_stem_width: 1800,
+    t_head_depth: 1800,
+    t_opening_direction: 'north',
+
+    // U-shape params
+    u_opening_width: 2200,
+    u_opening_depth: 1400,
+    u_opening_direction: 'north',
 
     // Derived values
     A_m2: null,
@@ -91,7 +109,6 @@ export const DefineContainerPage = {
 
   init() {
     this.dispose();
-
     // Bind navigation
     this.bindNavigation();
 
@@ -130,6 +147,64 @@ export const DefineContainerPage = {
     // Update UI
     this.updateProgressBar();
     this.updateNavigationButtons();
+  },
+
+  applyQuickModeBridgeCopy() {
+    const finishBtn = document.getElementById('btn-finish');
+    const modalTitle = document.querySelector('#success-modal .modal-title');
+    const modalDescription = document.querySelector('#success-modal p');
+    const okBtn = document.getElementById('btn-modal-ok');
+
+    if (finishBtn) {
+      finishBtn.textContent = '儲存並進入快速模式';
+    }
+
+    if (modalTitle) {
+      modalTitle.textContent = '空間定義已完成';
+    }
+
+    if (modalDescription) {
+      modalDescription.textContent = '倉儲空間外框與基本條件已保存，接下來會直接進入快速模式，讓你用問答方式生成規劃方案。';
+    }
+
+    if (okBtn) {
+      okBtn.textContent = '前往快速模式';
+    }
+  },
+
+  buildQuickModeDraft() {
+    return normalizePlanningIntent({
+      warehouse: {
+        shape: this.wizardState.shape === 'rect' ? 'rectangle' : this.wizardState.shape,
+        shape_params: {
+          t_stem_width_mm: this.wizardState.t_stem_width,
+          t_head_depth_mm: this.wizardState.t_head_depth,
+          t_opening_direction: this.wizardState.t_opening_direction,
+          u_opening_width_mm: this.wizardState.u_opening_width,
+          u_opening_depth_mm: this.wizardState.u_opening_depth,
+          u_opening_direction: this.wizardState.u_opening_direction
+        },
+        dimensions: {
+          length_mm: this.wizardState.X_mm,
+          width_mm: this.wizardState.Z_mm,
+          height_mm: this.wizardState.Y_mm
+        },
+        entrances: [
+          {
+            id: 'entry_main',
+            side: 'south',
+            width_mm: Math.max(1800, Math.round((this.wizardState.X_mm || 12000) * 0.12))
+          }
+        ]
+      },
+      planning_preferences: {
+        preferred_layout_style: this.wizardState.layout_strategy === 'high_density'
+          ? 'high_density'
+          : this.wizardState.layout_strategy === 'high_efficiency'
+            ? 'high_efficiency'
+            : 'balanced'
+      }
+    });
   },
 
   bindNavigation() {
@@ -220,29 +295,65 @@ export const DefineContainerPage = {
 
         // Show/hide non-standard params
         const nonstandardParams = document.getElementById('nonstandard-params');
-        if (this.wizardState.shape === 'rect') {
-          nonstandardParams.style.display = 'none';
-        } else {
+        if (nonstandardParams) {
           nonstandardParams.style.display = 'block';
-
-          // Hide all shape params
-          document.querySelectorAll('.shape-params').forEach(p => p.style.display = 'none');
-
-          // Show selected shape params
-          const shapeParams = document.getElementById(`${this.wizardState.shape}-params`);
-          if (shapeParams) shapeParams.style.display = 'grid';
         }
+
+        document.querySelectorAll('.shape-params').forEach(p => {
+          p.style.display = 'none';
+        });
+
+        const shapeParams = document.getElementById(`${this.wizardState.shape}-params`);
+        if (shapeParams) {
+          shapeParams.style.display = 'grid';
+        }
+
+        this.updatePreview();
       });
     });
 
-    // Bind non-standard param inputs
-    ['t-bottom-x', 't-bottom-z', 't-top-x', 't-top-z',
-      'u-outer-x', 'u-outer-z', 'u-gap-x', 'u-gap-z'].forEach(id => {
-        document.getElementById(id)?.addEventListener('input', (e) => {
-          const key = id.replace(/-/g, '_');
-          this.wizardState[key] = parseFloat(e.target.value);
-        });
+    [
+      'primary-aisle-width',
+      'secondary-aisle-width',
+      'safety-buffer-mm',
+      'boundary-inspection-aisle-width',
+      'target-storage-band-mm',
+      'grid-size-mm',
+      't-stem-width',
+      't-head-depth',
+      'u-opening-width',
+      'u-opening-depth'
+    ].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', (e) => {
+        const key = id.replace(/-/g, '_');
+        this.wizardState[key] = parseFloat(e.target.value);
+        this.updatePreview();
       });
+    });
+
+    [
+      'main-aisle-axis',
+      'layout-strategy',
+      't-opening-direction',
+      'u-opening-direction'
+    ].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', (e) => {
+        const key = id.replace(/-/g, '_');
+        this.wizardState[key] = e.target.value;
+        this.updatePreview();
+      });
+    });
+
+    [
+      'preserve-central-main-aisle',
+      'preserve-boundary-inspection-aisle'
+    ].forEach(id => {
+      document.getElementById(id)?.addEventListener('change', (e) => {
+        const key = id.replace(/-/g, '_');
+        this.wizardState[key] = e.target.checked;
+        this.updatePreview();
+      });
+    });
   },
 
   updateConversionPreview() {
@@ -316,6 +427,11 @@ export const DefineContainerPage = {
         this.prepareStep3();
       }
 
+      // Special handling for step 4
+      if (this.currentStep === 4) {
+        this.prepareStep4();
+      }
+
       // Special handling for step 5
       if (this.currentStep === 5) {
         this.prepareStep5();
@@ -329,6 +445,10 @@ export const DefineContainerPage = {
       this.showStep(this.currentStep);
       this.updateProgressBar();
       this.updateNavigationButtons();
+
+      if (this.currentStep === 4) {
+        this.prepareStep4();
+      }
     }
   },
 
@@ -418,6 +538,61 @@ export const DefineContainerPage = {
           alert('請選擇空間形狀');
           return false;
         }
+
+        {
+          const readNumber = (id) => parseFloat(document.getElementById(id)?.value);
+          const positiveFields = [
+            ['primary-aisle-width', '請輸入有效的主要走道寬度'],
+            ['secondary-aisle-width', '請輸入有效的次要走道寬度'],
+            ['target-storage-band-mm', '請輸入有效的目標儲位帶寬'],
+            ['grid-size-mm', '請輸入有效的規劃網格粒度']
+          ];
+
+          for (const [id, message] of positiveFields) {
+            const value = readNumber(id);
+            if (!Number.isFinite(value) || value <= 0) {
+              alert(message);
+              return false;
+            }
+          }
+
+          const safetyBuffer = readNumber('safety-buffer-mm');
+          const boundaryAisle = readNumber('boundary-inspection-aisle-width');
+          if (!Number.isFinite(safetyBuffer) || safetyBuffer < 0) {
+            alert('安全距離 / 緩衝區不可小於 0');
+            return false;
+          }
+          if (!Number.isFinite(boundaryAisle) || boundaryAisle < 0) {
+            alert('邊界巡檢走道不可小於 0');
+            return false;
+          }
+
+          if (this.wizardState.shape === 't_shape') {
+            const stemWidth = readNumber('t-stem-width');
+            const headDepth = readNumber('t-head-depth');
+            if (!Number.isFinite(stemWidth) || stemWidth <= 0) {
+              alert('請輸入有效的 T 型主幹寬度');
+              return false;
+            }
+            if (!Number.isFinite(headDepth) || headDepth <= 0) {
+              alert('請輸入有效的 T 型分支深度');
+              return false;
+            }
+          }
+
+          if (this.wizardState.shape === 'u_shape') {
+            const openingWidth = readNumber('u-opening-width');
+            const openingDepth = readNumber('u-opening-depth');
+            if (!Number.isFinite(openingWidth) || openingWidth <= 0) {
+              alert('請輸入有效的 U 型開口寬度');
+              return false;
+            }
+            if (!Number.isFinite(openingDepth) || openingDepth <= 0) {
+              alert('請輸入有效的 U 型開口深度');
+              return false;
+            }
+          }
+        }
         return true;
 
       default:
@@ -450,6 +625,59 @@ export const DefineContainerPage = {
     }
   },
 
+  prepareStep4() {
+    document.querySelectorAll('.shape-card').forEach(card => {
+      card.classList.toggle('selected', card.dataset.shape === this.wizardState.shape);
+    });
+
+    const nonstandardParams = document.getElementById('nonstandard-params');
+    if (nonstandardParams) {
+      nonstandardParams.style.display = 'block';
+    }
+
+    document.querySelectorAll('.shape-params').forEach(params => {
+      params.style.display = 'none';
+    });
+
+    const activeShapeParams = document.getElementById(`${this.wizardState.shape}-params`);
+    if (activeShapeParams) {
+      activeShapeParams.style.display = 'grid';
+    }
+
+    const setValue = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.value = value;
+      }
+    };
+
+    const setChecked = (id, checked) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.checked = checked;
+      }
+    };
+
+    setValue('primary-aisle-width', this.wizardState.primary_aisle_width);
+    setValue('secondary-aisle-width', this.wizardState.secondary_aisle_width);
+    setValue('safety-buffer-mm', this.wizardState.safety_buffer_mm);
+    setValue('boundary-inspection-aisle-width', this.wizardState.boundary_inspection_aisle_width);
+    setValue('main-aisle-axis', this.wizardState.main_aisle_axis);
+    setValue('layout-strategy', this.wizardState.layout_strategy);
+    setValue('target-storage-band-mm', this.wizardState.target_storage_band_mm);
+    setValue('grid-size-mm', this.wizardState.grid_size_mm);
+    setValue('t-stem-width', this.wizardState.t_stem_width);
+    setValue('t-head-depth', this.wizardState.t_head_depth);
+    setValue('t-opening-direction', this.wizardState.t_opening_direction);
+    setValue('u-opening-width', this.wizardState.u_opening_width);
+    setValue('u-opening-depth', this.wizardState.u_opening_depth);
+    setValue('u-opening-direction', this.wizardState.u_opening_direction);
+    setChecked('preserve-central-main-aisle', this.wizardState.preserve_central_main_aisle);
+    setChecked('preserve-boundary-inspection-aisle', this.wizardState.preserve_boundary_inspection_aisle);
+
+    this.updatePreview();
+  },
+
   prepareStep5() {
     // Update summary
     this.updateSummary();
@@ -459,40 +687,50 @@ export const DefineContainerPage = {
   },
 
   updateSummary() {
-    const modeLabels = { ping: '坪數輸入', mm: '尺寸輸入' };
-    document.getElementById('summary-mode').textContent = modeLabels[this.wizardState.mode] || '-';
-    document.getElementById('summary-template').textContent =
-      this.templates[this.wizardState.template]?.label || '-';
-
-    // Area section (only for ping mode)
-    const areaSection = document.getElementById('summary-area-section');
-    if (this.wizardState.mode === 'ping') {
-      areaSection.style.display = 'block';
-      document.getElementById('summary-input-area').textContent =
-        `${this.wizardState.area_ping} 坪`;
-      document.getElementById('summary-nominal').textContent =
-        `${this.wizardState.A_m2?.toFixed(2)} m²`;
-      document.getElementById('summary-ratio').textContent =
-        `${(this.wizardState.usable_ratio * 100).toFixed(0)}%`;
-      document.getElementById('summary-effective').textContent =
-        `${this.wizardState.effective_A_m2?.toFixed(2)} m²`;
-    } else {
-      areaSection.style.display = 'none';
-    }
-
-    // Dimensions
-    document.getElementById('summary-x').textContent = `${this.wizardState.X_mm} mm`;
-    document.getElementById('summary-z').textContent = `${this.wizardState.Z_mm} mm`;
-    document.getElementById('summary-y').textContent = `${this.wizardState.Y_mm} mm`;
-
-    // Shape
+    const modeLabels = { ping: '坪數換算', mm: '毫米輸入' };
     const shapeLabels = {
-      rect: '標準矩形',
+      rect: 'RECT 矩形',
       t_shape: 'T 型',
       u_shape: 'U 型'
     };
-    document.getElementById('summary-shape').textContent =
-      shapeLabels[this.wizardState.shape] || '-';
+    const strategyLabels = {
+      balanced: '平衡型',
+      storage_first: '儲位優先',
+      picking_first: '揀貨優先'
+    };
+
+    const setText = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    };
+
+    setText('summary-mode', modeLabels[this.wizardState.mode] || '-');
+    setText('summary-template', this.templates[this.wizardState.template]?.label || '-');
+
+    const areaSection = document.getElementById('summary-area-section');
+    if (areaSection) {
+      areaSection.style.display = this.wizardState.mode === 'ping' ? 'block' : 'none';
+    }
+
+    if (this.wizardState.mode === 'ping') {
+      setText('summary-input-area', `${this.wizardState.area_ping} 坪`);
+      setText('summary-nominal', `${this.wizardState.A_m2?.toFixed(2)} m²`);
+      setText('summary-ratio', `${(this.wizardState.usable_ratio * 100).toFixed(0)}%`);
+      setText('summary-effective', `${this.wizardState.effective_A_m2?.toFixed(2)} m²`);
+    }
+
+    setText('summary-x', `${this.wizardState.X_mm} mm`);
+    setText('summary-z', `${this.wizardState.Z_mm} mm`);
+    setText('summary-y', `${this.wizardState.Y_mm} mm`);
+    setText('summary-shape', shapeLabels[this.wizardState.shape] || '-');
+    setText('summary-primary-aisle', `${this.wizardState.primary_aisle_width} mm`);
+    setText('summary-secondary-aisle', `${this.wizardState.secondary_aisle_width} mm`);
+    setText('summary-safety-buffer', `${this.wizardState.safety_buffer_mm} mm`);
+    setText('summary-main-aisle', this.wizardState.preserve_central_main_aisle ? '保留' : '不保留');
+    setText('summary-boundary-aisle', this.wizardState.preserve_boundary_inspection_aisle ? '保留' : '不保留');
+    setText('summary-layout-strategy', strategyLabels[this.wizardState.layout_strategy] || '平衡型');
   },
 
   // ========== Load & Restore Saved Config ==========
@@ -521,15 +759,24 @@ export const DefineContainerPage = {
     this.wizardState.Z_mm = config.depthZ;
     this.wizardState.Y_mm = config.heightY;
 
-    // Restore shape-specific params
-    if (config.t_bottom_x) this.wizardState.t_bottom_x = config.t_bottom_x;
-    if (config.t_bottom_z) this.wizardState.t_bottom_z = config.t_bottom_z;
-    if (config.t_top_x) this.wizardState.t_top_x = config.t_top_x;
-    if (config.t_top_z) this.wizardState.t_top_z = config.t_top_z;
-    if (config.u_outer_x) this.wizardState.u_outer_x = config.u_outer_x;
-    if (config.u_outer_z) this.wizardState.u_outer_z = config.u_outer_z;
-    if (config.u_gap_x) this.wizardState.u_gap_x = config.u_gap_x;
-    if (config.u_gap_z) this.wizardState.u_gap_z = config.u_gap_z;
+    const planning = config.planning || {};
+    this.wizardState.primary_aisle_width = planning.primaryAisleWidth || this.wizardState.primary_aisle_width;
+    this.wizardState.secondary_aisle_width = planning.secondaryAisleWidth || this.wizardState.secondary_aisle_width;
+    this.wizardState.safety_buffer_mm = planning.safetyBuffer || this.wizardState.safety_buffer_mm;
+    this.wizardState.boundary_inspection_aisle_width = planning.boundaryInspectionAisleWidth || this.wizardState.boundary_inspection_aisle_width;
+    this.wizardState.preserve_central_main_aisle = planning.preserveCentralMainAisle ?? this.wizardState.preserve_central_main_aisle;
+    this.wizardState.preserve_boundary_inspection_aisle = planning.preserveBoundaryInspectionAisle ?? this.wizardState.preserve_boundary_inspection_aisle;
+    this.wizardState.main_aisle_axis = planning.mainAisleAxis || this.wizardState.main_aisle_axis;
+    this.wizardState.layout_strategy = planning.strategy || this.wizardState.layout_strategy;
+    this.wizardState.target_storage_band_mm = planning.targetStorageBand || this.wizardState.target_storage_band_mm;
+    this.wizardState.grid_size_mm = planning.gridSizeMm || this.wizardState.grid_size_mm;
+
+    this.wizardState.t_stem_width = config.t_stem_width || config.t_bottom_x || this.wizardState.t_stem_width;
+    this.wizardState.t_head_depth = config.t_head_depth || config.t_top_z || this.wizardState.t_head_depth;
+    this.wizardState.t_opening_direction = config.t_opening_direction || this.wizardState.t_opening_direction;
+    this.wizardState.u_opening_width = config.u_opening_width || config.u_gap_x || this.wizardState.u_opening_width;
+    this.wizardState.u_opening_depth = config.u_opening_depth || config.u_gap_z || this.wizardState.u_opening_depth;
+    this.wizardState.u_opening_direction = config.u_opening_direction || this.wizardState.u_opening_direction;
 
     // If mode is ping, try to restore ping-related values
     // (Note: we may not have these in old configs, so we'll derive them if needed)
@@ -678,13 +925,28 @@ export const DefineContainerPage = {
     }
 
     // Create new mesh
-    const config = {
+    const rawConfig = {
       shape: this.wizardState.shape,
       widthX: this.wizardState.X_mm,
       depthZ: this.wizardState.Z_mm,
       heightY: this.wizardState.Y_mm,
       ...this.wizardState
     };
+    const config = normalizeWarehouseContainerConfig({
+      ...rawConfig,
+      planning: {
+        primaryAisleWidth: this.wizardState.primary_aisle_width,
+        secondaryAisleWidth: this.wizardState.secondary_aisle_width,
+        safetyBuffer: this.wizardState.safety_buffer_mm,
+        boundaryInspectionAisleWidth: this.wizardState.boundary_inspection_aisle_width,
+        preserveCentralMainAisle: this.wizardState.preserve_central_main_aisle,
+        preserveBoundaryInspectionAisle: this.wizardState.preserve_boundary_inspection_aisle,
+        mainAisleAxis: this.wizardState.main_aisle_axis,
+        strategy: this.wizardState.layout_strategy,
+        targetStorageBand: this.wizardState.target_storage_band_mm,
+        gridSizeMm: this.wizardState.grid_size_mm
+      }
+    });
 
     this.containerMesh = this.createContainerMesh(config);
     if (this.containerMesh) {
@@ -740,46 +1002,15 @@ export const DefineContainerPage = {
   },
 
   createContainerMesh(config) {
-    let shape;
+    const outline = getFootprintOutlinePoints(config);
+    if (!outline || outline.length < 3) return null;
 
-    if (config.shape === 'rect') {
-      shape = new THREE.Shape();
-      shape.moveTo(0, 0);
-      shape.lineTo(config.widthX, 0);
-      shape.lineTo(config.widthX, config.depthZ);
-      shape.lineTo(0, config.depthZ);
-      shape.lineTo(0, 0);
-
-    } else if (config.shape === 'u_shape') {
-      const { u_outer_x: ow, u_outer_z: od, u_gap_x: gw, u_gap_z: gd } = config;
-      shape = new THREE.Shape();
-      shape.moveTo(0, 0);
-      shape.lineTo(ow, 0);
-      shape.lineTo(ow, od);
-      shape.lineTo((ow + gw) / 2, od);
-      shape.lineTo((ow + gw) / 2, od - gd);
-      shape.lineTo((ow - gw) / 2, od - gd);
-      shape.lineTo((ow - gw) / 2, od);
-      shape.lineTo(0, od);
-      shape.lineTo(0, 0);
-
-    } else if (config.shape === 't_shape') {
-      const { t_top_x: topWidth, t_top_z: topDepth, t_bottom_x: bottomWidth, t_bottom_z: bottomDepth } = config;
-      const bottomOffsetX = (topWidth - bottomWidth) / 2;
-
-      shape = new THREE.Shape();
-      shape.moveTo(bottomOffsetX, 0);
-      shape.lineTo(bottomOffsetX + bottomWidth, 0);
-      shape.lineTo(bottomOffsetX + bottomWidth, bottomDepth);
-      shape.lineTo(topWidth, bottomDepth);
-      shape.lineTo(topWidth, bottomDepth + topDepth);
-      shape.lineTo(0, bottomDepth + topDepth);
-      shape.lineTo(0, bottomDepth);
-      shape.lineTo(bottomOffsetX, bottomDepth);
-      shape.lineTo(bottomOffsetX, 0);
-    }
-
-    if (!shape) return null;
+    const shape = new THREE.Shape();
+    shape.moveTo(outline[0].x, outline[0].z);
+    outline.slice(1).forEach(point => {
+      shape.lineTo(point.x, point.z);
+    });
+    shape.lineTo(outline[0].x, outline[0].z);
 
     const extrudeSettings = {
       depth: config.heightY,
@@ -841,31 +1072,42 @@ export const DefineContainerPage = {
 
   async finish() {
     try {
-      // Build final config
-      const config = {
+      const rawConfig = {
         mode: this.wizardState.mode,
         template: this.wizardState.template,
         shape: this.wizardState.shape,
         widthX: this.wizardState.X_mm,
         depthZ: this.wizardState.Z_mm,
-        heightY: this.wizardState.Y_mm
+        heightY: this.wizardState.Y_mm,
+        planning: {
+          primaryAisleWidth: this.wizardState.primary_aisle_width,
+          secondaryAisleWidth: this.wizardState.secondary_aisle_width,
+          safetyBuffer: this.wizardState.safety_buffer_mm,
+          boundaryInspectionAisleWidth: this.wizardState.boundary_inspection_aisle_width,
+          preserveCentralMainAisle: this.wizardState.preserve_central_main_aisle,
+          preserveBoundaryInspectionAisle: this.wizardState.preserve_boundary_inspection_aisle,
+          mainAisleAxis: this.wizardState.main_aisle_axis,
+          strategy: this.wizardState.layout_strategy,
+          targetStorageBand: this.wizardState.target_storage_band_mm,
+          gridSizeMm: this.wizardState.grid_size_mm
+        }
       };
 
-      // Add shape-specific params
       if (this.wizardState.shape === 't_shape') {
-        config.t_bottom_x = this.wizardState.t_bottom_x;
-        config.t_bottom_z = this.wizardState.t_bottom_z;
-        config.t_top_x = this.wizardState.t_top_x;
-        config.t_top_z = this.wizardState.t_top_z;
+        rawConfig.t_stem_width = this.wizardState.t_stem_width;
+        rawConfig.t_head_depth = this.wizardState.t_head_depth;
+        rawConfig.t_opening_direction = this.wizardState.t_opening_direction;
       } else if (this.wizardState.shape === 'u_shape') {
-        config.u_outer_x = this.wizardState.u_outer_x;
-        config.u_outer_z = this.wizardState.u_outer_z;
-        config.u_gap_x = this.wizardState.u_gap_x;
-        config.u_gap_z = this.wizardState.u_gap_z;
+        rawConfig.u_opening_width = this.wizardState.u_opening_width;
+        rawConfig.u_opening_depth = this.wizardState.u_opening_depth;
+        rawConfig.u_opening_direction = this.wizardState.u_opening_direction;
       }
 
-      // Save to localStorage
+      const config = normalizeWarehouseContainerConfig(rawConfig);
+
       storageAdapter.setJSON('containerConfig', config);
+      planningV2Storage.saveDraft(this.buildQuickModeDraft());
+      planningV2Storage.saveLatestResult(null);
 
       // Save to database
       try {
@@ -877,6 +1119,25 @@ export const DefineContainerPage = {
       // Show success modal
       const modal = document.getElementById('success-modal');
       const okBtn = document.getElementById('btn-modal-ok');
+      const finishBtn = document.getElementById('btn-finish');
+      const modalTitle = document.querySelector('#success-modal .modal-title');
+      const modalDescription = document.querySelector('#success-modal p');
+
+      if (finishBtn) {
+        finishBtn.textContent = '儲存並進入快速模式';
+      }
+
+      if (modalTitle) {
+        modalTitle.textContent = '空間定義已完成';
+      }
+
+      if (modalDescription) {
+        modalDescription.textContent = '倉儲空間外框與基本條件已保存，接下來會直接進入快速模式，讓你用問答方式生成規劃方案。';
+      }
+
+      if (okBtn) {
+        okBtn.textContent = '前往快速模式';
+      }
 
       if (modal && okBtn) {
         modal.classList.add('active');
@@ -885,14 +1146,13 @@ export const DefineContainerPage = {
           modal.classList.remove('active');
           okBtn.removeEventListener('click', handleOk);
 
-          // Navigate to next page
-          window.location.hash = '/cut-container';
+          window.location.hash = '/planning-v2';
         };
 
         okBtn.addEventListener('click', handleOk);
       } else {
         alert('✓ 容器設定已儲存！');
-        window.location.hash = '/cut-container';
+        window.location.hash = '/planning-v2';
       }
 
     } catch (error) {

@@ -84,7 +84,9 @@ export const AddGroupPage = {
     if (this.modal) {
       this.modal.classList.add('active');
       this.form.reset();
-      setTimeout(() => document.getElementById('group-name')?.focus(), 100);
+      window.requestAnimationFrame(() => {
+        document.getElementById('group-name')?.focus();
+      });
     }
   },
 
@@ -99,7 +101,9 @@ export const AddGroupPage = {
     if (this.renameModal && this.renameInput) {
       this.renameInput.value = currentName;
       this.renameModal.classList.add('active');
-      setTimeout(() => this.renameInput?.focus(), 100);
+      window.requestAnimationFrame(() => {
+        this.renameInput?.focus();
+      });
     }
   },
 
@@ -115,7 +119,9 @@ export const AddGroupPage = {
     if (this.noteModal && this.noteTextarea) {
       this.noteTextarea.value = currentNote || '';
       this.noteModal.classList.add('active');
-      setTimeout(() => this.noteTextarea?.focus(), 100);
+      window.requestAnimationFrame(() => {
+        this.noteTextarea?.focus();
+      });
     }
   },
 
@@ -126,16 +132,42 @@ export const AddGroupPage = {
     }
   },
 
+  showLoading(message = '載入中...') {
+    if (this.groupsList) {
+      this.groupsList.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <div class="state-copy">
+            <p class="state-eyebrow">Syncing Structure Board</p>
+            <p>${message}</p>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  showError(message) {
+    if (this.groupsList) {
+      this.groupsList.innerHTML = `
+        <div class="error-state">
+          <div class="error-icon">!</div>
+          <div class="state-copy">
+            <p class="state-eyebrow">Connection Alert</p>
+            <p class="error-message">${message}</p>
+          </div>
+        </div>
+      `;
+    }
+  },
+
   async loadGroups() {
     try {
+      this.showLoading('載入群組中...');
       this.groups = await groupManagementService.loadGroups();
       this.renderGroups();
-      return;
-      void 0;
-
     } catch (error) {
       console.error('Error loading groups:', error);
-      this.groupsList.innerHTML = '<div class="error">載入失敗</div>';
+      this.showError('載入群組失敗。');
     }
   },
 
@@ -145,45 +177,88 @@ export const AddGroupPage = {
       return;
     }
 
-    let html = '<div class="groups-list">';
+    const groupsWithNotes = this.groups.filter((group) => (group.note || group.description || '').trim() !== '').length;
+
+    let html = `
+      <div class="groups-board-header">
+        <div class="groups-board-copy">
+          <p class="section-kicker">Module Registry</p>
+          <h4>群組模組清單</h4>
+          <p>將群組整理成可辨識的結構節點，方便後續物件與空間配置串接。</p>
+        </div>
+
+        <div class="groups-board-meta">
+          <div class="board-stat">
+            <span class="stat-label">Total Groups</span>
+            <strong>${this.groups.length}</strong>
+          </div>
+          <div class="board-stat">
+            <span class="stat-label">Notes Ready</span>
+            <strong>${groupsWithNotes}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="groups-list">
+    `;
 
     this.groups.forEach(group => {
       const noteContent = group.note || group.description || '';
       const hasNote = noteContent.trim() !== '';
+      const groupCode = `G-${String(group.id).padStart(2, '0')}`;
 
       html += `
-        <div class="group-card">
+        <div class="group-card" data-group-id="${group.id}">
           <div class="group-card-header">
-            <div class="group-info">
-              <h4>${group.name}</h4>
-              <p class="group-id">ID: ${group.id}</p>
+            <div class="group-card-identity">
+              <span class="group-index">${groupCode}</span>
+
+              <div class="group-info">
+                <p class="group-label">Group Node</p>
+                <h4>${group.name}</h4>
+                <div class="group-card-meta">
+                  <span class="group-id">ID ${group.id}</span>
+                  <span class="group-state ${hasNote ? '' : 'is-empty'}">${hasNote ? 'NOTE READY' : 'NOTE EMPTY'}</span>
+                </div>
+              </div>
             </div>
             <div class="group-actions">
               <div class="dropdown">
-                <button type="button" class="btn btn-icon dropdown-toggle" data-id="${group.id}" title="選項">
+                <button
+                  type="button"
+                  class="btn btn-icon dropdown-toggle"
+                  data-id="${group.id}"
+                  title="選項"
+                  aria-label="開啟 ${group.name} 的操作選單"
+                >
                   ⋮
                 </button>
                 <div class="dropdown-menu">
                   <button type="button" class="dropdown-item rename-btn" data-id="${group.id}" data-name="${this.escapeHtml(group.name)}">
-                    ✏️ 修改群組名稱
+                    修改群組名稱
                   </button>
                   <button type="button" class="dropdown-item note-btn" data-id="${group.id}" data-note="${this.escapeHtml(noteContent)}">
-                    📝 ${hasNote ? '編輯備註' : '新增備註'}
+                    ${hasNote ? '編輯備註' : '新增備註'}
                   </button>
                   <div class="dropdown-divider"></div>
                   <button type="button" class="dropdown-item delete-btn" data-id="${group.id}">
-                    🗑️ 刪除
+                    刪除群組
                   </button>
                 </div>
               </div>
             </div>
           </div>
-          ${hasNote ? `
-            <div class="group-note-content">
-              <span class="note-icon">📝</span>
-              <span class="note-text">${this.escapeHtml(noteContent)}</span>
+
+          <div class="group-note-shell">
+            <div class="group-note-head">
+              <p class="group-note-label">Group Notes</p>
+              <span class="group-state ${hasNote ? '' : 'is-empty'}">${hasNote ? 'ACTIVE' : 'PENDING'}</span>
             </div>
-          ` : ''}
+
+            <p class="group-note-content ${hasNote ? '' : 'is-empty'}">
+              ${hasNote ? this.escapeHtml(noteContent) : '<span class="note-placeholder">尚未設定備註，建議補充用途或配置說明。</span>'}
+            </p>
+          </div>
         </div>
       `;
     });
@@ -271,9 +346,10 @@ export const AddGroupPage = {
   renderEmptyState() {
     this.groupsList.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">📦</div>
-        <h3>當前群組內沒有新增任何群組</h3>
-        <p>請點選下方按鈕建立您的第一個群組。</p>
+        <div class="empty-icon">[]</div>
+        <p class="state-eyebrow">No Active Groups</p>
+        <h3>目前尚未建立任何群組節點</h3>
+        <p>先建立第一個群組，之後就能進一步補充備註並開始新增物件。</p>
         <button class="btn btn-primary" id="add-first-group">+ 新增群組</button>
       </div>
     `;
@@ -296,9 +372,6 @@ export const AddGroupPage = {
 
     try {
       await groupManagementService.createGroup(groupName);
-      const response = { ok: true };
-
-      void 0;
 
       this.closeModal(); // Close the input modal first
 
@@ -380,9 +453,6 @@ export const AddGroupPage = {
   async executeDelete(id) {
     try {
       await groupManagementService.deleteGroup(id);
-      const response = { ok: true };
-
-      void 0;
 
       // Show Success Modal
       const successModal = document.getElementById('success-modal');
@@ -429,9 +499,6 @@ export const AddGroupPage = {
       }
 
       await groupManagementService.renameGroup(currentGroup, newName);
-      const response = { ok: true };
-
-      void 0;
 
       this.closeRenameModal();
 
@@ -476,9 +543,6 @@ export const AddGroupPage = {
       }
 
       await groupManagementService.saveGroupNote(currentGroup, newNote);
-      const response = { ok: true };
-
-      void 0;
 
       this.closeNoteModal();
 

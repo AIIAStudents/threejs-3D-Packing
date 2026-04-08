@@ -23,16 +23,6 @@ export const AssignSequencePage = {
     this.btnExecutePacking?.addEventListener('click', () => this.executePacking());
     this.btnPrev?.addEventListener('click', () => this.goBack());
 
-    if (this.itemsContainer) {
-      this.itemsContainer.style.display = 'flex';
-      this.itemsContainer.style.flexDirection = 'row';
-      this.itemsContainer.style.flexWrap = 'wrap';
-      this.itemsContainer.style.alignContent = 'flex-start';
-      this.itemsContainer.style.gap = '15px';
-      this.itemsContainer.style.padding = '10px';
-      this.itemsContainer.style.overflowY = 'auto';
-    }
-
     await this.loadData();
   },
 
@@ -45,13 +35,13 @@ export const AssignSequencePage = {
       this.renderZoneSelector();
     } catch (error) {
       console.error('Failed to load data:', error);
-      this.zoneSelect.innerHTML = '<option value="">Failed to load zones</option>';
+      this.zoneSelect.innerHTML = '<option value="">載入區塊失敗</option>';
     }
   },
 
   renderZoneSelector() {
     const zoneOptions = assignSequenceService.buildZoneSelectorState(this.zones);
-    this.zoneSelect.innerHTML = '<option value="">Select a zone...</option>' +
+    this.zoneSelect.innerHTML = '<option value="">請選擇區塊...</option>' +
       zoneOptions.map((zone) => `<option value="${zone.value}">${zone.label}</option>`).join('');
   },
 
@@ -59,7 +49,7 @@ export const AssignSequencePage = {
     this.currentZoneId = this.zoneSelect.value;
 
     if (!this.currentZoneId) {
-      this.itemsContainer.innerHTML = '<div class="empty-state"><p>Select a zone to view its sequence.</p></div>';
+      this.itemsContainer.innerHTML = '<div class="empty-state"><p>請先選擇區塊，再檢視該區塊的排序結果。</p></div>';
       return;
     }
 
@@ -84,12 +74,12 @@ export const AssignSequencePage = {
 
   renderItems(sequenceViewState) {
     if (sequenceViewState.itemCount === 0) {
-      this.itemsContainer.innerHTML = '<div class="empty-state"><p>No items are assigned to this zone.</p></div>';
-      this.itemCount.textContent = '0 items';
+      this.itemsContainer.innerHTML = '<div class="empty-state"><p>此區塊目前沒有可排序的物件。</p></div>';
+      this.itemCount.textContent = '0 件物件';
       return;
     }
 
-    this.itemCount.textContent = `${sequenceViewState.itemCount} items`;
+    this.itemCount.textContent = `${sequenceViewState.itemCount} 件物件`;
 
     this.itemsContainer.innerHTML = sequenceViewState.itemCards.map((item) => `
       <div class="sortable-item"
@@ -97,24 +87,14 @@ export const AssignSequencePage = {
            data-item-id="${item.id}"
            data-group-id="${item.groupId}"
            data-index="${item.orderLabel - 1}"
-           style="
-             width: calc(25% - 12px);
-             min-width: 220px;
-             height: 80px;
-             border-left: 5px solid ${item.groupColor};
-             display: flex;
-             flex-direction: row;
-             align-items: center;
-             padding: 10px;
-             box-sizing: border-box;
-           ">
-        <span class="drag-handle" style="margin-right: 10px;">::</span>
-        <div class="item-order" style="margin-right: 15px;">${item.orderLabel}</div>
-        <div class="item-details" style="flex: 1; overflow: hidden;">
-          <div class="item-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.itemId}</div>
-          <div class="item-dims" style="font-size: 0.8rem;">L x W x H: ${item.dimensionText}</div>
-          <div class="item-group" style="font-size: 0.8rem;">
-            <span class="group-dot" style="background-color: ${item.groupColor}; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;"></span>
+           style="border-left: 5px solid ${item.groupColor}; --group-color: ${item.groupColor};">
+        <span class="drag-handle">::</span>
+        <div class="item-order">${item.orderLabel}</div>
+        <div class="item-details">
+          <div class="item-name">${item.itemId}</div>
+          <div class="item-dims">L x W x H: ${item.dimensionText}</div>
+          <div class="item-group">
+            <span class="group-dot"></span>
             ${item.groupName}
           </div>
         </div>

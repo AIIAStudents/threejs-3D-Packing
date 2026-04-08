@@ -1,7 +1,16 @@
-import { AnimationViewer } from './animation_viewer.js';
+import { AnimationViewer } from './animation_viewer.js?v=2';
 import { animationPreviewService } from '../../frontend/contexts/packing/application/animation-preview-service.js';
 
 class AnimationPreview {
+  static init() {
+    const canvas = document.getElementById('animation-canvas');
+    if (!canvas) {
+      return null;
+    }
+
+    return new AnimationPreview();
+  }
+
   constructor() {
     this.viewer = null;
     this.packingData = null;
@@ -27,6 +36,10 @@ class AnimationPreview {
   }
 
   async init() {
+    if (!this.elements.canvas) {
+      return;
+    }
+
     this.initViewer();
     this.setupEventListeners();
     await this.loadPreviewState();
@@ -34,7 +47,6 @@ class AnimationPreview {
 
   initViewer() {
     if (!this.elements.canvas) {
-      console.error('Canvas container not found');
       return;
     }
 
@@ -348,14 +360,6 @@ class AnimationPreview {
         </div>
       </div>
     `;
-  }
-}
-
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => new AnimationPreview());
-  } else {
-    new AnimationPreview();
   }
 }
 

@@ -3,7 +3,15 @@
 // Replaces manual drawing with automatic space generation
 
 import { spacePlanningPersistenceService } from '../../frontend/contexts/space-design/application/space-planning-persistence-service.js';
+import { spaceDesignStorage } from '../../frontend/contexts/space-design/infrastructure/space-design-storage.js';
 import { secondaryRegionEditorBridge } from '../../frontend/contexts/space-design/infrastructure/secondary-region-editor-bridge.js';
+import {
+  buildWarehouseLayoutPlan,
+  getContainerBounds as plannerGetContainerBounds,
+  getFootprintOutlinePoints,
+  isPointInWarehouseShape,
+  normalizeWarehouseContainerConfig
+} from '../../frontend/contexts/space-design/domain/warehouse-layout-planner.js';
 
 export const SpacePlanningPage = {
   state: {
@@ -66,7 +74,10 @@ export const SpacePlanningPage = {
       aisles: true,
       clearance: true,
       usable: true
-    }
+    },
+
+    readOnlyMode: false,
+    readOnlyContext: null
   },
 
   elements: {},
@@ -163,7 +174,17 @@ export const SpacePlanningPage = {
     this.elements.columnsArea = document.getElementById('columns-area');
     this.elements.aislesArea = document.getElementById('aisles-area');
     this.elements.clearanceArea = document.getElementById('clearance-area');
-    this.elements.usableBlocksList = document.getElementById('usable-blocks-list');
+    this.elements.usableBlocksList = document.getElementById('zones-list');
+    this.elements.scoreTotal = document.getElementById('score-total');
+    this.elements.storageRatio = document.getElementById('storage-ratio');
+    this.elements.aisleRatio = document.getElementById('aisle-ratio');
+    this.elements.accessibilityRatio = document.getElementById('accessibility-ratio');
+    this.elements.deadCornerRatio = document.getElementById('dead-corner-ratio');
+    this.elements.pickDistance = document.getElementById('pick-distance');
+    this.elements.storageZoneCount = document.getElementById('storage-zone-count');
+    this.elements.aisleBalanceScore = document.getElementById('aisle-balance-score');
+    this.elements.pickingScore = document.getElementById('picking-score');
+    this.elements.slottingScore = document.getElementById('slotting-score');
 
     // Action buttons
     this.elements.btnGenerate = document.getElementById('btn-generate');
@@ -302,6 +323,13 @@ export const SpacePlanningPage = {
     // Previous step button
     if (this.elements.btnPrevStep) {
       this.elements.btnPrevStep.addEventListener('click', (event) => {
+        if (this.state.readOnlyMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          window.location.hash = '/planning-v2';
+          return;
+        }
+
         // Check if edit mode buttons are visible to determine mode
         const editButtons = document.getElementById('edit-mode-buttons');
         const isInEditMode = editButtons && editButtons.style.display !== 'none';
@@ -376,9 +404,19 @@ export const SpacePlanningPage = {
   },
 
   async loadData() {
+    this.state.readOnlyContext = spaceDesignStorage.loadReadOnlyCutContext();
+    this.state.readOnlyMode = Boolean(this.state.readOnlyContext?.enabled);
+
     const initialState = spacePlanningPersistenceService.loadInitialState(this.state.constraints);
-    this.state.containerConfig = initialState.containerConfig;
-    this.state.constraints = initialState.constraints;
+    this.state.containerConfig = initialState.containerConfig
+      ? normalizeWarehouseContainerConfig(initialState.containerConfig)
+      : null;
+
+    const derivedConstraints = this.createConstraintStateFromConfig(this.state.containerConfig);
+    this.state.constraints = initialState.hasSavedConstraints
+      ? this.mergeConstraintState(derivedConstraints, initialState.constraints)
+      : derivedConstraints;
+
     if (this.state.containerConfig) {
       console.log('[SpacePlanning] Loaded container config:', this.state.containerConfig);
     }
@@ -386,16 +424,95 @@ export const SpacePlanningPage = {
     if (initialState.hasSavedConstraints) {
       console.log('[SpacePlanning] Loaded saved constraints');
     }
+    if (this.state.readOnlyMode) {
+      this.state.layoutPlan = spaceDesignStorage.loadLayoutPlan() || this.state.layoutPlan;
+      this.state.zones = spaceDesignStorage.loadGeneratedZones() || [];
+      this.updateStatistics();
+      this.updateUsableBlocksList();
+      this.applyReadOnlyMode();
+      this.requestRender();
+      return;
+    }
 
     // Always start with clean zones — never restore stale data from previous session/shape
     this.state.zones = [];
     spacePlanningPersistenceService.clearGeneratedZones();
   },
 
+  createConstraintStateFromConfig(containerConfig) {
+    const normalized = containerConfig
+      ? normalizeWarehouseContainerConfig(containerConfig)
+      : null;
+    const planning = normalized?.planning || {};
+    const mainAisleOffsetRatio = planning.mainAisleOffsetRatio ?? 0.5;
+
+    let mainAislePosition = 'center';
+    if (mainAisleOffsetRatio <= 0.42) {
+      mainAislePosition = 'offset_left';
+    } else if (mainAisleOffsetRatio >= 0.58) {
+      mainAislePosition = 'offset_right';
+    }
+
+    return {
+      building: {
+        columns: {
+          mode: 'rule_based',
+          columnWidth: 400,
+          columnDepth: 400,
+          spacingX: planning.targetStorageBand || 6000,
+          spacingZ: planning.targetStorageBand || 6000,
+          wallOffset: Math.max(300, planning.safetyBuffer || 300),
+          customColumns: []
+        },
+        wallClearance: planning.safetyBuffer ?? 300
+      },
+      circulation: {
+        mainAisle: {
+          enabled: planning.preserveCentralMainAisle ?? true,
+          width: planning.primaryAisleWidth ?? 2400,
+          direction: planning.mainAisleAxis === 'vertical' ? 'along_width' : 'along_length',
+          position: mainAislePosition
+        },
+        forkliftAisles: {
+          enabled: (planning.secondaryAisleWidth ?? 0) > 0,
+          count: 2,
+          width: planning.secondaryAisleWidth ?? 1600,
+          spacing: 'auto'
+        }
+      }
+    };
+  },
+
+  mergeConstraintState(baseState, savedState = {}) {
+    return {
+      building: {
+        ...baseState.building,
+        ...(savedState.building || {}),
+        columns: {
+          ...baseState.building.columns,
+          ...((savedState.building && savedState.building.columns) || {})
+        }
+      },
+      circulation: {
+        ...baseState.circulation,
+        ...(savedState.circulation || {}),
+        mainAisle: {
+          ...baseState.circulation.mainAisle,
+          ...((savedState.circulation && savedState.circulation.mainAisle) || {})
+        },
+        forkliftAisles: {
+          ...baseState.circulation.forkliftAisles,
+          ...((savedState.circulation && savedState.circulation.forkliftAisles) || {})
+        }
+      }
+    };
+  },
+
   syncConstraintsToUI() {
     const c = this.state.constraints;
 
     // Building constraints
+    if (this.elements.columnMode) this.elements.columnMode.value = c.building.columns.mode;
     if (this.elements.columnWidth) this.elements.columnWidth.value = c.building.columns.columnWidth;
     if (this.elements.columnDepth) this.elements.columnDepth.value = c.building.columns.columnDepth;
     if (this.elements.spacingX) this.elements.spacingX.value = c.building.columns.spacingX;
@@ -412,9 +529,71 @@ export const SpacePlanningPage = {
     if (this.elements.forkliftEnabled) this.elements.forkliftEnabled.checked = c.circulation.forkliftAisles.enabled;
     if (this.elements.forkliftCount) this.elements.forkliftCount.value = c.circulation.forkliftAisles.count;
     if (this.elements.forkliftWidth) this.elements.forkliftWidth.value = c.circulation.forkliftAisles.width;
+    if (this.elements.forkliftSpacing) this.elements.forkliftSpacing.value = c.circulation.forkliftAisles.spacing;
+
+    const ruleParams = document.getElementById('rule-based-params');
+    const exceptionParams = document.getElementById('exception-based-params');
+    if (ruleParams && exceptionParams) {
+      const ruleBased = c.building.columns.mode === 'rule_based';
+      ruleParams.style.display = ruleBased ? 'block' : 'none';
+      exceptionParams.style.display = ruleBased ? 'none' : 'block';
+    }
+
+    const mainAisleParams = document.getElementById('main-aisle-params');
+    if (mainAisleParams) {
+      mainAisleParams.style.display = c.circulation.mainAisle.enabled ? 'block' : 'none';
+    }
+
+    const forkliftParams = document.getElementById('forklift-aisles-params');
+    if (forkliftParams) {
+      forkliftParams.style.display = c.circulation.forkliftAisles.enabled ? 'block' : 'none';
+    }
+
+    this.updateCustomColumnsList();
+  },
+
+  applyReadOnlyMode() {
+    const banner = document.getElementById('cut-container-readonly-banner');
+    if (banner) {
+      banner.hidden = false;
+    }
+
+    document.querySelectorAll(
+      '.constraints-panel input, .constraints-panel select, .constraints-panel textarea, .constraints-panel button'
+    ).forEach((element) => {
+      element.disabled = true;
+    });
+
+    const idsToHide = [
+      'btn-generate',
+      'btn-reset',
+      'btn-save',
+      'btn-next-step',
+      'btn-add-column',
+      'subdivision-toolbar',
+      'normal-mode-buttons',
+      'edit-mode-buttons'
+    ];
+
+    idsToHide.forEach((id) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.style.display = 'none';
+      }
+    });
+
+    if (this.elements.btnPrevStep) {
+      this.elements.btnPrevStep.textContent = '回到快速模式';
+    }
+
+    const pageTitle = document.querySelector('.page-header h2');
+    if (pageTitle) {
+      pageTitle.textContent = '空間切割詳情';
+    }
   },
 
   addCustomColumn() {
+    if (this.state.readOnlyMode) return;
     // Show modal instead of prompt
     const modal = document.getElementById('column-modal');
     if (modal) {
@@ -423,6 +602,7 @@ export const SpacePlanningPage = {
   },
 
   submitCustomColumn(e) {
+    if (this.state.readOnlyMode) return;
     e.preventDefault();
 
     const x = parseInt(document.getElementById('column-x').value);
@@ -490,6 +670,7 @@ export const SpacePlanningPage = {
   },
 
   removeCustomColumn(columnId) {
+    if (this.state.readOnlyMode) return;
     const columns = this.state.constraints.building.columns.customColumns || [];
     this.state.constraints.building.columns.customColumns = columns.filter(c => c.id !== columnId);
     console.log('[SpacePlanning] Removed custom column:', columnId);
@@ -517,6 +698,36 @@ export const SpacePlanningPage = {
     c.circulation.forkliftAisles.enabled = this.elements.forkliftEnabled?.checked || false;
     c.circulation.forkliftAisles.count = parseInt(this.elements.forkliftCount?.value) || 2;
     c.circulation.forkliftAisles.width = parseFloat(this.elements.forkliftWidth?.value) || 1500;
+    c.circulation.forkliftAisles.spacing = this.elements.forkliftSpacing?.value || 'auto';
+  },
+
+  getEffectivePlanningConfig() {
+    const baseConfig = normalizeWarehouseContainerConfig(this.state.containerConfig || {});
+    const planning = {
+      ...(baseConfig.planning || {})
+    };
+    const { building, circulation } = this.state.constraints;
+
+    const positionRatioMap = {
+      center: 0.5,
+      offset_left: 0.34,
+      offset_right: 0.66
+    };
+
+    planning.safetyBuffer = building.wallClearance;
+    planning.primaryAisleWidth = circulation.mainAisle.width || planning.primaryAisleWidth;
+    planning.secondaryAisleWidth = circulation.forkliftAisles.enabled
+      ? (circulation.forkliftAisles.width || planning.secondaryAisleWidth)
+      : 0;
+    planning.preserveCentralMainAisle = circulation.mainAisle.enabled;
+    planning.mainAisleAxis = circulation.mainAisle.direction || planning.mainAisleAxis;
+    planning.mainAisleOffsetRatio = positionRatioMap[circulation.mainAisle.position] || 0.5;
+    planning.targetStorageBand = building.columns.spacingX || planning.targetStorageBand;
+
+    return normalizeWarehouseContainerConfig({
+      ...baseConfig,
+      planning
+    });
   },
 
   // ============================================================
@@ -524,6 +735,7 @@ export const SpacePlanningPage = {
   // ============================================================
 
   generateSpaces() {
+    if (this.state.readOnlyMode) return;
     if (!this.state.containerConfig) {
       alert('請先定義容器尺寸');
       return;
@@ -536,55 +748,43 @@ export const SpacePlanningPage = {
     this.readConstraintsFromUI();
     console.log('[SpacePlanning] Constraints:', this.state.constraints);
 
-    // Initialize layout plan metadata
+    const effectiveConfig = this.getEffectivePlanningConfig();
+    const layout = buildWarehouseLayoutPlan(effectiveConfig, this.state.constraints);
+
+    this.state.containerConfig = layout.containerConfig;
+    this.state.zones = layout.zones;
     this.state.layoutPlan = {
       layout_id: `layout_${Date.now()}`,
       source: {
         columns_enabled: this.state.constraints.building.columns.mode !== 'none',
-        aisles_enabled: this.state.constraints.circulation.mainAisle.enabled ||
-          this.state.constraints.circulation.forkliftAisles.enabled,
-        safety_margin_enabled: this.state.constraints.building.wallClearance > 0,
-        usable_area_ratio: 0 // Will be calculated after generation
+        aisles_enabled: layout.zones.some(zone => zone.zoneCategory === 'accessible_path'),
+        safety_margin_enabled: layout.zones.some(zone => zone.zoneCategory === 'safety_buffer'),
+        usable_area_ratio: layout.metrics.storageUtilization
       },
+      planning: layout.planning,
+      metrics: layout.metrics,
+      evaluation: layout.evaluation,
+      search: layout.search,
       generated_at: new Date().toISOString()
     };
 
-    // Clear existing zones
-    this.state.zones = [];
-
-    // Generate unusable zones
-    console.log('[SpacePlanning] Step 1: Generating aisles...');
-    this.generateAisleZones();
-
-    console.log('[SpacePlanning] Step 2: Generating wall clearances...');
-    this.generateWallClearanceZones();
-
-    console.log('[SpacePlanning] Step 3: Generating columns...');
-    this.generateColumnZones();
-
-    // Calculate usable spaces
-    console.log('[SpacePlanning] Step 4: Calculating usable spaces...');
-    this.calculateUsableSpaces();
-
-    // Calculate usable area ratio
-    const totalArea = this.state.containerConfig.widthX * this.state.containerConfig.depthZ;
-    const usableArea = this.state.zones
-      .filter(z => z.type === 'usable')
-      .reduce((sum, z) => sum + (z.width * z.height), 0);
-    this.state.layoutPlan.source.usable_area_ratio = totalArea > 0 ? usableArea / totalArea : 0;
-
-    console.log('[SpacePlanning] Total zones generated:', this.state.zones.length);
+    console.log('[SpacePlanning] Planning metrics:', layout.metrics);
+    console.log('[SpacePlanning] Evaluation:', layout.evaluation);
+    console.log('[SpacePlanning] Search frontier:', layout.search);
     console.log('[SpacePlanning] Zones by type:', {
-      columns: this.state.zones.filter(z => z.type === 'unusable_column').length,
-      clearances: this.state.zones.filter(z => z.type === 'unusable_clearance').length,
-      aisles: this.state.zones.filter(z => z.type === 'unusable_aisle').length,
-      usable: this.state.zones.filter(z => z.type === 'usable').length
+      usable: this.state.zones.filter(z => z.type === 'usable').length,
+      aisles: this.state.zones.filter(z => z.zoneCategory === 'accessible_path').length,
+      buffers: this.state.zones.filter(z => z.zoneCategory === 'safety_buffer').length,
+      blocked: this.state.zones.filter(z => z.zoneCategory === 'blocked_area').length
     });
-    console.log('[SpacePlanning] Usable area ratio:', (this.state.layoutPlan.source.usable_area_ratio * 100).toFixed(2) + '%');
 
     // Update UI
     this.updateStatistics();
     this.updateUsableBlocksList();
+    const blocksSection = document.getElementById('usable-blocks-section');
+    if (blocksSection) {
+      blocksSection.style.display = 'block';
+    }
     this.requestRender();
 
     console.log('[SpacePlanning] ========== Generation complete ==========');
@@ -1204,100 +1404,17 @@ export const SpacePlanningPage = {
   // ============================================================
 
   getContainerBounds() {
-    const config = this.state.containerConfig;
-
-    // Diagnostic: log what we have
-    console.log('[SpacePlanning] getContainerBounds config:', {
-      shape: config.shape,
-      widthX: config.widthX, depthZ: config.depthZ,
-      t_top_x: config.t_top_x, t_top_z: config.t_top_z,
-      t_bottom_x: config.t_bottom_x, t_bottom_z: config.t_bottom_z,
-      u_outer_x: config.u_outer_x, u_outer_z: config.u_outer_z,
-      u_gap_x: config.u_gap_x, u_gap_z: config.u_gap_z,
-    });
-
-    switch (config.shape) {
-      case 'rect':
-        return {
-          minX: 0, minZ: 0,
-          maxX: config.widthX,
-          maxZ: config.depthZ
-        };
-
-      case 't_shape': {
-        // t_top_x = full width of cross bar (= widthX)
-        // t_top_z = depth of cross bar
-        // t_bottom_x = width of stem
-        // t_bottom_z = depth of stem
-        const topW = config.t_top_x || config.topWidthX || config.widthX;
-        const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
-        const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
-        return {
-          minX: 0, minZ: 0,
-          maxX: topW,
-          maxZ: botD + topD
-        };
-      }
-
-      case 'u_shape': {
-        // u_outer_x = full outer width  (= widthX)
-        // u_outer_z = full outer depth  (= depthZ)
-        // u_gap_x   = gap (cutout) width
-        // u_gap_z   = gap (cutout) depth
-        const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
-        const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
-        return {
-          minX: 0, minZ: 0,
-          maxX: outerW,
-          maxZ: outerD
-        };
-      }
-
-      default:
-        return { minX: 0, minZ: 0, maxX: config.widthX || 5800, maxZ: config.depthZ || 2300 };
-    }
+    const bounds = plannerGetContainerBounds(this.state.containerConfig || {});
+    return {
+      minX: bounds.minX,
+      minZ: bounds.minZ,
+      maxX: bounds.maxX,
+      maxZ: bounds.maxZ
+    };
   },
 
   isPointInContainer(x, y) {
-    const config = this.state.containerConfig;
-    if (!config) return false;
-
-    switch (config.shape) {
-      case 'rect':
-        return x >= 0 && x <= config.widthX && y >= 0 && y <= config.depthZ;
-
-      case 't_shape': {
-        const topW = config.t_top_x || config.topWidthX || config.widthX;
-        const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
-        const botW = config.t_bottom_x || config.bottomWidthX || (config.widthX * 0.4);
-        const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
-        const botLeft = (topW - botW) / 2;
-        const botRight = botLeft + botW;
-
-        if (y >= 0 && y <= botD) return x >= botLeft && x <= botRight;
-        if (y > botD && y <= botD + topD) return x >= 0 && x <= topW;
-        return false;
-      }
-
-      case 'u_shape': {
-        const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
-        const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
-        const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
-        const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
-
-        if (x < 0 || x > outerW || y < 0 || y > outerD) return false;
-
-        const gapLeft = (outerW - gapW) / 2;
-        const gapRight = gapLeft + gapW;
-        const gapTop = outerD - gapD;
-
-        if (x >= gapLeft && x <= gapRight && y >= gapTop) return false; // in gap
-        return true;
-      }
-
-      default:
-        return false;
-    }
+    return isPointInWarehouseShape(this.state.containerConfig || {}, x, y);
   },
 
   // ============================================================
@@ -1305,62 +1422,41 @@ export const SpacePlanningPage = {
   // ============================================================
 
   updateStatistics() {
-    const config = this.state.containerConfig;
-    if (!config) return;
+    const metrics = this.state.layoutPlan?.metrics;
+    const evaluation = this.state.layoutPlan?.evaluation;
 
-    // Calculate actual container floor area (not just bounding box)
-    let totalArea;
-    if (config.shape === 't_shape') {
-      const topW = config.t_top_x || config.widthX;
-      const topD = config.t_top_z || (config.depthZ * 0.4);
-      const botW = config.t_bottom_x || (config.widthX * 0.4);
-      const botD = config.t_bottom_z || (config.depthZ * 0.6);
-      totalArea = ((topW * topD) + (botW * botD)) / 1000000; // m²
-    } else if (config.shape === 'u_shape') {
-      const outerW = config.u_outer_x || config.widthX;
-      const outerD = config.u_outer_z || config.depthZ;
-      const gapW = config.u_gap_x || (outerW * 0.4);
-      const gapD = config.u_gap_z || (outerD * 0.5);
-      totalArea = ((outerW * outerD) - (gapW * gapD)) / 1000000; // m²
-    } else {
-      totalArea = (config.widthX * config.depthZ) / 1000000; // m²
+    if (!metrics) {
+      if (this.elements.totalArea) this.elements.totalArea.textContent = '0 m²';
+      if (this.elements.unusableArea) this.elements.unusableArea.textContent = '0 m²';
+      if (this.elements.usableArea) this.elements.usableArea.textContent = '0 m²';
+      if (this.elements.utilization) this.elements.utilization.textContent = '0%';
+      if (this.elements.columnsArea) this.elements.columnsArea.textContent = '0 m²';
+      if (this.elements.aislesArea) this.elements.aislesArea.textContent = '0 m²';
+      if (this.elements.clearanceArea) this.elements.clearanceArea.textContent = '0 m²';
+      return;
     }
 
-    let columnsArea = 0;
-    let aislesArea = 0;
-    let clearanceArea = 0;
-    let usableArea = 0;
+    const unusableArea = metrics.aisleAreaM2 + metrics.safetyAreaM2 + metrics.blockedAreaM2;
+    const storageZoneCount = this.state.zones.filter(zone => zone.type === 'usable').length;
 
-    this.state.zones.forEach(zone => {
-      const area = (zone.width * zone.height) / 1000000; // m²
-
-      switch (zone.type) {
-        case 'unusable_column':
-          columnsArea += area;
-          break;
-        case 'unusable_aisle':
-          aislesArea += area;
-          break;
-        case 'unusable_clearance':
-          clearanceArea += area;
-          break;
-        case 'usable':
-          usableArea += area;
-          break;
-      }
-    });
-
-    const unusableArea = columnsArea + aislesArea + clearanceArea;
-    const utilization = totalArea > 0 ? (usableArea / totalArea) * 100 : 0;
-
-    // Update UI
-    if (this.elements.totalArea) this.elements.totalArea.textContent = `${totalArea.toFixed(2)} m²`;
+    if (this.elements.totalArea) this.elements.totalArea.textContent = `${metrics.totalAreaM2.toFixed(2)} m²`;
     if (this.elements.unusableArea) this.elements.unusableArea.textContent = `${unusableArea.toFixed(2)} m²`;
-    if (this.elements.usableArea) this.elements.usableArea.textContent = `${usableArea.toFixed(2)} m²`;
-    if (this.elements.utilization) this.elements.utilization.textContent = `${utilization.toFixed(1)}%`;
-    if (this.elements.columnsArea) this.elements.columnsArea.textContent = `${columnsArea.toFixed(2)} m²`;
-    if (this.elements.aislesArea) this.elements.aislesArea.textContent = `${aislesArea.toFixed(2)} m²`;
-    if (this.elements.clearanceArea) this.elements.clearanceArea.textContent = `${clearanceArea.toFixed(2)} m²`;
+    if (this.elements.usableArea) this.elements.usableArea.textContent = `${metrics.storageAreaM2.toFixed(2)} m²`;
+    if (this.elements.utilization) this.elements.utilization.textContent = `${(metrics.storageUtilization * 100).toFixed(1)}%`;
+    if (this.elements.columnsArea) this.elements.columnsArea.textContent = `${metrics.blockedAreaM2.toFixed(2)} m²`;
+    if (this.elements.aislesArea) this.elements.aislesArea.textContent = `${metrics.aisleAreaM2.toFixed(2)} m²`;
+    if (this.elements.clearanceArea) this.elements.clearanceArea.textContent = `${metrics.safetyAreaM2.toFixed(2)} m²`;
+
+    if (this.elements.scoreTotal) this.elements.scoreTotal.textContent = `${evaluation?.score?.toFixed(1) || '0.0'} 分`;
+    if (this.elements.storageRatio) this.elements.storageRatio.textContent = `${(metrics.storageUtilization * 100).toFixed(1)}%`;
+    if (this.elements.aisleRatio) this.elements.aisleRatio.textContent = `${(metrics.aisleRatio * 100).toFixed(1)}%`;
+    if (this.elements.accessibilityRatio) this.elements.accessibilityRatio.textContent = `${(metrics.accessibilityRatio * 100).toFixed(1)}%`;
+    if (this.elements.deadCornerRatio) this.elements.deadCornerRatio.textContent = `${(metrics.deadCornerRatio * 100).toFixed(1)}%`;
+    if (this.elements.pickDistance) this.elements.pickDistance.textContent = `${Math.round(metrics.averagePickDistanceMm)} mm`;
+    if (this.elements.storageZoneCount) this.elements.storageZoneCount.textContent = `${storageZoneCount} 區`;
+    if (this.elements.aisleBalanceScore) this.elements.aisleBalanceScore.textContent = `${((evaluation?.components?.aisleBalance || 0) * 100).toFixed(0)} 分`;
+    if (this.elements.pickingScore) this.elements.pickingScore.textContent = `${((evaluation?.components?.pickingEfficiency || 0) * 100).toFixed(0)} 分`;
+    if (this.elements.slottingScore) this.elements.slottingScore.textContent = `${((evaluation?.components?.slottingFlexibility || 0) * 100).toFixed(0)} 分`;
   },
 
   updateUsableBlocksList() {
@@ -1376,9 +1472,13 @@ export const SpacePlanningPage = {
     let html = '';
     usableZones.forEach(zone => {
       const area = (zone.width * zone.height) / 1000000;
+      const subtypeLabel = zone.subtype === 'storage_band'
+        ? '標準儲位帶'
+        : zone.subtype || '儲位區';
       html += `
         <div class="block-card">
           <div class="block-label">${zone.label || zone.id}</div>
+          <div class="block-meta">${subtypeLabel}</div>
           <div class="block-area">${area.toFixed(2)} m²</div>
         </div>
       `;
@@ -1388,37 +1488,20 @@ export const SpacePlanningPage = {
   },
 
   resetConstraints() {
-    // Reset to defaults
-    this.state.constraints = {
-      building: {
-        columns: {
-          mode: 'rule_based',
-          columnWidth: 400,
-          columnDepth: 400,
-          spacingX: 6000,
-          spacingZ: 6000,
-          wallOffset: 500,
-          customColumns: []
-        },
-        wallClearance: 300
-      },
-      circulation: {
-        mainAisle: {
-          enabled: true,
-          width: 2000,
-          direction: 'along_length',
-          position: 'center'
-        },
-        forkliftAisles: {
-          enabled: false,
-          count: 2,
-          width: 1500,
-          spacing: 'auto'
-        }
-      }
-    };
+    if (this.state.readOnlyMode) return;
+    this.state.constraints = this.createConstraintStateFromConfig(this.state.containerConfig);
 
     this.state.zones = [];
+    this.state.layoutPlan = {
+      layout_id: null,
+      source: {
+        columns_enabled: true,
+        aisles_enabled: true,
+        safety_margin_enabled: true,
+        usable_area_ratio: 0
+      },
+      generated_at: null
+    };
     this.syncConstraintsToUI();
     this.updateStatistics();
     this.updateUsableBlocksList();
@@ -1426,6 +1509,7 @@ export const SpacePlanningPage = {
   },
 
   async saveSpaces() {
+    if (this.state.readOnlyMode) return;
     try {
       const { usableRegions, constraintZones } = spacePlanningPersistenceService.persistGeneratedLayout({
         layoutPlan: this.state.layoutPlan,
@@ -1634,10 +1718,11 @@ export const SpacePlanningPage = {
       'unusable_clearance': 'clearance',
       'unusable_aisle': 'aisles',
       'usable': 'usable',
-      'unusable_column': 'columns'
+      'unusable_column': 'columns',
+      'blocked_dead_corner': 'columns'
     };
 
-    const zoneTypes = ['unusable_clearance', 'unusable_aisle', 'usable', 'unusable_column'];
+    const zoneTypes = ['unusable_clearance', 'unusable_aisle', 'usable', 'unusable_column', 'blocked_dead_corner'];
 
     zoneTypes.forEach(type => {
       const layerKey = layerMap[type];
@@ -1810,10 +1895,11 @@ export const SpacePlanningPage = {
       'unusable_clearance': 'clearance',
       'unusable_aisle': 'aisles',
       'usable': 'usable',
-      'unusable_column': 'columns'
+      'unusable_column': 'columns',
+      'blocked_dead_corner': 'columns'
     };
 
-    const zoneTypes = ['unusable_clearance', 'unusable_aisle', 'usable', 'unusable_column'];
+    const zoneTypes = ['unusable_clearance', 'unusable_aisle', 'usable', 'unusable_column', 'blocked_dead_corner'];
 
     zoneTypes.forEach(type => {
       const layerKey = layerMap[type];
@@ -1866,74 +1952,24 @@ export const SpacePlanningPage = {
     if (!config) return;
 
     const ctx = this.elements.ctx;
+    const outline = getFootprintOutlinePoints(config);
+    if (!outline.length) return;
+
     ctx.strokeStyle = '#60a5fa';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
 
-    if (config.shape === 'rect') {
-      const rect = this.worldToCanvas(0, 0, config.widthX, config.depthZ);
-      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-
-    } else if (config.shape === 't_shape') {
-      // Field names from define_container.js: t_top_x, t_top_z, t_bottom_x, t_bottom_z
-      const topW = config.t_top_x || config.topWidthX || config.widthX;
-      const topD = config.t_top_z || config.topDepthZ || (config.depthZ * 0.4);
-      const botW = config.t_bottom_x || config.bottomWidthX || (config.widthX * 0.4);
-      const botD = config.t_bottom_z || config.bottomDepthZ || (config.depthZ * 0.6);
-      const botLeft = (topW - botW) / 2;
-
-      ctx.beginPath();
-      const p0 = this.worldToCanvas(0, botD, 0, 0);
-      const p1 = this.worldToCanvas(topW, botD, 0, 0);
-      const p2 = this.worldToCanvas(topW, botD + topD, 0, 0);
-      const p3 = this.worldToCanvas(0, botD + topD, 0, 0);
-      const p4 = this.worldToCanvas(botLeft + botW, botD, 0, 0);
-      const p5 = this.worldToCanvas(botLeft + botW, 0, 0, 0);
-      const p6 = this.worldToCanvas(botLeft, 0, 0, 0);
-      const p7 = this.worldToCanvas(botLeft, botD, 0, 0);
-
-      ctx.moveTo(p3.x, p3.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.lineTo(p4.x, p4.y);
-      ctx.lineTo(p5.x, p5.y);
-      ctx.lineTo(p6.x, p6.y);
-      ctx.lineTo(p7.x, p7.y);
-      ctx.lineTo(p0.x, p0.y);
-      ctx.closePath();
-      ctx.stroke();
-
-    } else if (config.shape === 'u_shape') {
-      // Field names from define_container.js: u_outer_x, u_outer_z, u_gap_x, u_gap_z
-      const outerW = config.u_outer_x || config.outerWidthX || config.widthX;
-      const outerD = config.u_outer_z || config.outerDepthZ || config.depthZ;
-      const gapW = config.u_gap_x || config.gapWidthX || (outerW * 0.4);
-      const gapD = config.u_gap_z || config.gapDepthZ || (outerD * 0.5);
-      const gapLeft = (outerW - gapW) / 2;
-      const gapRight = gapLeft + gapW;
-      const gapTop = outerD - gapD;
-
-      ctx.beginPath();
-      const u0 = this.worldToCanvas(0, 0, 0, 0);
-      const u1 = this.worldToCanvas(outerW, 0, 0, 0);
-      const u2 = this.worldToCanvas(outerW, outerD, 0, 0);
-      const u3 = this.worldToCanvas(gapRight, outerD, 0, 0);
-      const u4 = this.worldToCanvas(gapRight, gapTop, 0, 0);
-      const u5 = this.worldToCanvas(gapLeft, gapTop, 0, 0);
-      const u6 = this.worldToCanvas(gapLeft, outerD, 0, 0);
-      const u7 = this.worldToCanvas(0, outerD, 0, 0);
-
-      ctx.moveTo(u0.x, u0.y);
-      ctx.lineTo(u1.x, u1.y);
-      ctx.lineTo(u2.x, u2.y);
-      ctx.lineTo(u3.x, u3.y);
-      ctx.lineTo(u4.x, u4.y);
-      ctx.lineTo(u5.x, u5.y);
-      ctx.lineTo(u6.x, u6.y);
-      ctx.lineTo(u7.x, u7.y);
-      ctx.closePath();
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    outline.forEach((point, index) => {
+      const canvasPoint = this.worldToCanvas(point.x, point.z, 0, 0);
+      if (index === 0) {
+        ctx.moveTo(canvasPoint.x, canvasPoint.y);
+      } else {
+        ctx.lineTo(canvasPoint.x, canvasPoint.y);
+      }
+    });
+    ctx.closePath();
+    ctx.stroke();
 
     ctx.setLineDash([]);
   },
@@ -1942,10 +1978,11 @@ export const SpacePlanningPage = {
     const ctx = this.elements.ctx;
 
     const styles = {
-      unusable_column: { fill: '#6b7280', stroke: '#4b5563' },  // 改回灰色
+      unusable_column: { fill: '#6b7280', stroke: '#4b5563' },
       unusable_aisle: { fill: '#9ca3af', stroke: '#6b7280' },
       unusable_clearance: { fill: '#d1d5db', stroke: '#9ca3af' },
-      usable: { fill: '#3b82f6', stroke: '#2563eb' }
+      usable: { fill: '#3b82f6', stroke: '#2563eb' },
+      blocked_dead_corner: { fill: '#b45309', stroke: '#92400e' }
     };
 
     const style = styles[zone.type] || { fill: '#64748b', stroke: '#475569' };
@@ -1959,18 +1996,15 @@ export const SpacePlanningPage = {
 
     console.log(`[SpacePlanning] Drawing zone ${zone.type} at canvas (${Math.round(rect.x)}, ${Math.round(rect.y)}) size ${Math.round(rect.width)}x${Math.round(rect.height)}`);
 
-    // Fill
     ctx.fillStyle = style.fill;
-    ctx.globalAlpha = zone.type === 'unusable_column' ? 0.8 : 0.4;  // 柱子更不透明
+    ctx.globalAlpha = zone.type === 'unusable_column' ? 0.8 : 0.4;
     ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
 
-    // Stroke
     ctx.globalAlpha = 1;
     ctx.strokeStyle = style.stroke;
-    ctx.lineWidth = zone.type === 'unusable_column' ? 3 : 2;  // 柱子邊框更粗
+    ctx.lineWidth = zone.type === 'unusable_column' ? 3 : 2;
     ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
 
-    // Label
     if (zone.label || zone.metadata?.reason) {
       ctx.fillStyle = zone.type === 'unusable_column' ? '#ffffff' : '#f1f5f9';
       ctx.font = zone.type === 'unusable_column' ? 'bold 14px sans-serif' : '12px sans-serif';
@@ -2010,6 +2044,7 @@ export const SpacePlanningPage = {
   // ============================================================
 
   enterSecondaryEditMode() {
+    if (this.state.readOnlyMode) return;
     console.log('[SpacePlanning] Entering secondary edit mode...');
 
     // Check if we have usable regions
