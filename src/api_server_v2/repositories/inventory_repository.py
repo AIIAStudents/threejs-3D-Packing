@@ -1,3 +1,11 @@
+"""
+Compatibility-only legacy repository.
+
+This module is intentionally retained for unreviewed legacy callers under
+`api_server_v2`, but new boundary-aligned code should prefer inventory-owned
+query repositories inside `src/backend/contexts/inventory/...`.
+"""
+
 class InventoryRepository:
     @staticmethod
     def get_all_enriched_inventory(conn, group_id=None):

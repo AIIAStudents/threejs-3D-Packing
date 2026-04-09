@@ -11,6 +11,11 @@ import { AssignSequencePage } from './assign/assign_sequence.js';
 import { PackingResultsPage } from './view/packing_results_page.js';
 
 class AppRouter {
+  static HTML_MODULES = import.meta.glob('../html/**/*.html', {
+    query: '?raw',
+    import: 'default'
+  });
+
   static PATH_MAP = {
     '/docs': {
       html: '/src/html/docs/index.html',
@@ -194,12 +199,7 @@ class AppRouter {
     this.contentContainer.innerHTML = '<div style="padding: 40px; text-align: center;">載入中...</div>';
     console.log(`Loading route: ${route}`, config);
 
-    const response = await fetch(config.html);
-    if (!response.ok) {
-      throw new Error(`HTML fetch failed: ${response.statusText}`);
-    }
-
-    const html = await response.text();
+    const html = await this.loadRouteHtml(config.html);
     this.contentContainer.innerHTML = html;
     console.log(`HTML loaded: ${config.html}`);
 
@@ -219,6 +219,30 @@ class AppRouter {
     this.pageCache.set(route, pageModule);
     pageModule.init();
     console.log(`Module initialized: ${route}`);
+  }
+
+  async loadRouteHtml(htmlPath) {
+    const modulePath = this.toHtmlModulePath(htmlPath);
+    const loader = modulePath ? AppRouter.HTML_MODULES[modulePath] : null;
+
+    if (loader) {
+      return await loader();
+    }
+
+    const response = await fetch(htmlPath);
+    if (!response.ok) {
+      throw new Error(`HTML fetch failed: ${response.statusText}`);
+    }
+
+    return await response.text();
+  }
+
+  toHtmlModulePath(htmlPath) {
+    if (typeof htmlPath !== 'string' || !htmlPath.startsWith('/src/html/')) {
+      return null;
+    }
+
+    return htmlPath.replace('/src/html/', '../html/');
   }
 }
 

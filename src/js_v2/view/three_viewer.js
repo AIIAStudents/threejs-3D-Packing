@@ -97,7 +97,9 @@ export class ThreeViewer {
 
   setupWorker() {
     try {
-      this.worker = new Worker('/src/js_v2/workers/geometry_builder.worker.js');
+      // Resolve the worker relative to this module so preview builds do not fetch
+      // `/src/...` and accidentally receive the app shell HTML.
+      this.worker = new Worker(new URL('../workers/geometry_builder.worker.js', import.meta.url));
       this.worker.onmessage = (e) => this.handleWorkerMessage(e);
       console.log('[ThreeViewer] Worker initialized');
     } catch (err) {

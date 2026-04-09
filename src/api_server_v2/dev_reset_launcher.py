@@ -21,6 +21,7 @@ app = create_api_app(
 
 if __name__ == '__main__':
     print('Starting dev reset launcher on http://0.0.0.0:8888')
-    print('This entry intentionally recreates the database file on startup.')
+    print('WARNING: this development-only entry intentionally recreates the database file on startup.')
+    print('Use the normal app launcher for non-destructive startup.')
     print('=' * 60 + '\n')
     run_development_server(app, default_port=8888, read_env_port=True)

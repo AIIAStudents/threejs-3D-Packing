@@ -23,10 +23,21 @@ def resolve_reset_scope(
     reset_db_file=False,
     allow_destructive_reset=False,
 ):
+    """
+    Normalize destructive reset flags.
+
+    Normal startup should pass through with `(False, False)`. Any destructive
+    reset request must be paired with `allow_destructive_reset=True`, which is
+    reserved for explicit development/reset entry points.
+    """
     if not (reset_db or reset_db_file):
         return False, False
 
     if allow_destructive_reset:
+        print(
+            'Explicit destructive reset guard acknowledged. '
+            'Shared runtime data may be removed for this startup.'
+        )
         return reset_db, reset_db_file
 
     print(
@@ -39,10 +50,19 @@ def resolve_reset_scope(
 def reset_database_file_if_requested(reset_db_file=False):
     if reset_db_file and os.path.exists(SHARED_DATABASE_PATH):
         os.remove(SHARED_DATABASE_PATH)
-        print(f"Removed old database file: {SHARED_DATABASE_PATH}")
+        print(
+            'Development-only destructive reset removed the shared database file: '
+            f'{SHARED_DATABASE_PATH}'
+        )
 
 
 def drop_runtime_tables(conn):
+    """
+    Development-only destructive reset helper.
+
+    This must only run after `resolve_reset_scope()` has already allowed an
+    explicit reset path. Normal initialization must never call this branch.
+    """
     cursor = conn.cursor()
 
     for command in ('DROP VIEW IF EXISTS items', 'DROP TABLE IF EXISTS items'):
@@ -106,7 +126,10 @@ def initialize_database_schema(
 
     if reset_db and not reset_db_file:
         with get_db_connection() as conn:
-            print('Resetting shared database tables...')
+            print(
+                'Development-only destructive reset: dropping shared runtime '
+                'tables before schema initialization...'
+            )
             drop_runtime_tables(conn)
             conn.commit()
 
